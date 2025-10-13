@@ -1,3 +1,13 @@
 <resources>
     <string name="app_name">My Application</string>
+    <string name="enter_your_email">Enter your email</string>
+    <string name="enter_your_password">Enter your password</string>
+    <string name="not_have_any_account">Not have any account?</string>
+    <string name="sign_up">Sign Up</string>
+    <string name="welcome_back_nplease_enter_your_details">Welcome back,\nPlease enter your details</string>
+    <string name="enter_email">Enter Email</string>
+    <string name="enter_password">Enter Password</string>
+    <string name="forgot_password">Forgot Password?</string>
+    <string name="log_in">Log In</string>
+    <string name="login">Login</string>
 </resources>
