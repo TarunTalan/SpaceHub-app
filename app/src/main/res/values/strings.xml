@@ -10,4 +10,8 @@
     <string name="forgot_password">Forgot Password?</string>
     <string name="log_in">Log In</string>
     <string name="login">Login</string>
+
+    <string name="spacehub_name">SpaceHub</string>
+    <string name="onboarding_title">Welcome to SpaceHub!</string>
+    <string name="onboarding_subtitle">The collaborative platform for teams.\nConnect, communicate, and create, all in one place.</string>
 </resources>
