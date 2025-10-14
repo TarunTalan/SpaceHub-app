@@ -26,6 +26,6 @@ class MainActivity : AppCompatActivity() {
         // Get the NavController
         navController = navHostFragment.navController
 
-    }
 
+    }
 }
