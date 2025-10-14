@@ -14,4 +14,12 @@
     <string name="spacehub_name">SpaceHub</string>
     <string name="onboarding_title">Welcome to SpaceHub!</string>
     <string name="onboarding_subtitle">The collaborative platform for teams.\nConnect, communicate, and create, all in one place.</string>
+    <string name="confirm_your_password">Confirm your password</string>
+    <string name="already_have_an_account">Already have an account?</string>
+    <string name="proceed">Proceed</string>
+    <string name="confirm_password">Confirm Password</string>
+    <string name="welcome_back_ncreate_your_account">Welcome back,\nCreate your account</string>
+    <string name="enter_first_name">Enter first name</string>
+    <string name="enter_last_name">Enter last name</string>
+    <string name="last_name">Last Name</string>
 </resources>

@@ -44,7 +44,7 @@ class OnboardingFragment : Fragment(R.layout.fragment_onboarding) {
 
         // Setup navigation
         btnLogin.setOnClickListener { navigateToLogin() }
-        btnSignUp.setOnClickListener { navigateToLogin() }
+        btnSignUp.setOnClickListener { navigateToSignup() }
 
         // Start animation sequence after delay
         view.postDelayed({
@@ -129,6 +129,13 @@ class OnboardingFragment : Fragment(R.layout.fragment_onboarding) {
      * Navigates to the login screen.
      */
     private fun navigateToLogin() {
-        findNavController().navigate(R.id.loginFragment)
+        findNavController().navigate(R.id.action_onboardingFragment_to_loginFragment)
+    }
+
+    /**
+     * Navigates to the signup screen.
+     */
+    private fun navigateToSignup() {
+        findNavController().navigate(R.id.action_onboardingFragment_to_signupFragment)
     }
 }

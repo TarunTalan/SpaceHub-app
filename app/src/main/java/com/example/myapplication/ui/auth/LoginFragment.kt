@@ -11,6 +11,8 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.graphics.toColorInt
 import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
+import com.example.myapplication.R
 import com.example.myapplication.databinding.FragmentLoginBinding
 import java.util.regex.Pattern
 
@@ -124,7 +126,8 @@ class LoginFragment : Fragment() {
         binding.tvSignupLink.apply {
             paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
             setOnClickListener {
-                // Navigate to sign-up screen
+                // Navigate to NameSignupFragment (first step of signup)
+                findNavController().navigate(R.id.action_loginFragment_to_signupFragment)
             }
         }
     }
@@ -159,24 +162,24 @@ class LoginFragment : Fragment() {
             return false
         }
 
-        val missingRequirements = mutableListOf<String>()
-
-        if (pwd.length < 8) {
-            missingRequirements.add("8 characters")
-        } else if (!pwd.matches(Regex(".*[0-9].*"))) {
-            missingRequirements.add("number")
-        } else if (!pwd.matches(Regex(".*[a-z].*"))) {
-            missingRequirements.add("lowercase letter")
-        } else if (!pwd.matches(Regex(".*[A-Z].*"))) {
-            missingRequirements.add("uppercase letter")
-        }
-        if (missingRequirements.isNotEmpty()) {
-            passwordErrorLatched = true
-            binding.tvPasswordError.text = "Missing: ${missingRequirements.joinToString(", ")}"
-            binding.tvPasswordError.visibility = View.VISIBLE
-            applyPasswordInvalidVisuals()
-            return false
-        }
+//        val missingRequirements = mutableListOf<String>()
+//
+//        if (pwd.length < 8) {
+//            missingRequirements.add("8 characters")
+//        } else if (!pwd.matches(Regex(".*[0-9].*"))) {
+//            missingRequirements.add("number")
+//        } else if (!pwd.matches(Regex(".*[a-z].*"))) {
+//            missingRequirements.add("lowercase letter")
+//        } else if (!pwd.matches(Regex(".*[A-Z].*"))) {
+//            missingRequirements.add("uppercase letter")
+//        }
+//        if (missingRequirements.isNotEmpty()) {
+//            passwordErrorLatched = true
+//            binding.tvPasswordError.text = "Missing: ${missingRequirements.joinToString(", ")}"
+//            binding.tvPasswordError.visibility = View.VISIBLE
+//            applyPasswordInvalidVisuals()
+//            return false
+//        }
 
         // Password is valid
         passwordErrorLatched = false
@@ -255,4 +258,3 @@ private class SimpleWatcher(private val onChange: () -> Unit) : TextWatcher {
 
     override fun afterTextChanged(s: Editable?) {}
 }
-
