@@ -1,0 +1,163 @@
+package com.example.myapplication.ui.auth
+
+import android.content.res.ColorStateList
+import android.graphics.Color
+import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
+import androidx.core.graphics.toColorInt
+import androidx.core.view.ViewCompat
+import androidx.core.view.isVisible
+import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
+import com.example.myapplication.R
+import com.example.myapplication.databinding.FragmentVerifySignupBinding
+
+class SignupVerificationFragment : Fragment() {
+
+    private var _binding: FragmentVerifySignupBinding? = null
+    private val binding get() = _binding!!
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentVerifySignupBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        // Request insets only; remove extra scroll helpers
+        ViewCompat.requestApplyInsets(binding.root)
+        initializeDefaults()
+        setupTextWatcher()
+        setupClickListeners()
+        setupKeyboardDismiss()
+    }
+
+    private fun initializeDefaults() {
+        // Set verification tick to white by default and always visible
+        binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
+        binding.ivOtpVerified.visibility = View.VISIBLE
+        binding.tvOtpError.isVisible = false
+    }
+
+    private fun setupTextWatcher() {
+        binding.etOtp.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val otp = s?.toString()?.trim() ?: ""
+
+                // Clear error message when user starts typing
+                if (binding.tvOtpError.isVisible) {
+                    binding.tvOtpError.isVisible = false
+                }
+
+                when {
+                    otp.isEmpty() -> {
+                        // White tick when empty
+                        binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
+                    }
+                    otp.length == 6 && otp.matches(Regex("^[0-9]{6}$")) -> {
+                        // Valid OTP - show green tick
+                        binding.ivOtpVerified.imageTintList = ColorStateList.valueOf("#00C853".toColorInt())
+                    }
+                    else -> {
+                        // Invalid OTP - show red tick
+                        binding.ivOtpVerified.imageTintList = ColorStateList.valueOf("#F44336".toColorInt())
+                    }
+                }
+            }
+
+            override fun afterTextChanged(s: Editable?) {}
+        })
+    }
+
+    private fun setupClickListeners() {
+        binding.apply {
+            // Verify OTP and complete signup
+            btnLogin.setOnClickListener {
+                if (validateOtp()) {
+                    // TODO: Complete signup process with backend
+                    // Navigate to login screen after successful verification
+                    findNavController().navigate(R.id.action_signupVerificationFragment_to_loginFragment)
+                }
+            }
+
+            // Resend OTP link
+            tvResendOtp.apply {
+                paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
+                setOnClickListener {
+                    // Change color to blue when clicked
+                    setTextColor("#2563EB".toColorInt())
+                    // TODO: Implement resend OTP logic
+                    // For now, just clear the OTP field
+                    etOtp.text?.clear()
+                    tvOtpError.isVisible = false
+                    ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
+                }
+            }
+
+            // Back to login link with underline
+            tvBackToLoginLink.apply {
+                paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
+                setOnClickListener {
+                    findNavController().navigate(R.id.action_signupVerificationFragment_to_loginFragment)
+                }
+            }
+        }
+    }
+
+    private fun setupKeyboardDismiss() {
+        // Hide keyboard when tapping the background container
+        binding.root.setOnClickListener {
+            hideKeyboard()
+        }
+    }
+
+    private fun hideKeyboard() {
+        val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(binding.root.windowToken, 0)
+    }
+
+    /**
+     * Validates OTP input.
+     * @return true if OTP is valid, false otherwise
+     */
+    private fun validateOtp(): Boolean {
+        val otp = binding.etOtp.text.toString().trim()
+
+        if (otp.isEmpty()) {
+            binding.tvOtpError.text = getString(R.string.otp_required)
+            binding.tvOtpError.isVisible = true
+            binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
+            return false
+        }
+
+        if (otp.length != 6) {
+            binding.tvOtpError.text = getString(R.string.otp_must_be_6_digits)
+            binding.tvOtpError.isVisible = true
+            binding.ivOtpVerified.imageTintList = ColorStateList.valueOf("#F44336".toColorInt())
+            return false
+        }
+
+        if (!otp.matches(Regex("^[0-9]{6}$"))) {
+            binding.tvOtpError.text = getString(R.string.invalid_otp_format)
+            binding.tvOtpError.isVisible = true
+            binding.ivOtpVerified.imageTintList = ColorStateList.valueOf("#F44336".toColorInt())
+            return false
+        }
+
+        binding.tvOtpError.isVisible = false
+        binding.ivOtpVerified.imageTintList = ColorStateList.valueOf("#00C853".toColorInt())
+        return true
+    }
+
+}

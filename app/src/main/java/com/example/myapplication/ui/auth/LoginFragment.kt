@@ -1,7 +1,6 @@
 package com.example.myapplication.ui.auth
 
 import android.content.res.ColorStateList
-import android.graphics.Color
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -9,27 +8,26 @@ import android.util.Patterns
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.graphics.toColorInt
+import android.view.inputmethod.InputMethodManager
+import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.example.myapplication.R
 import com.example.myapplication.databinding.FragmentLoginBinding
-import java.util.regex.Pattern
+import com.example.myapplication.ui.util.PasswordToggleUtil
 
 class LoginFragment : Fragment() {
 
     private var _binding: FragmentLoginBinding? = null
     private val binding get() = _binding!!
 
-    private val PASSWORD_PATTERN: Pattern = Pattern.compile(
-        "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#\$%^&*])(?=\\S+$).{8,}$"
-    )
-
-    private val redColor by lazy { "#ED2828".toColorInt() }
-    private val blueColor by lazy { "#2563EB".toColorInt() }
-    private val grayColor by lazy { "#ADADAD".toColorInt() }
+    private val redColor by lazy { ContextCompat.getColor(requireContext(), R.color.error_red) }
+    private val blueColor by lazy { ContextCompat.getColor(requireContext(), R.color.primary_blue) }
+    private val grayColor by lazy { ContextCompat.getColor(requireContext(), R.color.gray_medium) }
+    private val grayLightColor by lazy { ContextCompat.getColor(requireContext(), R.color.gray_light) }
     private val emailIconDefault by lazy { ColorStateList.valueOf(grayColor) }
-    private val passwordIconDefault by lazy { ColorStateList.valueOf("#C6CAD1".toColorInt()) }
+    private val passwordIconDefault by lazy { ColorStateList.valueOf(grayLightColor) }
     private val redStroke by lazy { ColorStateList.valueOf(redColor) }
 
     private var emailErrorLatched = false
@@ -48,6 +46,8 @@ class LoginFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        ViewCompat.requestApplyInsets(binding.root)
+
         initializeDefaults()
         setupTextWatchers()
         setupClickListeners()
@@ -56,6 +56,9 @@ class LoginFragment : Fragment() {
     private fun initializeDefaults() {
         emailTextDefault = binding.etEmail.textColors
         passwordTextDefault = binding.etPassword.textColors
+
+        // Use custom eye behavior: closed = masked, open = visible
+        PasswordToggleUtil.attach(binding.passwordLayout, binding.etPassword)
 
         // Disable built-in error handling
         binding.emailLayout.apply {
@@ -104,21 +107,19 @@ class LoginFragment : Fragment() {
             val emailOk = validateEmail()
             val passOk = validatePassword()
             if (emailOk && passOk) {
-                // Proceed with login
+                // Close keyboard on successful validation (placeholder action)
+                hideKeyboard()
             }
         }
 
-        // Forgot Password with underline and blue color on focus
+        // Forgot Password with underline
         binding.tvForgotPassword.apply {
             paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
-            isFocusable = true
-            isFocusableInTouchMode = true
-            setOnFocusChangeListener { _, hasFocus ->
-                setTextColor(if (hasFocus) "#2563EB".toColorInt() else Color.WHITE)
-            }
             setOnClickListener {
-                requestFocus()
+                // Change color to blue when clicked
+                setTextColor(blueColor)
                 // Navigate to forgot password screen
+                findNavController().navigate(R.id.action_loginFragment_to_resetPasswordFragment)
             }
         }
 
@@ -132,6 +133,11 @@ class LoginFragment : Fragment() {
         }
     }
 
+    private fun hideKeyboard() {
+        val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(binding.root.windowToken, 0)
+    }
+
     private fun validateEmail(): Boolean {
         val email = binding.etEmail.text?.toString()?.trim().orEmpty()
         val valid = email.isNotEmpty() && Patterns.EMAIL_ADDRESS.matcher(email).matches()
@@ -143,7 +149,7 @@ class LoginFragment : Fragment() {
             clearEmailInvalidVisuals()
         } else {
             emailErrorLatched = true
-            val errorMsg = if (email.isEmpty()) "Email is required" else "Invalid email format"
+            val errorMsg = if (email.isEmpty()) getString(R.string.email_required) else getString(R.string.invalid_email_format)
             binding.tvEmailError.text = errorMsg
             binding.tvEmailError.visibility = View.VISIBLE
             applyEmailInvalidVisuals()
@@ -156,30 +162,11 @@ class LoginFragment : Fragment() {
 
         if (pwd.isEmpty()) {
             passwordErrorLatched = true
-            binding.tvPasswordError.text = "Password is required"
+            binding.tvPasswordError.text = getString(R.string.password_required)
             binding.tvPasswordError.visibility = View.VISIBLE
             applyPasswordInvalidVisuals()
             return false
         }
-
-//        val missingRequirements = mutableListOf<String>()
-//
-//        if (pwd.length < 8) {
-//            missingRequirements.add("8 characters")
-//        } else if (!pwd.matches(Regex(".*[0-9].*"))) {
-//            missingRequirements.add("number")
-//        } else if (!pwd.matches(Regex(".*[a-z].*"))) {
-//            missingRequirements.add("lowercase letter")
-//        } else if (!pwd.matches(Regex(".*[A-Z].*"))) {
-//            missingRequirements.add("uppercase letter")
-//        }
-//        if (missingRequirements.isNotEmpty()) {
-//            passwordErrorLatched = true
-//            binding.tvPasswordError.text = "Missing: ${missingRequirements.joinToString(", ")}"
-//            binding.tvPasswordError.visibility = View.VISIBLE
-//            applyPasswordInvalidVisuals()
-//            return false
-//        }
 
         // Password is valid
         passwordErrorLatched = false

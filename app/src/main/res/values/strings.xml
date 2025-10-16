@@ -22,4 +22,31 @@
     <string name="enter_first_name">Enter first name</string>
     <string name="enter_last_name">Enter last name</string>
     <string name="last_name">Last Name</string>
+    <string name="send_6_digit_otp">Send 6-Digit OTP</string>
+    <string name="back_to_log_in">Back to Log In</string>
+    <string name="new_password">New Password</string>
+    <string name="welcome_ncreate_your_new_password">Welcome\nCreate your new Password</string>
+    <string name="enter_otp">Enter OTP</string>
+    <string name="welcome_nenter_the_sent_otp">Welcome\nEnter the sent OTP</string>
+    <string name="verify_otp">Verify OTP</string>
+
+    <!-- Accessibility strings -->
+    <string name="email_error_icon">Email error indicator</string>
+
+    <!-- Validation messages -->
+    <string name="email_required">Email is required</string>
+    <string name="invalid_email_format">Invalid email format</string>
+    <string name="password_required">Password is required</string>
+    <string name="password_min_6">Password must be at least 6 characters</string>
+    <string name="confirm_password_required">Please confirm your password</string>
+    <string name="passwords_do_not_match">Passwords do not match</string>
+    <string name="otp_required">OTP is required</string>
+    <string name="otp_must_be_6_digits">OTP must be 6 digits</string>
+    <string name="invalid_otp_format">Invalid OTP format</string>
+    <string name="first_name_required">First name is required</string>
+    <string name="first_name_min_length">First name must be at least 2 characters</string>
+    <string name="last_name_required">Last name is required</string>
+    <string name="last_name_min_length">Last name must be at least 2 characters</string>
+    <string name="resend_otp">Resend OTP</string>
+    <string name="first_name">First Name</string>
 </resources>

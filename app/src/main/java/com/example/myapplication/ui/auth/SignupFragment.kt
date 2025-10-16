@@ -2,12 +2,18 @@ package com.example.myapplication.ui.auth
 
 import android.content.res.ColorStateList
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.View
-import androidx.core.graphics.toColorInt
+import android.view.inputmethod.InputMethodManager
+import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.example.myapplication.R
 import com.example.myapplication.databinding.FragmentSignupBinding
+import com.example.myapplication.ui.util.PasswordToggleUtil
 
 /**
  * Signup screen - SECOND STEP where users enter email and password.
@@ -17,11 +23,12 @@ class SignupFragment : Fragment(R.layout.fragment_signup) {
     private var _binding: FragmentSignupBinding? = null
     private val binding get() = _binding!!
 
-    private val redColor by lazy { "#ED2828".toColorInt() }
-    private val blueColor by lazy { "#2563EB".toColorInt() }
-    private val grayColor by lazy { "#ADADAD".toColorInt() }
+    private val redColor by lazy { ContextCompat.getColor(requireContext(), R.color.error_red) }
+    private val blueColor by lazy { ContextCompat.getColor(requireContext(), R.color.primary_blue) }
+    private val grayColor by lazy { ContextCompat.getColor(requireContext(), R.color.gray_medium) }
+    private val grayLightColor by lazy { ContextCompat.getColor(requireContext(), R.color.gray_light) }
     private val emailIconDefault by lazy { ColorStateList.valueOf(grayColor) }
-    private val passwordIconDefault by lazy { ColorStateList.valueOf("#C6CAD1".toColorInt()) }
+    private val passwordIconDefault by lazy { ColorStateList.valueOf(grayLightColor) }
     private val redStroke by lazy { ColorStateList.valueOf(redColor) }
 
     private lateinit var emailTextDefault: ColorStateList
@@ -31,13 +38,22 @@ class SignupFragment : Fragment(R.layout.fragment_signup) {
         super.onViewCreated(view, savedInstanceState)
         _binding = FragmentSignupBinding.bind(view)
 
+        // Keep default window IME behavior; do not change softInputMode here.
+        ViewCompat.requestApplyInsets(binding.root)
+
         initializeDefaults()
+        setupTextWatchers()
         setupClickListeners()
+        setupKeyboardDismiss()
     }
 
     private fun initializeDefaults() {
         emailTextDefault = binding.etEmail.textColors
         passwordTextDefault = binding.etPassword.textColors
+
+        // Ensure eye behavior: closed = masked, open = visible on both fields
+        PasswordToggleUtil.attach(binding.passwordLayout, binding.etPassword)
+        PasswordToggleUtil.attach(binding.confirmPasswordLayout, binding.etConfirmPassword)
 
         // Disable built-in error handling for custom error display
         binding.emailLayout.apply {
@@ -59,12 +75,67 @@ class SignupFragment : Fragment(R.layout.fragment_signup) {
         }
     }
 
+    private fun setupTextWatchers() {
+        // Email field text watcher - clear errors when user starts typing
+        binding.etEmail.addTextChangedListener(object : TextWatcher {
+            private var previousText = ""
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
+                previousText = s?.toString() ?: ""
+            }
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+
+            override fun afterTextChanged(s: Editable?) {
+                val currentText = s?.toString() ?: ""
+                if (previousText != currentText && binding.tvEmailError.isVisible) {
+                    hideEmailError()
+                }
+            }
+        })
+
+        // Password field text watcher - clear errors when user starts typing
+        binding.etPassword.addTextChangedListener(object : TextWatcher {
+            private var previousText = ""
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
+                previousText = s?.toString() ?: ""
+            }
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+
+            override fun afterTextChanged(s: Editable?) {
+                val currentText = s?.toString() ?: ""
+                if (previousText != currentText && binding.tvPasswordError.isVisible) {
+                    hidePasswordError()
+                }
+            }
+        })
+
+        // Confirm password field text watcher - clear errors when user starts typing
+        binding.etConfirmPassword.addTextChangedListener(object : TextWatcher {
+            private var previousText = ""
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
+                previousText = s?.toString() ?: ""
+            }
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+
+            override fun afterTextChanged(s: Editable?) {
+                val currentText = s?.toString() ?: ""
+                if (previousText != currentText && binding.tvPasswordError.isVisible) {
+                    hidePasswordError()
+                }
+            }
+        })
+    }
+
     private fun setupClickListeners() {
-        // Complete signup - navigate to login with underline
+        // Complete signup - navigate to OTP verification
         binding.btnSignup.setOnClickListener {
             if (validateInput()) {
-                // TODO: Complete signup process with backend
-                findNavController().navigate(R.id.action_signupFragment_to_loginFragment)
+                findNavController().navigate(R.id.action_signupFragment_to_signupVerificationFragment)
             }
         }
 
@@ -75,6 +146,18 @@ class SignupFragment : Fragment(R.layout.fragment_signup) {
                 findNavController().navigate(R.id.action_signupFragment_to_loginFragment)
             }
         }
+    }
+
+    private fun setupKeyboardDismiss() {
+        // Hide keyboard when tapping the background container
+        binding.root.setOnClickListener {
+            hideKeyboard()
+        }
+    }
+
+    private fun hideKeyboard() {
+        val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(binding.root.windowToken, 0)
     }
 
     /**
@@ -90,34 +173,30 @@ class SignupFragment : Fragment(R.layout.fragment_signup) {
 
         // Validate email
         if (email.isEmpty()) {
-            showEmailError("Email is required")
+            showEmailError(getString(R.string.email_required))
             isValid = false
         } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            showEmailError("Invalid email format")
+            showEmailError(getString(R.string.invalid_email_format))
             isValid = false
         } else {
             hideEmailError()
         }
 
-        // Validate password
+        // Validate password first
         if (password.isEmpty()) {
-            showPasswordError("Password is required")
+            showPasswordError(getString(R.string.password_required))
             isValid = false
         } else if (password.length < 6) {
-            showPasswordError("Password must be at least 6 characters")
+            showPasswordError(getString(R.string.password_min_6))
             isValid = false
-        } else {
-            hidePasswordError()
-        }
-
-        // Validate confirm password
-        if (confirmPassword.isEmpty()) {
-            showPasswordError("Please confirm your password")
+        } else if (confirmPassword.isEmpty()) {
+            // Only check confirm password if password is valid
+            showPasswordError(getString(R.string.confirm_password_required))
             isValid = false
         } else if (password != confirmPassword) {
-            showPasswordError("Passwords do not match")
+            showPasswordError(getString(R.string.passwords_do_not_match))
             isValid = false
-        } else if (password.isNotEmpty() && confirmPassword == password && password.length >= 6) {
+        } else {
             hidePasswordError()
         }
 
@@ -128,6 +207,7 @@ class SignupFragment : Fragment(R.layout.fragment_signup) {
         binding.tvEmailError.text = message
         binding.tvEmailError.visibility = View.VISIBLE
         binding.ivEmailError.visibility = View.VISIBLE
+        binding.ivEmailError.imageTintList = redStroke
         applyEmailInvalidVisuals()
     }
 

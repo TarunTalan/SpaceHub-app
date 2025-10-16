@@ -1,70 +1,127 @@
 <?xml version="1.0" encoding="utf-8"?>
 <navigation xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/auth_nav_graph"
-    app:startDestination="@id/onboardingFragment">
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:id="@+id/auth_nav_graph"
+        app:startDestination="@id/onboardingFragment">
 
     <fragment
-        android:id="@+id/onboardingFragment"
-        android:name="com.example.myapplication.ui.auth.OnboardingFragment"
-        android:label="OnboardingFragment"
-        tools:layout="@layout/fragment_onboarding">
+            android:id="@+id/onboardingFragment"
+            android:name="com.example.myapplication.ui.auth.OnboardingFragment"
+            android:label="OnboardingFragment"
+            tools:layout="@layout/fragment_onboarding">
         <action
-            android:id="@+id/action_onboardingFragment_to_loginFragment"
-            app:destination="@id/loginFragment"
-            app:launchSingleTop="true"
-            app:popUpTo="@id/onboardingFragment"
-            app:popUpToInclusive="true" />
+                android:id="@+id/action_onboardingFragment_to_loginFragment"
+                app:destination="@id/loginFragment"
+                app:launchSingleTop="true"
+                app:popUpTo="@id/onboardingFragment"
+                app:popUpToInclusive="true" />
         <action
-            android:id="@+id/action_onboardingFragment_to_signupFragment"
-            app:destination="@id/nameSignupFragment"
-            app:launchSingleTop="true"
-            app:popUpTo="@id/onboardingFragment"
-            app:popUpToInclusive="true" />
+                android:id="@+id/action_onboardingFragment_to_signupFragment"
+                app:destination="@id/nameSignupFragment"
+                app:launchSingleTop="true"
+                app:popUpTo="@id/onboardingFragment"
+                app:popUpToInclusive="true" />
     </fragment>
 
     <fragment
-        android:id="@+id/loginFragment"
-        android:name="com.example.myapplication.ui.auth.LoginFragment"
-        android:label="LoginFragment"
-        tools:layout="@layout/fragment_login">
+            android:id="@+id/loginFragment"
+            android:name="com.example.myapplication.ui.auth.LoginFragment"
+            android:label="LoginFragment"
+            tools:layout="@layout/fragment_login">
         <action
-            android:id="@+id/action_loginFragment_to_signupFragment"
-            app:destination="@id/nameSignupFragment"
-            app:launchSingleTop="true"
-            app:popUpTo="@id/auth_nav_graph"
-            app:popUpToInclusive="false" />
+                android:id="@+id/action_loginFragment_to_signupFragment"
+                app:destination="@id/nameSignupFragment"
+                app:launchSingleTop="true"
+                app:popUpTo="@id/auth_nav_graph"
+                app:popUpToInclusive="false" />
+        <action
+                android:id="@+id/action_loginFragment_to_resetPasswordFragment"
+                app:destination="@id/resetPasswordFragment" />
     </fragment>
 
     <fragment
-        android:id="@+id/nameSignupFragment"
-        android:name="com.example.myapplication.ui.auth.NameSignupFragment"
-        android:label="NameSignupFragment"
-        tools:layout="@layout/fragment_name_signup">
+            android:id="@+id/nameSignupFragment"
+            android:name="com.example.myapplication.ui.auth.NameSignupFragment"
+            android:label="NameSignupFragment"
+            tools:layout="@layout/fragment_name_signup">
         <action
-            android:id="@+id/action_nameSignupFragment_to_signupFragment"
-            app:destination="@id/signupFragment"
-            app:launchSingleTop="true" />
+                android:id="@+id/action_nameSignupFragment_to_signupFragment"
+                app:destination="@id/signupFragment"
+                app:launchSingleTop="true" />
         <action
-            android:id="@+id/action_nameSignupFragment_to_loginFragment"
-            app:destination="@id/loginFragment"
-            app:launchSingleTop="true"
-            app:popUpTo="@id/auth_nav_graph"
-            app:popUpToInclusive="false" />
+                android:id="@+id/action_nameSignupFragment_to_loginFragment"
+                app:destination="@id/loginFragment"
+                app:launchSingleTop="true"
+                app:popUpTo="@id/auth_nav_graph"
+                app:popUpToInclusive="false" />
     </fragment>
 
     <fragment
-        android:id="@+id/signupFragment"
-        android:name="com.example.myapplication.ui.auth.SignupFragment"
-        android:label="SignupFragment"
-        tools:layout="@layout/fragment_signup">
+            android:id="@+id/signupFragment"
+            android:name="com.example.myapplication.ui.auth.SignupFragment"
+            android:label="SignupFragment"
+            tools:layout="@layout/fragment_signup">
         <action
-            android:id="@+id/action_signupFragment_to_loginFragment"
-            app:destination="@id/loginFragment"
-            app:launchSingleTop="true"
-            app:popUpTo="@id/auth_nav_graph"
-            app:popUpToInclusive="false" />
+                android:id="@+id/action_signupFragment_to_loginFragment"
+                app:destination="@id/loginFragment"
+                app:launchSingleTop="true"
+                app:popUpTo="@id/auth_nav_graph"
+                app:popUpToInclusive="false" />
+        <action
+                android:id="@+id/action_signupFragment_to_signupVerificationFragment"
+                app:destination="@id/signupVerificationFragment" />
+    </fragment>
+    <fragment
+            android:id="@+id/signupVerificationFragment"
+            android:name="com.example.myapplication.ui.auth.SignupVerificationFragment"
+            android:label="SignupVerificationFragment"
+            tools:layout="@layout/fragment_verify_signup">
+        <action
+                android:id="@+id/action_signupVerificationFragment_to_loginFragment"/>
+    </fragment>
+
+
+    <fragment
+            android:id="@+id/resetPasswordFragment"
+            android:name="com.example.myapplication.ui.auth.ResetPasswordFragment"
+            android:label="ResetPasswordFragment"
+            tools:layout="@layout/fragment_reset_password">
+        <action
+                android:id="@+id/action_resetPasswordFragment_to_forgotPasswordVerificationFragment"
+                app:destination="@id/forgotPasswordVerificationFragment" />
+        <action
+                android:id="@+id/action_resetPasswordFragment_to_loginFragment"
+                app:destination="@id/loginFragment"
+                app:popUpTo="@id/loginFragment"
+                app:popUpToInclusive="false" />
+    </fragment>
+
+    <fragment
+            android:id="@+id/forgotPasswordVerificationFragment"
+            android:name="com.example.myapplication.ui.auth.ForgotPasswordVerificationFragment"
+            android:label="forgotPasswordVerificationFragment"
+            tools:layout="@layout/fragment_verify_forgot_password">
+        <action
+                android:id="@+id/action_forgotPasswordVerificationFragment_to_newPasswordFragment"
+                app:destination="@id/newPasswordFragment" />
+        <action
+                android:id="@+id/action_forgotPasswordVerificationFragment_to_loginFragment"
+                app:destination="@id/loginFragment"
+                app:popUpTo="@id/loginFragment"
+                app:popUpToInclusive="false" />
+    </fragment>
+
+    <fragment
+            android:id="@+id/newPasswordFragment"
+            android:name="com.example.myapplication.ui.auth.NewPasswordFragment"
+            android:label="NewPasswordFragment"
+            tools:layout="@layout/fragment_new_password">
+        <action
+                android:id="@+id/action_newPasswordFragment_to_loginFragment"
+                app:destination="@id/loginFragment"
+                app:popUpTo="@id/loginFragment"
+                app:popUpToInclusive="false" />
     </fragment>
 
 </navigation>
