@@ -7,6 +7,7 @@
     <string name="welcome_back_nplease_enter_your_details">Welcome back,\nPlease enter your details</string>
     <string name="enter_email">Enter Email</string>
     <string name="enter_password">Enter Password</string>
+    <string name="password">Password</string>
     <string name="forgot_password">Forgot Password?</string>
     <string name="log_in">Log In</string>
     <string name="login">Login</string>
@@ -16,6 +17,7 @@
     <string name="onboarding_subtitle">The collaborative platform for teams.\nConnect, communicate, and create, all in one place.</string>
     <string name="confirm_your_password">Confirm your password</string>
     <string name="already_have_an_account">Already have an account?</string>
+    <string name="don_t_have_an_account">Don\'t have an account?</string>
     <string name="proceed">Proceed</string>
     <string name="confirm_password">Confirm Password</string>
     <string name="welcome_back_ncreate_your_account">Welcome back,\nCreate your account</string>
@@ -24,11 +26,15 @@
     <string name="last_name">Last Name</string>
     <string name="send_6_digit_otp">Send 6-Digit OTP</string>
     <string name="back_to_log_in">Back to Log In</string>
+    <string name="back_to_login">Back to Login</string>
     <string name="new_password">New Password</string>
     <string name="welcome_ncreate_your_new_password">Welcome\nCreate your new Password</string>
     <string name="enter_otp">Enter OTP</string>
     <string name="welcome_nenter_the_sent_otp">Welcome\nEnter the sent OTP</string>
     <string name="verify_otp">Verify OTP</string>
+    <string name="verify_amp_proceed">Verify &amp; Proceed</string>
+    <string name="didn_t_receive_otp">Didn\'t receive OTP?</string>
+    <string name="resend">Resend</string>
 
     <!-- Accessibility strings -->
     <string name="email_error_icon">Email error indicator</string>
@@ -49,4 +55,6 @@
     <string name="last_name_min_length">Last name must be at least 2 characters</string>
     <string name="resend_otp">Resend OTP</string>
     <string name="first_name">First Name</string>
+    <string name="please_enter_the_otp_to_continue">Please enter the OTP to continue</string>
+    <string name="reset_password">Reset Password</string>
 </resources>

@@ -14,7 +14,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:focusableInTouchMode="true"
-        tools:context=".ui.auth.NameSignupFragment">
+        tools:context=".ui.auth.signup.NameSignupFragment">
 
         <!-- Title Group -->
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -119,7 +119,6 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="@dimen/margin_form_horizontal"
-                android:layout_marginTop="@dimen/spacing_form_group"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/firstNameGroup">

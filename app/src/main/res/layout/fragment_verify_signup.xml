@@ -14,7 +14,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:focusableInTouchMode="true"
-        tools:context=".ui.auth.ForgotPasswordVerificationFragment">
+        tools:context=".ui.auth.password.ForgotPasswordVerificationFragment">
 
         <!-- Title Group -->
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -46,7 +46,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:fontFamily="@font/roboto_regular"
-                android:text="@string/welcome_nenter_the_sent_otp"
+                android:text="@string/please_enter_the_otp_to_continue"
                 android:textColor="#C6CAD1"
                 android:textSize="17sp"
                 app:layout_constraintStart_toStartOf="parent"
@@ -122,6 +122,20 @@
                 app:layout_constraintTop_toBottomOf="@+id/etOtp"
                 tools:text="Invalid OTP"
                 />
+            <TextView
+                    android:id="@+id/otpTimer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="@font/roboto_regular"
+                    android:textColor="@color/white"
+                    android:textSize="15sp"
+                    android:paddingStart="15dp"
+                    android:visibility="visible"
+                    app:layout_constraintStart_toStartOf="@+id/etOtp"
+                    app:layout_constraintTop_toBottomOf="@+id/etOtp"
+                    tools:text="1:59"
+                    />
 
             <TextView
                 android:id="@+id/tvResendOtp"
@@ -146,7 +160,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="32dp"
-            android:layout_marginTop="50dp"
+            android:layout_marginTop="60dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/guideline2"

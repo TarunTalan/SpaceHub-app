@@ -15,7 +15,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:focusableInTouchMode="true"
-        tools:context=".ui.auth.SignupFragment">
+        tools:context=".ui.auth.signup.SignupFragment">
 
         <!-- Title Container -->
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -59,7 +59,7 @@
             android:id="@+id/inputContainer"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/margin_input_container_top"
+            android:layout_marginTop="50dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/titleGroup">
@@ -298,7 +298,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="@dimen/margin_form_horizontal"
-                android:layout_marginTop="65dp"
+                android:layout_marginTop="55dp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/confirmGroup">

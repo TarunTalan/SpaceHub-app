@@ -6,7 +6,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@drawable/background_gradient"
-        tools:context=".ui.auth.OnboardingFragment">
+        tools:context=".ui.auth.Onboarding.OnboardingFragment">
 
     <!-- Orbital Rings (Largest to Smallest)         -->
     <!-- Fixed at 45% vertical position               -->

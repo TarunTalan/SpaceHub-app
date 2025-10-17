@@ -6,7 +6,7 @@
     <dimen name="margin_input_container_top">90dp</dimen>
 
     <dimen name="margin_form_horizontal">32dp</dimen>
-    <dimen name="spacing_form_group">25dp</dimen>
+    <dimen name="spacing_form_group">15dp</dimen>
 
     <!-- Decorative ellipses spacing -->
     <dimen name="ellipse1_margin_bottom">60dp</dimen>

@@ -7,7 +7,7 @@
 
     <fragment
             android:id="@+id/onboardingFragment"
-            android:name="com.example.myapplication.ui.auth.OnboardingFragment"
+            android:name="com.example.myapplication.ui.auth.onboarding.OnboardingFragment"
             android:label="OnboardingFragment"
             tools:layout="@layout/fragment_onboarding">
         <action
@@ -26,7 +26,7 @@
 
     <fragment
             android:id="@+id/loginFragment"
-            android:name="com.example.myapplication.ui.auth.LoginFragment"
+            android:name="com.example.myapplication.ui.auth.login.LoginFragment"
             android:label="LoginFragment"
             tools:layout="@layout/fragment_login">
         <action
@@ -42,7 +42,7 @@
 
     <fragment
             android:id="@+id/nameSignupFragment"
-            android:name="com.example.myapplication.ui.auth.NameSignupFragment"
+            android:name="com.example.myapplication.ui.auth.signup.NameSignupFragment"
             android:label="NameSignupFragment"
             tools:layout="@layout/fragment_name_signup">
         <action
@@ -59,7 +59,7 @@
 
     <fragment
             android:id="@+id/signupFragment"
-            android:name="com.example.myapplication.ui.auth.SignupFragment"
+            android:name="com.example.myapplication.ui.auth.signup.SignupFragment"
             android:label="SignupFragment"
             tools:layout="@layout/fragment_signup">
         <action
@@ -74,7 +74,7 @@
     </fragment>
     <fragment
             android:id="@+id/signupVerificationFragment"
-            android:name="com.example.myapplication.ui.auth.SignupVerificationFragment"
+            android:name="com.example.myapplication.ui.auth.signup.SignupVerificationFragment"
             android:label="SignupVerificationFragment"
             tools:layout="@layout/fragment_verify_signup">
         <action
@@ -84,7 +84,7 @@
 
     <fragment
             android:id="@+id/resetPasswordFragment"
-            android:name="com.example.myapplication.ui.auth.ResetPasswordFragment"
+            android:name="com.example.myapplication.ui.auth.password.ResetPasswordFragment"
             android:label="ResetPasswordFragment"
             tools:layout="@layout/fragment_reset_password">
         <action
@@ -99,7 +99,7 @@
 
     <fragment
             android:id="@+id/forgotPasswordVerificationFragment"
-            android:name="com.example.myapplication.ui.auth.ForgotPasswordVerificationFragment"
+            android:name="com.example.myapplication.ui.auth.password.ForgotPasswordVerificationFragment"
             android:label="forgotPasswordVerificationFragment"
             tools:layout="@layout/fragment_verify_forgot_password">
         <action
@@ -114,7 +114,7 @@
 
     <fragment
             android:id="@+id/newPasswordFragment"
-            android:name="com.example.myapplication.ui.auth.NewPasswordFragment"
+            android:name="com.example.myapplication.ui.auth.password.NewPasswordFragment"
             android:label="NewPasswordFragment"
             tools:layout="@layout/fragment_new_password">
         <action
