@@ -3,6 +3,7 @@ package com.example.myapplication.ui.auth.signup
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.os.Bundle
+import android.os.CountDownTimer
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -19,6 +20,7 @@ import androidx.navigation.fragment.findNavController
 import com.example.myapplication.R
 import com.example.myapplication.databinding.FragmentVerifySignupBinding
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup) {
     private var _binding: FragmentVerifySignupBinding? = null
@@ -27,6 +29,9 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
     private var emailArg: String? = null
     private var passwordArg: String? = null
     private var isLoading = false
+    private var resendCooldownMillis: Long = 2 * 60 * 1000 // 2 minutes
+    private var timer: CountDownTimer? = null
+    private var timerRunning = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -47,6 +52,7 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
         setupClickListeners()
         setupKeyboardDismiss(binding.root)
         observeViewModel()
+        startResendOtpTimer()
     }
 
     private fun observeViewModel() {
@@ -91,7 +97,7 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
             OtpTextWatcher(
                 onEmpty = {
                     binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
-                    binding.btnLogin.isEnabled = !isLoading && false
+                    binding.btnLogin.isEnabled = false // Fixed: always disables when empty
                 },
                 onValid = {
                     binding.ivOtpVerified.imageTintList = ColorStateList.valueOf("#00C853".toColorInt())
@@ -106,6 +112,26 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                 }
             )
         )
+    }
+
+    private fun startResendOtpTimer() {
+        timer?.cancel()
+        binding.tvResendOtp.isEnabled = false
+        timerRunning = true
+        binding.otpTimer.isVisible = true
+        timer = object : CountDownTimer(resendCooldownMillis, 1000) {
+            override fun onTick(millisUntilFinished: Long) {
+                val seconds = millisUntilFinished / 1000
+                val min = seconds / 60
+                val sec = seconds % 60
+                binding.otpTimer.text = String.format(Locale.getDefault(), "%d:%02d", min, sec)
+            }
+            override fun onFinish() {
+                binding.otpTimer.text = getString(R.string.otp_timer_zero)
+                binding.tvResendOtp.isEnabled = true
+                timerRunning = false
+            }
+        }.start()
     }
 
     private fun setupClickListeners() {
@@ -129,10 +155,14 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
             tvResendOtp.apply {
                 paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
                 setOnClickListener {
+                    if (!isEnabled) return@setOnClickListener
                     setTextColor("#2563EB".toColorInt())
                     etOtp.text?.clear()
                     tvOtpError.isVisible = false
                     ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
+                    // Trigger resend OTP logic in ViewModel
+                    emailArg?.let { viewModel.resendOtp(it) }
+                    startResendOtpTimer()
                 }
             }
             tvBackToLoginLink.apply {
@@ -184,6 +214,7 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
 
     override fun onDestroyView() {
         super.onDestroyView()
+        timer?.cancel()
         _binding = null
     }
 }

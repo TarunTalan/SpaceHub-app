@@ -14,7 +14,15 @@ class TokenInterceptor(private val tokenStore: TokenStore) : Interceptor {
 
         // Skip adding Authorization header for unauthenticated endpoints
         val path = original.url.encodedPath
-        val unauthEndpoints = listOf("registration", "login", "validateregisterotp")
+        // Include all public endpoints that must not receive Authorization header
+        val unauthEndpoints = listOf(
+            "registration",
+            "login",
+            "validateregisterotp",
+            "forgotpassword",
+            "validateforgototp",
+            "resetpassword"
+        )
         val isUnauthEndpoint = unauthEndpoints.any { path.contains(it, ignoreCase = true) }
 
         val token = tokenStore.getAccessToken()

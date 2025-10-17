@@ -67,6 +67,16 @@ class SignupViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun resendOtp(email: String) {
+        viewModelScope.launch {
+            _uiState.value = UiState.Loading
+            when (val result = repo.sendSignupOtp(email)) {
+                is AuthResult.Success -> _uiState.value = UiState.Idle
+                is AuthResult.Error -> _uiState.value = UiState.Error(result.message)
+            }
+        }
+    }
+
     fun reset() {
         _uiState.value = UiState.Idle
     }

@@ -91,10 +91,23 @@
                 android:id="@+id/action_resetPasswordFragment_to_forgotPasswordVerificationFragment"
                 app:destination="@id/forgotPasswordVerificationFragment" />
         <action
+                android:id="@+id/action_resetPasswordFragment_to_verifyForgotPasswordFragment"
+                app:destination="@id/verifyForgotPasswordFragment" />
+        <action
                 android:id="@+id/action_resetPasswordFragment_to_loginFragment"
                 app:destination="@id/loginFragment"
                 app:popUpTo="@id/loginFragment"
                 app:popUpToInclusive="false" />
+    </fragment>
+
+    <fragment
+            android:id="@+id/verifyForgotPasswordFragment"
+            android:name="com.example.myapplication.ui.auth.password.ForgotPasswordVerificationFragment"
+            android:label="Verify Forgot Password"
+            tools:layout="@layout/fragment_verify_forgot_password">
+        <action
+                android:id="@+id/action_verifyForgotPasswordFragment_to_newPasswordFragment"
+                app:destination="@id/newPasswordFragment" />
     </fragment>
 
     <fragment

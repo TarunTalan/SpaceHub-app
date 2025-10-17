@@ -1,8 +1,6 @@
 package com.example.myapplication.data.auth.model
 
-data class OtpRequest(
+data class ValidateForgotOtpRequest(
     val email: String,
-    val otp: String? = null,
-    val type: String
+    val otp: String
 )
-

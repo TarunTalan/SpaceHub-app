@@ -11,7 +11,6 @@
     <string name="forgot_password">Forgot Password?</string>
     <string name="log_in">Log In</string>
     <string name="login">Login</string>
-
     <string name="spacehub_name">SpaceHub</string>
     <string name="onboarding_title">Welcome to SpaceHub!</string>
     <string name="onboarding_subtitle">The collaborative platform for teams.\nConnect, communicate, and create, all in one place.</string>
@@ -35,11 +34,7 @@
     <string name="verify_amp_proceed">Verify &amp; Proceed</string>
     <string name="didn_t_receive_otp">Didn\'t receive OTP?</string>
     <string name="resend">Resend</string>
-
-    <!-- Accessibility strings -->
     <string name="email_error_icon">Email error indicator</string>
-
-    <!-- Validation messages -->
     <string name="email_required">Email is required</string>
     <string name="invalid_email_format">Invalid email format</string>
     <string name="password_required">Password is required</string>
@@ -58,4 +53,11 @@
     <string name="please_enter_the_otp_to_continue">Please enter the OTP to continue</string>
     <string name="reset_password">Reset Password</string>
     <string name="welcome_ncreate_your_account">Welcome\nCreate your account</string>
+    <string name="otp_timer_zero">0:00</string>
+    <string name="signed_in">Signed in</string>
+    <string name="otp_resent">OTP resent</string>
+    <string name="missing_email">Email required</string>
+    <string name="navigation_failed">Navigation failed</string>
+    <string name="missing_token">Token is missing</string>
+    <string name="otp_invalid_or_expired">OTP invalid or expired</string>
 </resources>
