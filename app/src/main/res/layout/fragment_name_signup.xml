@@ -44,7 +44,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/margin_subtitle_top"
                 android:fontFamily="@font/roboto_regular"
-                android:text="@string/welcome_back_ncreate_your_account"
+                android:text="@string/welcome_ncreate_your_account"
                 android:textColor="#C6CAD1"
                 android:textSize="17sp"
                 app:layout_constraintStart_toStartOf="parent"
@@ -119,6 +119,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="@dimen/margin_form_horizontal"
+                android:layout_marginTop="@dimen/spacing_form_group"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/firstNameGroup">
@@ -171,7 +172,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="32dp"
-                android:layout_marginTop="60dp"
+                android:layout_marginTop="42dp"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/lastNameGroup">
