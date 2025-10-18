@@ -2,4 +2,12 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="error_red">#ED2828</color>
+    <color name="primary_blue">#2563EB</color>
+    <color name="gray_medium">#ADADAD</color>
+    <color name="gray_light">#D3D3D3</color>
+
+    <!-- Auth Screen Colors -->
+    <color name="subtitle_gray">#C6CAD1</color>
+    <color name="input_error">#F44336</color>
 </resources>

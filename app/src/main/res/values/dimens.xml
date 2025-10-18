@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Global spacing for auth screens -->
+    <dimen name="margin_title_top">98dp</dimen>
+    <dimen name="margin_subtitle_top">8dp</dimen>
+    <dimen name="margin_input_container_top">85dp</dimen>
+
+    <dimen name="margin_form_horizontal">32dp</dimen>
+    <dimen name="spacing_form_group">15dp</dimen>
+
+    <!-- Decorative ellipses spacing -->
+    <dimen name="ellipse1_margin_bottom">60dp</dimen>
+    <dimen name="ellipse2_margin_bottom">80dp</dimen>
+    <dimen name="ellipse3_padding_bottom">20dp</dimen>
+</resources>
+

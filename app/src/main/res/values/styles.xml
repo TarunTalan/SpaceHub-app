@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="ErrorTextAppearance" parent="TextAppearance.Design.Error">
+        <item name="android:textColor">#F44336</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:gravity">start</item>
+        <item name="android:fontFamily">@font/app_font</item>
+    </style>
+
+    <!-- Unified style for all input fields -->
+    <style name="AppInputEditText">
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textColorHint">@color/hint_color</item>
+        <item name="android:fontFamily">@font/app_font</item>
+        <item name="android:paddingStart">45dp</item>
+        <item name="android:paddingEnd">45dp</item>
+        <item name="android:paddingTop">0dp</item>
+        <item name="android:paddingBottom">0dp</item>
+        <item name="android:gravity">center_vertical</item>
+    </style>
+
+    <!-- Style for input fields without start icon -->
+    <style name="AppInputEditText.NoStartIcon">
+        <item name="android:paddingStart">16dp</item>
+    </style>
+</resources>
