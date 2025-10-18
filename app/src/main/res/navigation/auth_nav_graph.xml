@@ -78,7 +78,8 @@
             android:label="SignupVerificationFragment"
             tools:layout="@layout/fragment_verify_signup">
         <action
-                android:id="@+id/action_signupVerificationFragment_to_loginFragment"/>
+                android:id="@+id/action_signupVerificationFragment_to_loginFragment"
+                app:destination="@id/loginFragment" />
     </fragment>
 
 

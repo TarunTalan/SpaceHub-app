@@ -17,6 +17,9 @@ class OtpTextWatcher(
 
     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
         val otp = s?.toString()?.trim().orEmpty()
+        // Inform listener that user is typing first; it should not clear errors set by onInvalid
+        if (otp.isNotEmpty()) onTyping()
+
         if (otp.isEmpty()) {
             onEmpty()
         } else if (otp.length == 6 && otp.matches(Regex("^[0-9]{6}$"))) {
@@ -24,9 +27,7 @@ class OtpTextWatcher(
         } else {
             onInvalid()
         }
-        if (otp.isNotEmpty()) onTyping()
     }
 
     override fun afterTextChanged(s: Editable?) {}
 }
-

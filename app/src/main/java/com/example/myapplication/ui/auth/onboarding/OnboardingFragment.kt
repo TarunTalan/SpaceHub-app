@@ -1,12 +1,13 @@
 package com.example.myapplication.ui.auth.onboarding
 
+import android.annotation.SuppressLint
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
-import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.example.myapplication.R
@@ -15,6 +16,7 @@ import com.example.myapplication.R
  * Onboarding screen that displays the app logo with orbital rings
  * and animates content reveal after a brief delay.
  */
+@SuppressLint("SourceLockedOrientationActivity")
 class OnboardingFragment : Fragment(R.layout.fragment_onboarding) {
 
     private companion object {
@@ -29,10 +31,19 @@ class OnboardingFragment : Fragment(R.layout.fragment_onboarding) {
         const val SIGNUP_BTN_DELAY_MS = 390L
     }
 
+    private var previousOrientation: Int? = null
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val rootLayout = view.findViewById<ConstraintLayout>(R.id.root_layout)
+        // Lock orientation to portrait while onboarding is visible
+        try {
+            previousOrientation = activity?.requestedOrientation
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        } catch (_: Exception) {
+            // ignore if activity is null or setting orientation fails
+        }
+
         val imgLogo = view.findViewById<ImageView>(R.id.img_logo)
         val tvTitle = view.findViewById<TextView>(R.id.tv_title)
         val tvSubtitle = view.findViewById<TextView>(R.id.tv_subtitle)
@@ -50,6 +61,16 @@ class OnboardingFragment : Fragment(R.layout.fragment_onboarding) {
         view.postDelayed({
             animateOnboarding(view, imgLogo, tvTitle, tvSubtitle, btnLogin, btnSignUp)
         }, ANIMATION_DELAY_MS)
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // Restore previous orientation when leaving onboarding
+        try {
+            previousOrientation?.let { activity?.requestedOrientation = it }
+        } catch (_: Exception) {
+            // ignore
+        }
     }
 
     /**
@@ -88,7 +109,7 @@ class OnboardingFragment : Fragment(R.layout.fragment_onboarding) {
             animateViewReveal(loginBtn, moveUpDistance, LOGIN_BTN_DELAY_MS, interpolator)
             animateViewReveal(signupBtn, moveUpDistance, SIGNUP_BTN_DELAY_MS, interpolator)
 
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // Fallback: show content without animation if animation fails
             showViewsImmediately(title, subtitle, loginBtn, signupBtn)
         }

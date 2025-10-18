@@ -66,13 +66,13 @@ class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
 
                         is ResetPasswordViewModel.UiState.Error -> {
                             val msg = state.message
+                            // Show inline error in the fragment instead of an error toast
                             binding.tvPasswordError.text = msg
                             binding.tvPasswordError.isVisible = true
 
                             // If server indicates OTP not validated or token expired, guide user to request a new OTP
                             val lower = msg.lowercase()
                             if ("otp not validated" in lower || "token expired" in lower || "unauthorized" in lower) {
-                                android.widget.Toast.makeText(requireContext(), getString(R.string.otp_invalid_or_expired), android.widget.Toast.LENGTH_LONG).show()
                                 // navigate back to reset password screen so user can request a new OTP
                                 try {
                                     findNavController().navigate(R.id.resetPasswordFragment)
@@ -102,8 +102,9 @@ class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
                 val tempToken = tempTokenArg ?: ""
 
                 if (tempToken.isBlank()) {
-                    // If token missing, inform user and do not proceed
-                    android.widget.Toast.makeText(requireContext(), getString(R.string.missing_token), android.widget.Toast.LENGTH_LONG).show()
+                    // Show inline error instead of toast
+                    binding.tvPasswordError.text = getString(R.string.missing_token)
+                    binding.tvPasswordError.isVisible = true
                     return@setOnClickListener
                 }
 

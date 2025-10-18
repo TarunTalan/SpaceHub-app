@@ -21,6 +21,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.example.myapplication.ui.auth.reset.ResetPasswordViewModel
+import com.example.myapplication.ui.auth.common.InputValidationHelper
 import kotlinx.coroutines.launch
 
 class ResetPasswordFragment : BaseFragment(R.layout.fragment_reset_password) {
@@ -96,6 +97,8 @@ class ResetPasswordFragment : BaseFragment(R.layout.fragment_reset_password) {
             isHelperTextEnabled = false
             errorIconDrawable = null
         }
+        // Ensure initial visuals are the normal (non-error) state
+        clearEmailInvalidVisuals()
     }
 
     private fun setupTextWatchers() {
@@ -133,7 +136,6 @@ class ResetPasswordFragment : BaseFragment(R.layout.fragment_reset_password) {
         }
     }
 
-
     private fun showEmailError(message: String) {
         binding.tvEmailError.text = message
         binding.tvEmailError.visibility = View.VISIBLE
@@ -149,27 +151,25 @@ class ResetPasswordFragment : BaseFragment(R.layout.fragment_reset_password) {
     }
 
     private fun applyEmailInvalidVisuals() {
-        // Set red stroke for email field
-        binding.emailLayout.setBoxStrokeColorStateList(
-            ColorStateList(
-                arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()),
-                intArrayOf(redColor, redColor)
-            )
+        InputValidationHelper.applyEmailInvalid(
+            emailLayout = binding.emailLayout,
+            etEmail = binding.etEmail,
+            ivEmailError = binding.ivEmailError,
+            redColor = redColor,
+            redStroke = redStroke
         )
-        binding.emailLayout.setStartIconTintList(redStroke)
-        binding.etEmail.setTextColor(redColor)
     }
 
     private fun clearEmailInvalidVisuals() {
-        // Reset to normal colors
-        binding.emailLayout.setBoxStrokeColorStateList(
-            ColorStateList(
-                arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()),
-                intArrayOf(blueColor, grayColor)
-            )
+        InputValidationHelper.clearEmailInvalid(
+            emailLayout = binding.emailLayout,
+            etEmail = binding.etEmail,
+            ivEmailError = binding.ivEmailError,
+            emailIconDefault = emailIconDefault,
+            emailTextDefault = emailTextDefault,
+            blueColor = blueColor,
+            grayColor = grayColor
         )
-        binding.emailLayout.setStartIconTintList(emailIconDefault)
-        binding.etEmail.setTextColor(emailTextDefault)
     }
 
     override fun onDestroyView() {

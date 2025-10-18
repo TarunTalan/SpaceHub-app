@@ -24,6 +24,11 @@ import com.example.myapplication.ui.common.createOtpCooldownHelper
 import com.example.myapplication.ui.common.startCooldownIfTokenPresent
 import com.example.myapplication.ui.common.resumeCooldownFromVm
 
+import com.example.myapplication.ui.auth.common.InputValidationHelper
+import androidx.core.content.ContextCompat
+import android.text.InputFilter
+import androidx.core.widget.addTextChangedListener
+
 class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup) {
     private var _binding: FragmentVerifySignupBinding? = null
     private val binding get() = _binding!!
@@ -34,6 +39,12 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
     // cooldown between resend OTP requests (30 seconds)
     private var resendCooldownMillis: Long = 30_000L // 30 seconds
     private var cooldownHelper: OtpResendCooldownHelper? = null
+
+    // defaults for OTP visuals
+    private lateinit var otpTextDefault: ColorStateList
+    private val redColorInt by lazy { ContextCompat.getColor(requireContext(), R.color.error_red) }
+    private val normalOtpBgRes = R.drawable.edit_text_outline_selector
+    private val errorOtpBgRes = R.drawable.edit_text_outline_error
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -50,7 +61,6 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
         emailArg = arguments?.getString("email")
         passwordArg = arguments?.getString("password")
         initializeDefaults()
-        setupTextWatcher()
         setupClickListeners()
         setupKeyboardDismiss(binding.root)
         observeViewModel()
@@ -83,6 +93,14 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
             clearVmCooldown = { viewModel.clearCooldown() },
             cooldownHelper = cooldownHelper
         )
+
+        // Restrict OTP input length to 6 digits and clear errors when user types
+        binding.etOtp.filters = arrayOf(InputFilter.LengthFilter(6))
+        binding.etOtp.addTextChangedListener { _ ->
+            binding.tvOtpError.isVisible = false
+            InputValidationHelper.clearEditTextInvalid(binding.etOtp, otpTextDefault, normalOtpBgRes)
+            binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
+        }
     }
 
     private fun observeViewModel() {
@@ -93,16 +111,12 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                         is SignupViewModel.UiState.Idle -> updateLoading(false)
                         is SignupViewModel.UiState.Loading -> updateLoading(true)
                         is SignupViewModel.UiState.ResendLoading -> {
-                            // disable/dim resend link while resend request is in-flight
                             binding.tvResendOtp.isEnabled = false
                             binding.tvResendOtp.alpha = 0.5f
                         }
                         is SignupViewModel.UiState.EmailSent -> {
                             updateLoading(false)
-                            // show feedback and start cooldown
                             Toast.makeText(requireContext(), getString(R.string.otp_resent), Toast.LENGTH_SHORT).show()
-
-                            // persist cooldown end millis in ViewModel and start timer
                             val endMillis = System.currentTimeMillis() + resendCooldownMillis
                             viewModel.setCooldownEndMillis(endMillis)
                             cooldownHelper?.start(resendCooldownMillis)
@@ -115,10 +129,9 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                         is SignupViewModel.UiState.Error -> {
                             updateLoading(false)
                             val message = state.message.ifBlank { getString(R.string.invalid_otp_format) }
-                            Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
-                            binding.tvOtpError.text = state.message
-                            binding.tvOtpError.isVisible = true
-                            // on error enable resend so user can try again
+                            showOtpError(message)
+                            InputValidationHelper.applyEditTextInvalid(binding.etOtp, redColorInt, errorOtpBgRes)
+                            binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(redColorInt)
                             binding.tvResendOtp.isEnabled = true
                             binding.tvResendOtp.alpha = 1.0f
                         }
@@ -130,40 +143,40 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
 
     private fun updateLoading(loading: Boolean) {
         isLoading = loading
-        binding.btnLogin.isEnabled = !loading && OtpValidator.isValid(binding.etOtp.text?.toString().orEmpty())
+        // Only disable the button while a network operation is in progress.
+        // Do not overwrite the enabled state based on OTP validity here — the text watcher
+        // manages enabling/disabling as the user types. This allows the user to press
+        // the button to trigger validation and see inline errors even when OTP < 6.
+        if (loading) {
+            binding.btnLogin.isEnabled = false
+        }
     }
 
     private fun initializeDefaults() {
         binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
         binding.ivOtpVerified.visibility = View.VISIBLE
         binding.tvOtpError.isVisible = false
-        binding.btnLogin.isEnabled = false
-        // By default (before any server confirmation) keep resend disabled and faded; cooldown will start only after EmailSent
+        // Start with the button enabled so the user can press it to trigger validation
+        // and see inline errors (e.g., "OTP must be 6 digits"). The text watcher will
+        // keep the button enabled only when OTP looks valid while typing.
+        binding.btnLogin.isEnabled = true
         binding.tvResendOtp.isEnabled = false
         binding.tvResendOtp.alpha = 0.5f
         binding.otpTimer.isVisible = false
+        otpTextDefault = binding.etOtp.textColors
+        InputValidationHelper.clearEditTextInvalid(binding.etOtp, otpTextDefault, normalOtpBgRes)
     }
 
-    private fun setupTextWatcher() {
-        binding.etOtp.addTextChangedListener(
-            OtpTextWatcher(
-                onEmpty = {
-                    binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
-                    binding.btnLogin.isEnabled = false // Fixed: always disables when empty
-                },
-                onValid = {
-                    binding.ivOtpVerified.imageTintList = ColorStateList.valueOf("#00C853".toColorInt())
-                    binding.btnLogin.isEnabled = !isLoading
-                },
-                onInvalid = {
-                    binding.ivOtpVerified.imageTintList = ColorStateList.valueOf("#F44336".toColorInt())
-                    binding.btnLogin.isEnabled = false
-                },
-                onTyping = {
-                    binding.tvOtpError.isVisible = false
-                }
-            )
-        )
+    private fun showOtpError(message: String) {
+        binding.tvOtpError.text = message
+        binding.tvOtpError.isVisible = true
+        binding.scrollRoot.post {
+            binding.scrollRoot.smoothScrollTo(0, binding.tvOtpError.top)
+            binding.tvOtpError.bringToFront()
+            binding.tvOtpError.requestLayout()
+            binding.tvOtpError.invalidate()
+            binding.tvOtpError.sendAccessibilityEvent(android.view.accessibility.AccessibilityEvent.TYPE_VIEW_FOCUSED)
+        }
     }
 
     private fun setupClickListeners() {
@@ -172,7 +185,7 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                 if (!validateOtp()) return@setOnClickListener
                 val email = emailArg?.trim()
                 if (email.isNullOrEmpty()) {
-                    Toast.makeText(requireContext(), "Missing email. Please go back and try again.", Toast.LENGTH_SHORT).show()
+                    showOtpError(getString(R.string.missing_email))
                     return@setOnClickListener
                 }
                 val otp = etOtp.text?.toString()?.trim().orEmpty()
@@ -192,15 +205,11 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                     etOtp.text?.clear()
                     tvOtpError.isVisible = false
                     ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
-                    // Trigger resend OTP logic in ViewModel
-                    // Prefer explicit token-based resend if a token was passed as fragment argument
-                    val emailToUse = emailArg ?: "" // email is passed via nav args from SignupFragment
+                    val emailToUse = emailArg ?: ""
                     if (emailToUse.isBlank()) {
-                        Toast.makeText(requireContext(), "Missing email. Cannot resend OTP.", Toast.LENGTH_SHORT).show()
+                        showOtpError(getString(R.string.missing_email))
                         return@setOnClickListener
                     }
-
-                    // Prefer session token passed via nav args, otherwise use ViewModel-stored token
                     val sessionTokenArg = arguments?.getString("tempToken")
                     val vmToken = viewModel.tempToken.value
                     val tokenToUse = when {
@@ -208,12 +217,10 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                         !vmToken.isNullOrBlank() -> vmToken
                         else -> null
                     }
-
                     if (tokenToUse.isNullOrBlank()) {
-                        Toast.makeText(requireContext(), "Cannot resend OTP: missing session token.", Toast.LENGTH_SHORT).show()
+                        showOtpError(getString(R.string.missing_token))
                         return@setOnClickListener
                     }
-
                     viewModel.resendOtp(emailToUse, tokenToUse)
                 }
             }
@@ -227,38 +234,66 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
     private fun navigateToLoginSafe() {
         if (!isAdded) return
         val nav = findNavController()
-        val actionId = R.id.action_signupVerificationFragment_to_loginFragment
+        // First try to pop back to an existing login fragment in the back stack
         try {
-            val canNavigate = nav.currentDestination?.getAction(actionId) != null
-            if (canNavigate) {
-                nav.navigate(actionId)
-            } else {
-                val popped = nav.popBackStack(R.id.loginFragment, false)
-                if (!popped) nav.navigate(R.id.loginFragment)
+            val popped = nav.popBackStack(R.id.loginFragment, false)
+            if (popped) return
+        } catch (_: Exception) {
+            // ignore and try navigate below
+        }
+
+        // Try to navigate directly using this NavController
+        try {
+            nav.navigate(R.id.loginFragment)
+            return
+        } catch (_: IllegalArgumentException) {
+            // destination not found in this nav controller's graph; fall through to activity controller
+        } catch (_: Exception) {
+            // some other navigation error; fall through to activity controller
+        }
+
+        // Fallback: try to use NavController from activity's nav host (if different)
+        try {
+            val hostFragment = requireActivity().supportFragmentManager.findFragmentById(R.id.nav_host_fragment)
+            val activityNav = (hostFragment as? androidx.navigation.fragment.NavHostFragment)?.navController
+            if (activityNav != null) {
+                val popped = activityNav.popBackStack(R.id.loginFragment, false)
+                if (popped) return
+                activityNav.navigate(R.id.loginFragment)
+                return
             }
         } catch (_: Exception) {
-            Toast.makeText(requireContext(), "Verified.", Toast.LENGTH_SHORT).show()
+            // ignore and show generic error below
         }
+
+        Toast.makeText(requireContext(), getString(R.string.navigation_error), Toast.LENGTH_SHORT).show()
     }
 
     private fun validateOtp(): Boolean {
         val otp = binding.etOtp.text.toString().trim()
         return when (OtpValidator.validate(otp)) {
             OtpValidator.Result.EMPTY -> {
-                binding.tvOtpError.text = getString(R.string.otp_required)
-                binding.tvOtpError.isVisible = true
+                showOtpError(getString(R.string.otp_required))
                 binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
+                InputValidationHelper.applyEditTextInvalid(binding.etOtp, redColorInt, errorOtpBgRes)
                 false
             }
-            OtpValidator.Result.LENGTH, OtpValidator.Result.FORMAT -> {
-                binding.tvOtpError.text = getString(R.string.invalid_otp_format)
-                binding.tvOtpError.isVisible = true
+            OtpValidator.Result.LENGTH -> {
+                showOtpError(getString(R.string.otp_must_be_6_digits))
                 binding.ivOtpVerified.imageTintList = ColorStateList.valueOf("#F44336".toColorInt())
+                InputValidationHelper.applyEditTextInvalid(binding.etOtp, redColorInt, errorOtpBgRes)
+                false
+            }
+            OtpValidator.Result.FORMAT -> {
+                showOtpError(getString(R.string.otp_must_be_numeric))
+                binding.ivOtpVerified.imageTintList = ColorStateList.valueOf("#F44336".toColorInt())
+                InputValidationHelper.applyEditTextInvalid(binding.etOtp, redColorInt, errorOtpBgRes)
                 false
             }
             OtpValidator.Result.NONE -> {
                 binding.tvOtpError.isVisible = false
                 binding.ivOtpVerified.imageTintList = ColorStateList.valueOf("#00C853".toColorInt())
+                InputValidationHelper.clearEditTextInvalid(binding.etOtp, otpTextDefault, normalOtpBgRes)
                 true
             }
         }

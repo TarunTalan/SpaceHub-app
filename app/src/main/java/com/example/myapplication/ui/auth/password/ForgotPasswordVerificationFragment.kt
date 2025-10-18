@@ -25,6 +25,9 @@ import kotlinx.coroutines.launch
 import com.example.myapplication.ui.common.createOtpCooldownHelper
 import com.example.myapplication.ui.common.startCooldownIfTokenPresent
 import com.example.myapplication.ui.common.resumeCooldownFromVm
+import com.example.myapplication.ui.auth.common.InputValidationHelper
+import androidx.core.content.ContextCompat
+import android.content.res.ColorStateList as CSList
 
 class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify_forgot_password) {
 
@@ -37,6 +40,12 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
     // Use shared helper with 30s cooldown to match signup flow
     private var resendCooldownMillis: Long = 30_000L // 30 seconds
     private var cooldownHelper: OtpResendCooldownHelper? = null
+
+    // OTP visuals defaults
+    private lateinit var otpTextDefault: CSList
+    private val redColorInt by lazy { ContextCompat.getColor(requireContext(), R.color.error_red) }
+    private val normalOtpBgRes = R.drawable.edit_text_outline_selector
+    private val errorOtpBgRes = R.drawable.edit_text_outline_error
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -53,7 +62,6 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
         emailArg = arguments?.getString("email")
 
         initializeDefaults()
-        setupTextWatcher()
         setupClickListeners()
         setupKeyboardDismiss(binding.root)
         observeViewModel()
@@ -98,112 +106,10 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
         // Ensure resend link is disabled and faded initially until server confirms EmailSent
         binding.tvResendOtp.isEnabled = false
         binding.tvResendOtp.alpha = 0.5f
-    }
 
-    private fun setupTextWatcher() {
-        binding.etOtp.addTextChangedListener(object : android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                val otp = s?.toString()?.trim() ?: ""
-
-                when {
-                    otp.isEmpty() -> {
-                        binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
-                        binding.tvOtpError.isVisible = false
-                    }
-                    otp.length == 6 && otp.matches(Regex("^[0-9]{6}$")) -> {
-                        binding.ivOtpVerified.imageTintList = ColorStateList.valueOf("#00C853".toColorInt())
-                        binding.tvOtpError.isVisible = false
-                    }
-                    else -> {
-                        binding.ivOtpVerified.imageTintList = ColorStateList.valueOf("#F44336".toColorInt())
-                        binding.tvOtpError.isVisible = false
-                    }
-                }
-            }
-            override fun afterTextChanged(s: android.text.Editable?) {}
-        })
-    }
-
-    private fun observeViewModel() {
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiState.collect { state ->
-                    // show/hide a simple progress indicator if present
-                    binding.progressBar.let { it.isVisible = state is ResetPasswordViewModel.UiState.Loading }
-
-                    when (state) {
-                        is ResetPasswordViewModel.UiState.Loading -> {
-                            // Disable resend while generic loading (e.g., requestForgotPassword or verify) is in progress
-                            // If helper is running, it will keep resend disabled; otherwise dim it
-                            if (viewModel.cooldownEndMillis.value == null) {
-                                binding.tvResendOtp.isEnabled = false
-                                binding.tvResendOtp.alpha = 0.5f
-                            }
-                        }
-                        is ResetPasswordViewModel.UiState.ResendLoading -> {
-                            // Explicit resend call in-flight: always disable/dim resend
-                            binding.tvResendOtp.isEnabled = false
-                            binding.tvResendOtp.alpha = 0.5f
-                        }
-                        is ResetPasswordViewModel.UiState.EmailSent -> {
-                            // On initial EmailSent (OTP requested) or after resend, show feedback and restart cooldown
-                            binding.progressBar.isVisible = false
-                            Toast.makeText(requireContext(), getString(R.string.otp_resent), Toast.LENGTH_SHORT).show()
-
-                            // Persist cooldown end millis in ViewModel so rotations won't reset it
-                            val endMillis = System.currentTimeMillis() + resendCooldownMillis
-                            viewModel.setCooldownEndMillis(endMillis)
-
-                            // Start the cooldown timer using helper
-                            cooldownHelper?.start(resendCooldownMillis)
-                        }
-                        is ResetPasswordViewModel.UiState.OtpVerified -> {
-                            binding.progressBar.isVisible = false
-                            // Use tempToken provided by ViewModel when available, otherwise fall back to stored token, argument, or entered OTP
-                            val vmToken = state.tempToken
-                            val prefsToken = try { SharedPrefsTokenStore(requireContext()).getAccessToken() } catch (_: Exception) { null }
-                            val vmStoredToken = viewModel.tempToken.value
-                            val tokenToSend = vmToken ?: prefsToken ?: vmStoredToken ?: binding.etOtp.text.toString().trim()
-
-                            if (emailArg.isNullOrBlank()) {
-                                Toast.makeText(requireContext(), getString(R.string.missing_email), Toast.LENGTH_SHORT).show()
-                                return@collect
-                            }
-
-                            val bundle = Bundle().apply {
-                                putString("email", emailArg)
-                                putString("tempToken", tokenToSend)
-                            }
-
-                            try {
-                                findNavController().navigate(R.id.newPasswordFragment, bundle)
-                            } catch (_: Exception) {
-                                // Navigation failed — show a user-friendly message
-                                Toast.makeText(requireContext(), getString(R.string.navigation_failed), Toast.LENGTH_SHORT).show()
-                            }
-
-                            viewModel.reset()
-                        }
-                        is ResetPasswordViewModel.UiState.Error -> {
-                            binding.progressBar.isVisible = false
-                            Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
-                            binding.tvOtpError.text = state.message
-                            binding.tvOtpError.isVisible = true
-                            // On error, if helper is not running, re-enable resend so user can try again
-                            // Helper will manage states if cooldown is active
-                            if (viewModel.cooldownEndMillis.value == null) {
-                                binding.tvResendOtp.isEnabled = true
-                                binding.tvResendOtp.alpha = 1.0f
-                            }
-                        }
-                        else -> {
-                            // Idle / other states handled above
-                        }
-                    }
-                }
-            }
-        }
+        // Ensure OTP input uses normal outline initially
+        otpTextDefault = binding.etOtp.textColors
+        InputValidationHelper.clearEditTextInvalid(binding.etOtp, otpTextDefault, normalOtpBgRes)
     }
 
     private fun setupClickListeners() {
@@ -261,6 +167,8 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
             binding.tvOtpError.text = getString(R.string.otp_required)
             binding.tvOtpError.isVisible = true
             binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
+            // show error outline
+            InputValidationHelper.applyEditTextInvalid(binding.etOtp, redColorInt, errorOtpBgRes)
             return false
         }
 
@@ -268,6 +176,8 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
             binding.tvOtpError.text = getString(R.string.otp_must_be_6_digits)
             binding.tvOtpError.isVisible = true
             binding.ivOtpVerified.imageTintList = ColorStateList.valueOf("#F44336".toColorInt())
+            // show error outline
+            InputValidationHelper.applyEditTextInvalid(binding.etOtp, redColorInt, errorOtpBgRes)
             return false
         }
 
@@ -275,13 +185,108 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
             binding.tvOtpError.text = getString(R.string.invalid_otp_format)
             binding.tvOtpError.isVisible = true
             binding.ivOtpVerified.imageTintList = ColorStateList.valueOf("#F44336".toColorInt())
+            // show error outline
+            InputValidationHelper.applyEditTextInvalid(binding.etOtp, redColorInt, errorOtpBgRes)
             return false
         }
 
         binding.tvOtpError.isVisible = false
         binding.ivOtpVerified.imageTintList = ColorStateList.valueOf("#00C853".toColorInt())
+        // restore normal outline
+        InputValidationHelper.clearEditTextInvalid(binding.etOtp, otpTextDefault, normalOtpBgRes)
         return true
     }
+
+    private fun observeViewModel() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.uiState.collect { state ->
+                    // show/hide a simple progress indicator if present
+                    binding.progressBar.let { it.isVisible = state is ResetPasswordViewModel.UiState.Loading }
+
+                    when (state) {
+                        is ResetPasswordViewModel.UiState.Loading -> {
+                            // Disable resend while generic loading (e.g., requestForgotPassword or verify) is in progress
+                            // If helper is running, it will keep resend disabled; otherwise dim it
+                            if (viewModel.cooldownEndMillis.value == null) {
+                                binding.tvResendOtp.isEnabled = false
+                                binding.tvResendOtp.alpha = 0.5f
+                            }
+                        }
+                        is ResetPasswordViewModel.UiState.ResendLoading -> {
+                            // Explicit resend call in-flight: always disable/dim resend
+                            binding.tvResendOtp.isEnabled = false
+                            binding.tvResendOtp.alpha = 0.5f
+                        }
+                        is ResetPasswordViewModel.UiState.EmailSent -> {
+                            // On initial EmailSent (OTP requested) or after resend, show feedback and restart cooldown
+                            binding.progressBar.isVisible = false
+                            Toast.makeText(requireContext(), getString(R.string.otp_resent), Toast.LENGTH_SHORT).show()
+
+                            // Persist cooldown end millis in ViewModel so rotations won't reset it
+                            val endMillis = System.currentTimeMillis() + resendCooldownMillis
+                            viewModel.setCooldownEndMillis(endMillis)
+
+                            // Start the cooldown timer using helper
+                            cooldownHelper?.start(resendCooldownMillis)
+                        }
+                        is ResetPasswordViewModel.UiState.OtpVerified -> {
+                            binding.progressBar.isVisible = false
+                            // Use tempToken provided by ViewModel when available, otherwise fall back to stored token, argument, or entered OTP
+                            val vmToken = state.tempToken
+                            val prefsToken = try { SharedPrefsTokenStore(requireContext()).getAccessToken() } catch (_: Exception) { null }
+                            val vmStoredToken = viewModel.tempToken.value
+                            val tokenToSend = vmToken ?: prefsToken ?: vmStoredToken ?: binding.etOtp.text.toString().trim()
+
+                            if (emailArg.isNullOrBlank()) {
+                                // replace toast with inline error
+                                binding.tvOtpError.text = getString(R.string.missing_email)
+                                binding.tvOtpError.isVisible = true
+                                return@collect
+                            }
+
+                            val bundle = Bundle().apply {
+                                putString("email", emailArg)
+                                putString("tempToken", tokenToSend)
+                            }
+
+                            try {
+                                findNavController().navigate(R.id.newPasswordFragment, bundle)
+                            } catch (_: Exception) {
+                                // Navigation failed — show inline error
+                                binding.tvOtpError.text = getString(R.string.navigation_failed)
+                                binding.tvOtpError.isVisible = true
+                            }
+
+                            viewModel.reset()
+                        }
+                        is ResetPasswordViewModel.UiState.Error -> {
+                            binding.progressBar.isVisible = false
+                            // Removed error toast; show inline error in tvOtpError
+                            binding.tvOtpError.text = state.message
+                            binding.tvOtpError.isVisible = true
+
+                            // show red outline on error
+                            InputValidationHelper.applyEditTextInvalid(binding.etOtp, redColorInt, errorOtpBgRes)
+                            // show red tick for invalid OTP
+                            binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(redColorInt)
+
+                            // On error, if helper is not running, re-enable resend so user can try again
+                            // Helper will manage states if cooldown is active
+                            if (viewModel.cooldownEndMillis.value == null) {
+                                binding.tvResendOtp.isEnabled = true
+                                binding.tvResendOtp.alpha = 1.0f
+                            }
+                        }
+                        else -> {
+                            // Idle / other states handled above
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 
     override fun onDestroyView() {
         super.onDestroyView()

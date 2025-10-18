@@ -42,8 +42,12 @@
     <string name="confirm_password_required">Please confirm your password</string>
     <string name="passwords_do_not_match">Passwords do not match</string>
     <string name="otp_required">OTP is required</string>
+    <string name="password_require_uppercase">Password must contain at least one uppercase letter</string>
+    <string name="password_require_special">Password must contain at least one special character</string>
+    <string name="password_require_digit">Password must contain at least one digit</string>
     <string name="otp_must_be_6_digits">OTP must be 6 digits</string>
     <string name="invalid_otp_format">Invalid OTP format</string>
+    <string name="otp_must_be_numeric">OTP must contain only digits</string>
     <string name="first_name_required">First name is required</string>
     <string name="first_name_min_length">First name must be at least 2 characters</string>
     <string name="last_name_required">Last name is required</string>
@@ -61,4 +65,7 @@
     <string name="missing_token">Token is missing</string>
     <string name="otp_invalid_or_expired">OTP invalid or expired</string>
     <string name="resend_in">Resend in %1$s</string>
+    <string name="navigation_failed_try_again">Navigation failed. Please try again.</string>
+    <string name="registered_successful">Registered successfully. Please login.</string>
+    <string name="navigation_error">Navigation error</string>
 </resources>

@@ -90,6 +90,8 @@
                 android:textColor="#FFFFFF"
                 android:textColorHint="@color/hint_color"
                 android:textSize="15sp"
+                android:inputType="number"
+                android:maxLength="6"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/tvOtp"
@@ -109,19 +111,6 @@
                 tools:ignore="ContentDescription"
                 />
 
-            <TextView
-                android:id="@+id/tvOtpError"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:fontFamily="@font/roboto_regular"
-                android:textColor="#F44336"
-                android:textSize="12sp"
-                android:visibility="visible"
-                app:layout_constraintStart_toStartOf="@+id/etOtp"
-                app:layout_constraintTop_toBottomOf="@+id/etOtp"
-                tools:text="Invalid OTP"
-                />
             <TextView
                     android:id="@+id/otpTimer"
                     android:layout_width="wrap_content"
@@ -144,13 +133,16 @@
                 android:clickable="true"
                 android:focusable="true"
                 android:fontFamily="@font/roboto_regular"
-                android:paddingVertical="12dp"
+                android:paddingVertical="6dp"
                 android:text="Resend OTP"
                 android:textColor="#FFFFFF"
                 android:textSize="13sp"
                 app:layout_constraintEnd_toEndOf="@id/etOtp"
                 app:layout_constraintTop_toBottomOf="@id/etOtp"
                 />
+
+
+
         </androidx.constraintlayout.widget.ConstraintLayout>
 
 
@@ -198,6 +190,19 @@
                 app:layout_constraintTop_toBottomOf="@+id/btnLogin"
                 />
         </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <TextView
+                android:id="@+id/tvOtpError"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/roboto_regular"
+                android:textColor="#F44336"
+                android:textSize="12sp"
+                android:text="@string/otp_must_be_6_digits"
+                android:layout_marginTop="40dp"
+                app:layout_constraintTop_toBottomOf="@+id/actionsGroup"
+                app:layout_constraintStart_toStartOf="@+id/actionsGroup"
+                app:layout_constraintEnd_toEndOf="@+id/actionsGroup"/>
 
         <androidx.constraintlayout.widget.Guideline
             android:id="@+id/guideline2"

@@ -5,7 +5,6 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
-import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
 import androidx.core.view.ViewCompat
@@ -19,6 +18,8 @@ import androidx.navigation.fragment.findNavController
 import com.example.myapplication.R
 import com.example.myapplication.databinding.FragmentSignupBinding
 import com.example.myapplication.ui.auth.common.PasswordToggleUtil
+import com.example.myapplication.ui.common.InputValidator
+import com.example.myapplication.ui.auth.common.InputValidationHelper
 import kotlinx.coroutines.launch
 
 /**
@@ -68,7 +69,7 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                             setLoading(true)
                         }
 
-                        // NEW: handle EmailSent so we navigate to verification when signup response includes a temp token
+                        // handle EmailSent so we navigate to verification when signup response includes a temp token
                         is SignupViewModel.UiState.EmailSent -> {
                             setLoading(false)
                             val emailArg = binding.etEmail.text.toString().trim()
@@ -87,13 +88,15 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                                 try {
                                     nav.navigate(actionId, bundle)
                                 } catch (_: Exception) {
-                                    // fallback: try direct destination id as a last resort
                                     try { nav.navigate(R.id.signupVerificationFragment, bundle) } catch (_: Exception) {
-                                        Toast.makeText(requireContext(), "Navigation failed. Please go to Login and try again.", Toast.LENGTH_LONG).show()
+                                        // navigation failed; show inline error instead of toast
+                                        binding.tvPasswordError.text = getString(R.string.navigation_failed_try_again)
+                                        binding.tvPasswordError.visibility = View.VISIBLE
                                     }
                                 }
                             } catch (_: Exception) {
-                                Toast.makeText(requireContext(), "Navigation failed. Please go to Login and try again.", Toast.LENGTH_LONG).show()
+                                binding.tvPasswordError.text = getString(R.string.navigation_failed_try_again)
+                                binding.tvPasswordError.visibility = View.VISIBLE
                             } finally {
                                 viewModel.reset()
                             }
@@ -101,49 +104,53 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
 
                         is SignupViewModel.UiState.Success -> {
                             setLoading(false)
-                            // Use requiresVerification flag to decide where to route the user.
+                            // If verification required, navigate; otherwise keep UI state (no toast)
                             val emailArg = binding.etEmail.text.toString().trim()
                             val passwordArg = binding.etPassword.text.toString()
                             try {
                                 val nav = findNavController()
                                 if (state.requiresVerification) {
-                                    // Navigate to OTP verification screen and pass email/password
                                     val bundle = bundleOf("email" to emailArg, "password" to passwordArg)
                                     try {
                                         val actionId = R.id.action_signupFragment_to_signupVerificationFragment
                                         nav.navigate(actionId, bundle)
                                     } catch (_: Exception) {
                                         try { nav.navigate(R.id.signupVerificationFragment, bundle) } catch (_: Exception) {
-                                            Toast.makeText(requireContext(), "Navigation failed. Please go to Login and try again.", Toast.LENGTH_LONG).show()
+                                            binding.tvPasswordError.text = getString(R.string.navigation_failed_try_again)
+                                            binding.tvPasswordError.visibility = View.VISIBLE
                                         }
                                     }
                                 } else {
-                                    // If no verification required, treat user as registered/logged-in and go to login or home
-                                    Toast.makeText(requireContext(), "Registered successfully. Please login.", Toast.LENGTH_SHORT).show()
-                                    val actionId = R.id.action_signupFragment_to_loginFragment
-                                    val canNavigate = nav.currentDestination?.getAction(actionId) != null
-                                    if (canNavigate || nav.currentDestination?.id == R.id.signupFragment) {
-                                        nav.navigate(actionId)
-                                    } else {
-                                        // fallback pop or direct
-                                        val popped = nav.popBackStack(R.id.loginFragment, false)
-                                        if (!popped) nav.navigate(R.id.loginFragment)
-                                    }
+                                    // no verification required — leave user on screen; show inline success message in password error field
+                                    binding.tvPasswordError.text = getString(R.string.registered_successful)
+                                    binding.tvPasswordError.visibility = View.VISIBLE
                                 }
                             } catch (_: Exception) {
-                                // navigation failed; inform the user
-                                Toast.makeText(requireContext(), "Navigation failed. Please go to Login and try again.", Toast.LENGTH_LONG).show()
+                                binding.tvPasswordError.text = getString(R.string.navigation_failed_try_again)
+                                binding.tvPasswordError.visibility = View.VISIBLE
                             } finally {
                                 viewModel.reset()
                             }
                         }
+
                         is SignupViewModel.UiState.Error -> {
                             setLoading(false)
-                            // Show failure toast for registration error (use server message instead of generic text)
-                            Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
-                            // Show error near password (generic) to avoid layout changes
-                            binding.tvPasswordError.text = state.message
-                            binding.tvPasswordError.visibility = View.VISIBLE
+                            // Show failure inline for registration error instead of toast
+                            val msg = state.message.trim()
+                            val lower = msg.lowercase()
+                            // If the server says the user/email already exists, show it near the email field
+                            if ("already" in lower || "exist" in lower || "user already" in lower) {
+                                // show as email error
+                                showEmailError(msg)
+                                // clear password error if any
+                                hidePasswordError()
+                            } else {
+                                // generic auth error — show near password field
+                                binding.tvPasswordError.text = msg
+                                binding.tvPasswordError.visibility = View.VISIBLE
+                                // also clear email error so UI is focused on the relevant field
+                                hideEmailError()
+                            }
                         }
 
                         else -> {}
@@ -222,24 +229,6 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                 }
             }
         })
-
-        // Confirm password field text watcher - clear errors when user starts typing
-        binding.etConfirmPassword.addTextChangedListener(object : TextWatcher {
-            private var previousText = ""
-
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
-                previousText = s?.toString() ?: ""
-            }
-
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-
-            override fun afterTextChanged(s: Editable?) {
-                val currentText = s?.toString() ?: ""
-                if (previousText != currentText && binding.tvPasswordError.isVisible) {
-                    hidePasswordError()
-                }
-            }
-        })
     }
 
     private fun setupClickListeners() {
@@ -274,33 +263,53 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
 
         var isValid = true
 
-        // Validate email
-        if (email.isEmpty()) {
-            showEmailError(getString(R.string.email_required))
-            isValid = false
-        } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            showEmailError(getString(R.string.invalid_email_format))
-            isValid = false
-        } else {
-            hideEmailError()
+        // Validate email using shared InputValidator
+        when (InputValidator.validateEmail(email)) {
+            InputValidator.EmailResult.EMPTY -> {
+                showEmailError(getString(R.string.email_required))
+                isValid = false
+            }
+            InputValidator.EmailResult.INVALID_FORMAT -> {
+                showEmailError(getString(R.string.invalid_email_format))
+                isValid = false
+            }
+            InputValidator.EmailResult.VALID -> hideEmailError()
         }
 
-        // Validate password first
-        if (password.isEmpty()) {
-            showPasswordError(getString(R.string.password_required))
-            isValid = false
-        } else if (password.length < 6) {
-            showPasswordError(getString(R.string.password_min_6))
-            isValid = false
-        } else if (confirmPassword.isEmpty()) {
-            // Only check confirm password if password is valid
-            showPasswordError(getString(R.string.confirm_password_required))
-            isValid = false
-        } else if (password != confirmPassword) {
-            showPasswordError(getString(R.string.passwords_do_not_match))
-            isValid = false
-        } else {
-            hidePasswordError()
+        // Validate password using shared InputValidator
+        when (InputValidator.validatePassword(password)) {
+            InputValidator.PasswordResult.EMPTY -> {
+                showPasswordError(getString(R.string.password_required))
+                isValid = false
+            }
+            InputValidator.PasswordResult.TOO_SHORT -> {
+                showPasswordError(getString(R.string.password_min_6))
+                isValid = false
+            }
+            InputValidator.PasswordResult.VALID -> {
+                // Additional signup-only password rules
+                if (!InputValidator.hasUppercase(password)) {
+                    showPasswordError(getString(R.string.password_require_uppercase))
+                    isValid = false
+                } else if (!InputValidator.hasDigit(password)) {
+                    showPasswordError(getString(R.string.password_require_digit))
+                    isValid = false
+                } else if (!InputValidator.hasSpecialChar(password)) {
+                    showPasswordError(getString(R.string.password_require_special))
+                    isValid = false
+                } else {
+                    // Then check confirm password
+                    if (confirmPassword.isEmpty()) {
+                        showPasswordError(getString(R.string.confirm_password_required))
+                        isValid = false
+                    } else if (password != confirmPassword) {
+                        showPasswordError(getString(R.string.passwords_do_not_match))
+                        isValid = false
+                    } else {
+                        hidePasswordError()
+                    }
+                }
+            }
         }
 
         return isValid
@@ -332,73 +341,62 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
     }
 
     private fun applyEmailInvalidVisuals() {
-        // Set red stroke for email field
-        binding.emailLayout.setBoxStrokeColorStateList(
-            ColorStateList(
-                arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()),
-                intArrayOf(redColor, redColor)
-            )
+        InputValidationHelper.applyEmailInvalid(
+            emailLayout = binding.emailLayout,
+            etEmail = binding.etEmail,
+            ivEmailError = binding.ivEmailError,
+            redColor = redColor,
+            redStroke = redStroke
         )
-        binding.emailLayout.setStartIconTintList(redStroke)
-        binding.etEmail.setTextColor(redColor)
     }
 
     private fun clearEmailInvalidVisuals() {
-        // Reset to normal colors
-        binding.emailLayout.setBoxStrokeColorStateList(
-            ColorStateList(
-                arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()),
-                intArrayOf(blueColor, grayColor)
-            )
+        InputValidationHelper.clearEmailInvalid(
+            emailLayout = binding.emailLayout,
+            etEmail = binding.etEmail,
+            ivEmailError = binding.ivEmailError,
+            emailIconDefault = emailIconDefault,
+            emailTextDefault = emailTextDefault,
+            blueColor = blueColor,
+            grayColor = grayColor
         )
-        binding.emailLayout.setStartIconTintList(emailIconDefault)
-        binding.etEmail.setTextColor(emailTextDefault)
     }
 
     private fun applyPasswordInvalidVisuals() {
-        // Set red stroke for password fields
-        binding.passwordLayout.setBoxStrokeColorStateList(
-            ColorStateList(
-                arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()),
-                intArrayOf(redColor, redColor)
-            )
+        // Use helper for password + confirm fields
+        InputValidationHelper.applyPasswordInvalid(
+            passwordLayout = binding.passwordLayout,
+            etPassword = binding.etPassword,
+            redColor = redColor,
+            redStroke = redStroke
         )
-        binding.passwordLayout.setStartIconTintList(redStroke)
-        binding.passwordLayout.setEndIconTintList(redStroke)
-        binding.etPassword.setTextColor(redColor)
 
-        binding.confirmPasswordLayout.setBoxStrokeColorStateList(
-            ColorStateList(
-                arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()),
-                intArrayOf(redColor, redColor)
-            )
+        InputValidationHelper.applyPasswordInvalid(
+            passwordLayout = binding.confirmPasswordLayout,
+            etPassword = binding.etConfirmPassword,
+            redColor = redColor,
+            redStroke = redStroke
         )
-        binding.confirmPasswordLayout.setStartIconTintList(redStroke)
-        binding.confirmPasswordLayout.setEndIconTintList(redStroke)
-        binding.etConfirmPassword.setTextColor(redColor)
     }
 
     private fun clearPasswordInvalidVisuals() {
-        // Reset to normal colors
-        binding.passwordLayout.setBoxStrokeColorStateList(
-            ColorStateList(
-                arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()),
-                intArrayOf(blueColor, grayColor)
-            )
+        InputValidationHelper.clearPasswordInvalid(
+            passwordLayout = binding.passwordLayout,
+            etPassword = binding.etPassword,
+            passwordIconDefault = passwordIconDefault,
+            passwordTextDefault = passwordTextDefault,
+            blueColor = blueColor,
+            grayColor = grayColor
         )
-        binding.passwordLayout.setStartIconTintList(passwordIconDefault)
-        binding.passwordLayout.setEndIconTintList(passwordIconDefault)
-        binding.etPassword.setTextColor(passwordTextDefault)
 
-        binding.confirmPasswordLayout.setBoxStrokeColorStateList(
-            ColorStateList(
-                arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()),
-                intArrayOf(blueColor, grayColor)
-            )
+        InputValidationHelper.clearPasswordInvalid(
+            passwordLayout = binding.confirmPasswordLayout,
+            etPassword = binding.etConfirmPassword,
+            passwordIconDefault = passwordIconDefault,
+            passwordTextDefault = passwordTextDefault,
+            blueColor = blueColor,
+            grayColor = grayColor
         )
-        binding.confirmPasswordLayout.setStartIconTintList(passwordIconDefault)
-        binding.confirmPasswordLayout.setEndIconTintList(passwordIconDefault)
-        binding.etConfirmPassword.setTextColor(passwordTextDefault)
     }
 
     override fun onDestroyView() {

@@ -4,7 +4,6 @@ import android.content.res.ColorStateList
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Patterns
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -20,6 +19,8 @@ import androidx.navigation.fragment.findNavController
 import com.example.myapplication.R
 import com.example.myapplication.databinding.FragmentLoginBinding
 import com.example.myapplication.ui.auth.common.PasswordToggleUtil
+import com.example.myapplication.ui.auth.common.InputValidationHelper
+import com.example.myapplication.ui.common.InputValidator
 import kotlinx.coroutines.launch
 
 class LoginFragment : BaseFragment(R.layout.fragment_login) {
@@ -73,12 +74,9 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
                             setLoading(false)
                             Toast.makeText(requireContext(), "Login successful", Toast.LENGTH_SHORT).show()
                             viewModel.reset()
-                            // Navigate to next screen if desired, e.g., home/dashboard
-                            // findNavController().navigate(R.id.action_loginFragment_to_homeFragment)
                         }
                         is LoginViewModel.UiState.Error -> {
                             setLoading(false)
-                            Toast.makeText(requireContext(), "Login failed", Toast.LENGTH_SHORT).show()
                             binding.tvPasswordError.text = state.message
                             binding.tvPasswordError.visibility = View.VISIBLE
                             applyPasswordInvalidVisuals()
@@ -177,87 +175,101 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
 
     private fun validateEmail(): Boolean {
         val email = binding.etEmail.text?.toString()?.trim().orEmpty()
-        val valid = email.isNotEmpty() && Patterns.EMAIL_ADDRESS.matcher(email).matches()
 
-        if (valid) {
-            emailErrorLatched = false
-            binding.tvEmailError.visibility = View.INVISIBLE
-            binding.ivEmailError.visibility = View.INVISIBLE
-            clearEmailInvalidVisuals()
-        } else {
-            emailErrorLatched = true
-            val errorMsg = if (email.isEmpty()) getString(R.string.email_required) else getString(R.string.invalid_email_format)
-            binding.tvEmailError.text = errorMsg
-            binding.tvEmailError.visibility = View.VISIBLE
-            applyEmailInvalidVisuals()
+        return when (InputValidator.validateEmail(email)) {
+            InputValidator.EmailResult.VALID -> {
+                emailErrorLatched = false
+                binding.tvEmailError.visibility = View.INVISIBLE
+                binding.ivEmailError.visibility = View.INVISIBLE
+                clearEmailInvalidVisuals()
+                true
+            }
+            InputValidator.EmailResult.EMPTY -> {
+                emailErrorLatched = true
+                binding.tvEmailError.text = getString(R.string.email_required)
+                binding.tvEmailError.visibility = View.VISIBLE
+                binding.ivEmailError.visibility = View.VISIBLE
+                applyEmailInvalidVisuals()
+                false
+            }
+            InputValidator.EmailResult.INVALID_FORMAT -> {
+                emailErrorLatched = true
+                binding.tvEmailError.text = getString(R.string.invalid_email_format)
+                binding.tvEmailError.visibility = View.VISIBLE
+                binding.ivEmailError.visibility = View.VISIBLE
+                applyEmailInvalidVisuals()
+                false
+            }
         }
-        return valid
     }
 
     private fun validatePassword(): Boolean {
         val pwd = binding.etPassword.text?.toString()?.trim().orEmpty()
 
-        if (pwd.isEmpty()) {
-            passwordErrorLatched = true
-            binding.tvPasswordError.text = getString(R.string.password_required)
-            binding.tvPasswordError.visibility = View.VISIBLE
-            applyPasswordInvalidVisuals()
-            return false
+        return when (InputValidator.validatePassword(pwd)) {
+            InputValidator.PasswordResult.VALID -> {
+                passwordErrorLatched = false
+                binding.tvPasswordError.visibility = View.INVISIBLE
+                clearPasswordInvalidVisuals()
+                true
+            }
+            InputValidator.PasswordResult.EMPTY -> {
+                passwordErrorLatched = true
+                binding.tvPasswordError.text = getString(R.string.password_required)
+                binding.tvPasswordError.visibility = View.VISIBLE
+                applyPasswordInvalidVisuals()
+                false
+            }
+            InputValidator.PasswordResult.TOO_SHORT -> {
+                passwordErrorLatched = true
+                binding.tvPasswordError.text = getString(R.string.password_min_6)
+                binding.tvPasswordError.visibility = View.VISIBLE
+                applyPasswordInvalidVisuals()
+                false
+            }
         }
-
-        // Password is valid
-        passwordErrorLatched = false
-        binding.tvPasswordError.visibility = View.INVISIBLE
-        clearPasswordInvalidVisuals()
-        return true
     }
 
-
     private fun applyEmailInvalidVisuals() {
-        binding.emailLayout.setBoxStrokeColorStateList(
-            ColorStateList(
-                arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()),
-                intArrayOf(redColor, redColor)
-            )
+        InputValidationHelper.applyEmailInvalid(
+            emailLayout = binding.emailLayout,
+            etEmail = binding.etEmail,
+            ivEmailError = binding.ivEmailError,
+            redColor = redColor,
+            redStroke = redStroke
         )
-        binding.ivEmailError.visibility = View.VISIBLE
-        binding.emailLayout.setStartIconTintList(redStroke)
-        binding.etEmail.setTextColor(redColor)
     }
 
     private fun clearEmailInvalidVisuals() {
-        binding.emailLayout.setBoxStrokeColorStateList(
-            ColorStateList(
-                arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()),
-                intArrayOf(blueColor, grayColor)
-            )
+        InputValidationHelper.clearEmailInvalid(
+            emailLayout = binding.emailLayout,
+            etEmail = binding.etEmail,
+            ivEmailError = binding.ivEmailError,
+            emailIconDefault = emailIconDefault,
+            emailTextDefault = emailTextDefault,
+            blueColor = blueColor,
+            grayColor = grayColor
         )
-        binding.emailLayout.setStartIconTintList(emailIconDefault)
-        binding.etEmail.setTextColor(emailTextDefault)
     }
 
     private fun applyPasswordInvalidVisuals() {
-        binding.passwordLayout.setBoxStrokeColorStateList(
-            ColorStateList(
-                arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()),
-                intArrayOf(redColor, redColor)
-            )
+        InputValidationHelper.applyPasswordInvalid(
+            passwordLayout = binding.passwordLayout,
+            etPassword = binding.etPassword,
+            redColor = redColor,
+            redStroke = redStroke
         )
-        binding.passwordLayout.setStartIconTintList(redStroke)
-        binding.passwordLayout.setEndIconTintList(redStroke)
-        binding.etPassword.setTextColor(redColor)
     }
 
     private fun clearPasswordInvalidVisuals() {
-        binding.passwordLayout.setBoxStrokeColorStateList(
-            ColorStateList(
-                arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()),
-                intArrayOf(blueColor, grayColor)
-            )
+        InputValidationHelper.clearPasswordInvalid(
+            passwordLayout = binding.passwordLayout,
+            etPassword = binding.etPassword,
+            passwordIconDefault = passwordIconDefault,
+            passwordTextDefault = passwordTextDefault,
+            blueColor = blueColor,
+            grayColor = grayColor
         )
-        binding.passwordLayout.setStartIconTintList(passwordIconDefault)
-        binding.passwordLayout.setEndIconTintList(passwordIconDefault)
-        binding.etPassword.setTextColor(passwordTextDefault)
     }
 
     override fun onDestroyView() {

@@ -150,7 +150,7 @@ class NameSignupFragment : BaseFragment(R.layout.fragment_name_signup) {
     }
 
     private fun hideLastNameError() {
-        binding.tvFirstNameError.text = " "
+        binding.tvLastError.text = " "
         binding.etLastName.setTextColor(lastNameTextDefault)
         binding.etLastName.setBackgroundResource(R.drawable.edit_text_outline_selector)
     }
