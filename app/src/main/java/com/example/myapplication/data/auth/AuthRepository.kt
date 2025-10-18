@@ -29,32 +29,23 @@ class AuthRepository(context: Context) {
         }
     }
 
-    // Generic response handler for endpoints that return a response body with `status` and `message` fields.
-    private fun <T> handleStatusMessageResponse(
-        resp: Response<T>,
-        extractStatus: (T?) -> Int?,
-        extractMessage: (T?) -> String?
-    ): AuthResult {
-        return if (resp.isSuccessful) {
-            val body = resp.body()
-            val status = extractStatus(body) ?: resp.code()
-            if (status == 200 || status == 201) AuthResult.Success(requiresVerification = true)
-            else AuthResult.Error(extractMessage(body) ?: "Request failed.")
-        } else {
-            AuthResult.Error(ResponseParser.parseError(resp.errorBody()))
-        }
-    }
-
     // Signup: submit user details. Server may respond with status 200/201 meaning signup accepted and OTP required.
     suspend fun signUp(firstName: String, lastName: String, email: String, password: String): AuthResult {
         return safeApiCall(
             call = { api.signup(SignupRequest(firstName, lastName, email, password)) },
             handle = { resp ->
-                // SignupResponse has .status and .message; map accordingly
-                handleStatusMessageResponse(resp,
-                    extractStatus = { it?.status },
-                    extractMessage = { it?.message }
-                )
+                if (resp.isSuccessful) {
+                    val body = resp.body()
+                    // If backend returns a data field (temp token), expose it in Success.tempToken
+                    if (body?.status == 200 || body?.status == 201) {
+                        val dataStr = try { body.data } catch (_: Exception) { null }
+                        return@safeApiCall AuthResult.Success(requiresVerification = true, tempToken = dataStr)
+                    } else {
+                        return@safeApiCall AuthResult.Error(body?.message ?: "Signup failed.")
+                    }
+                } else {
+                    AuthResult.Error(ResponseParser.parseError(resp.errorBody()))
+                }
             }
         )
     }
@@ -66,9 +57,33 @@ class AuthRepository(context: Context) {
             handle = { resp ->
                 if (resp.isSuccessful) {
                     val body = resp.body()
-                    if (body?.status == 200) AuthResult.Success(requiresVerification = true)
+                    if (body?.status == 200) {
+                        // SignupOtpResponse has no `data` property (only status + message), so just return success
+                        AuthResult.Success(requiresVerification = true)
+                    }
                     else AuthResult.Error(body?.message ?: "Failed to send OTP.")
                 } else {
+                    AuthResult.Error(ResponseParser.parseError(resp.errorBody()))
+                }
+            }
+        )
+    }
+
+    // Resend signup OTP using temporary token returned by signup/OTP endpoints.
+    suspend fun resendSignupOtp(email: String, sessionToken: String): AuthResult {
+        return safeApiCall(
+            call = { api.resendSignupOtp(ResendSignupOtpRequest(email = email, sessionToken = sessionToken)) },
+            handle = { resp ->
+                if (resp.isSuccessful) {
+                    val body = resp.body()
+                    val dataStr = try { body?.data } catch (_: Exception) { null }
+                    if (!dataStr.isNullOrBlank()) {
+                        AuthResult.Success(requiresVerification = true, tempToken = dataStr)
+                    } else {
+                        AuthResult.Success(requiresVerification = true)
+                    }
+                } else {
+                    // Removed debug logging; return parsed server error
                     AuthResult.Error(ResponseParser.parseError(resp.errorBody()))
                 }
             }
@@ -105,6 +120,27 @@ class AuthRepository(context: Context) {
                         AuthResult.Success(requiresVerification = true, tempToken = dataStr)
                     } else {
                         AuthResult.Error(body?.message ?: "Failed to send OTP for password reset.")
+                    }
+                } else {
+                    AuthResult.Error(ResponseParser.parseError(resp.errorBody()))
+                }
+            }
+        )
+    }
+
+    // Resend forgot-password OTP using the temporary token issued by the server.
+    suspend fun resendForgotPasswordOtp(tempToken: String): AuthResult {
+        return safeApiCall(
+            call = { api.resendForgotOtp(ResendForgotOtpRequest(tempToken = tempToken)) },
+            handle = { resp ->
+                if (resp.isSuccessful) {
+                    val body = resp.body()
+                    // The resend endpoint returns a `data` string containing the (new) temp token or message.
+                    val dataStr = try { body?.data } catch (_: Exception) { null }
+                    if (!dataStr.isNullOrBlank()) {
+                        AuthResult.Success(requiresVerification = true, tempToken = dataStr)
+                    } else {
+                        AuthResult.Error(body?.message ?: "Failed to resend OTP.")
                     }
                 } else {
                     AuthResult.Error(ResponseParser.parseError(resp.errorBody()))

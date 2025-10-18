@@ -16,9 +16,11 @@ object NetworkModule {
 
     private fun createOkHttpClient(context: Context): OkHttpClient {
         val tokenStore = SharedPrefsTokenStore(context)
+        // Disable HTTP logging to avoid debug output in logs
         val logging = HttpLoggingInterceptor().apply {
-            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.BASIC
+            level = HttpLoggingInterceptor.Level.NONE
         }
+
         return OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)

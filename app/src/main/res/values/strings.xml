@@ -60,4 +60,5 @@
     <string name="navigation_failed">Navigation failed</string>
     <string name="missing_token">Token is missing</string>
     <string name="otp_invalid_or_expired">OTP invalid or expired</string>
+    <string name="resend_in">Resend in %1$s</string>
 </resources>

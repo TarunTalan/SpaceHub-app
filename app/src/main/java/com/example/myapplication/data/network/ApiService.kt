@@ -6,6 +6,10 @@ import com.example.myapplication.data.auth.model.SignupRequest
 import com.example.myapplication.data.auth.model.SignupResponse
 import com.example.myapplication.data.auth.model.LoginRequest
 import com.example.myapplication.data.auth.model.LoginResponse
+import com.example.myapplication.data.auth.model.ResendForgotOtpRequest
+import com.example.myapplication.data.auth.model.ResendForgotOtpResponse
+import com.example.myapplication.data.auth.model.ResendSignupOtpRequest
+import com.example.myapplication.data.auth.model.ResendSignupOtpResponse
 import com.example.myapplication.data.auth.model.SigupOtpRequest
 import com.example.myapplication.data.auth.model.SignupOtpResponse
 import com.example.myapplication.data.auth.model.ValidateForgotOtpRequest
@@ -38,4 +42,10 @@ interface ApiService {
     // Reset password after OTP verification
     @POST("resetpassword")
     suspend fun resetPassword(@Body body: ResetPasswordRequest): Response<ResetPasswordResponce>
+
+    @POST("resendforgototp")
+    suspend fun resendForgotOtp(@Body body: ResendForgotOtpRequest): Response<ResendForgotOtpResponse>
+
+    @POST("resendotp")
+    suspend fun resendSignupOtp(@Body body: ResendSignupOtpRequest): Response<ResendSignupOtpResponse>
 }

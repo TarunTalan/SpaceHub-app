@@ -3,7 +3,7 @@ package com.example.myapplication.ui.auth.signup
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.os.Bundle
-import android.os.CountDownTimer
+import com.example.myapplication.ui.common.OtpResendCooldownHelper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -20,7 +20,9 @@ import androidx.navigation.fragment.findNavController
 import com.example.myapplication.R
 import com.example.myapplication.databinding.FragmentVerifySignupBinding
 import kotlinx.coroutines.launch
-import java.util.Locale
+import com.example.myapplication.ui.common.createOtpCooldownHelper
+import com.example.myapplication.ui.common.startCooldownIfTokenPresent
+import com.example.myapplication.ui.common.resumeCooldownFromVm
 
 class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup) {
     private var _binding: FragmentVerifySignupBinding? = null
@@ -29,9 +31,9 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
     private var emailArg: String? = null
     private var passwordArg: String? = null
     private var isLoading = false
-    private var resendCooldownMillis: Long = 2 * 60 * 1000 // 2 minutes
-    private var timer: CountDownTimer? = null
-    private var timerRunning = false
+    // cooldown between resend OTP requests (30 seconds)
+    private var resendCooldownMillis: Long = 30_000L // 30 seconds
+    private var cooldownHelper: OtpResendCooldownHelper? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -52,7 +54,35 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
         setupClickListeners()
         setupKeyboardDismiss(binding.root)
         observeViewModel()
-        startResendOtpTimer()
+
+        // use reusable helper to create the cooldown helper
+        cooldownHelper = createOtpCooldownHelper(
+            resendCooldownMillis,
+            setResendEnabled = { enabled -> binding.tvResendOtp.isEnabled = enabled },
+            setResendAlpha = { alpha -> binding.tvResendOtp.alpha = alpha },
+            setTimerVisible = { visible -> binding.otpTimer.isVisible = visible },
+            setTimerText = { text -> binding.otpTimer.text = getString(R.string.resend_in, text) },
+            onFinish = { viewModel.clearCooldown() }
+        )
+
+        // Start cooldown immediately if nav-arg token or VM token exists; only when fragment is first created
+        if (savedInstanceState == null) {
+            startCooldownIfTokenPresent(
+                argToken = arguments?.getString("tempToken"),
+                vmToken = viewModel.tempToken.value,
+                getVmCooldownEndMillis = { viewModel.cooldownEndMillis.value },
+                setVmCooldownEndMillis = { end -> viewModel.setCooldownEndMillis(end) },
+                cooldownHelper = cooldownHelper,
+                cooldownMillis = resendCooldownMillis
+            )
+        }
+
+        // Resume cooldown from ViewModel if present
+        resumeCooldownFromVm(
+            getVmCooldownEndMillis = { viewModel.cooldownEndMillis.value },
+            clearVmCooldown = { viewModel.clearCooldown() },
+            cooldownHelper = cooldownHelper
+        )
     }
 
     private fun observeViewModel() {
@@ -62,6 +92,21 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                     when (state) {
                         is SignupViewModel.UiState.Idle -> updateLoading(false)
                         is SignupViewModel.UiState.Loading -> updateLoading(true)
+                        is SignupViewModel.UiState.ResendLoading -> {
+                            // disable/dim resend link while resend request is in-flight
+                            binding.tvResendOtp.isEnabled = false
+                            binding.tvResendOtp.alpha = 0.5f
+                        }
+                        is SignupViewModel.UiState.EmailSent -> {
+                            updateLoading(false)
+                            // show feedback and start cooldown
+                            Toast.makeText(requireContext(), getString(R.string.otp_resent), Toast.LENGTH_SHORT).show()
+
+                            // persist cooldown end millis in ViewModel and start timer
+                            val endMillis = System.currentTimeMillis() + resendCooldownMillis
+                            viewModel.setCooldownEndMillis(endMillis)
+                            cooldownHelper?.start(resendCooldownMillis)
+                        }
                         is SignupViewModel.UiState.Success -> {
                             updateLoading(false)
                             Toast.makeText(requireContext(), "Signing in", Toast.LENGTH_SHORT).show()
@@ -73,6 +118,9 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                             Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
                             binding.tvOtpError.text = state.message
                             binding.tvOtpError.isVisible = true
+                            // on error enable resend so user can try again
+                            binding.tvResendOtp.isEnabled = true
+                            binding.tvResendOtp.alpha = 1.0f
                         }
                     }
                 }
@@ -90,6 +138,10 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
         binding.ivOtpVerified.visibility = View.VISIBLE
         binding.tvOtpError.isVisible = false
         binding.btnLogin.isEnabled = false
+        // By default (before any server confirmation) keep resend disabled and faded; cooldown will start only after EmailSent
+        binding.tvResendOtp.isEnabled = false
+        binding.tvResendOtp.alpha = 0.5f
+        binding.otpTimer.isVisible = false
     }
 
     private fun setupTextWatcher() {
@@ -112,26 +164,6 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                 }
             )
         )
-    }
-
-    private fun startResendOtpTimer() {
-        timer?.cancel()
-        binding.tvResendOtp.isEnabled = false
-        timerRunning = true
-        binding.otpTimer.isVisible = true
-        timer = object : CountDownTimer(resendCooldownMillis, 1000) {
-            override fun onTick(millisUntilFinished: Long) {
-                val seconds = millisUntilFinished / 1000
-                val min = seconds / 60
-                val sec = seconds % 60
-                binding.otpTimer.text = String.format(Locale.getDefault(), "%d:%02d", min, sec)
-            }
-            override fun onFinish() {
-                binding.otpTimer.text = getString(R.string.otp_timer_zero)
-                binding.tvResendOtp.isEnabled = true
-                timerRunning = false
-            }
-        }.start()
     }
 
     private fun setupClickListeners() {
@@ -161,8 +193,28 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                     tvOtpError.isVisible = false
                     ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
                     // Trigger resend OTP logic in ViewModel
-                    emailArg?.let { viewModel.resendOtp(it) }
-                    startResendOtpTimer()
+                    // Prefer explicit token-based resend if a token was passed as fragment argument
+                    val emailToUse = emailArg ?: "" // email is passed via nav args from SignupFragment
+                    if (emailToUse.isBlank()) {
+                        Toast.makeText(requireContext(), "Missing email. Cannot resend OTP.", Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
+                    }
+
+                    // Prefer session token passed via nav args, otherwise use ViewModel-stored token
+                    val sessionTokenArg = arguments?.getString("tempToken")
+                    val vmToken = viewModel.tempToken.value
+                    val tokenToUse = when {
+                        !sessionTokenArg.isNullOrBlank() -> sessionTokenArg
+                        !vmToken.isNullOrBlank() -> vmToken
+                        else -> null
+                    }
+
+                    if (tokenToUse.isNullOrBlank()) {
+                        Toast.makeText(requireContext(), "Cannot resend OTP: missing session token.", Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
+                    }
+
+                    viewModel.resendOtp(emailToUse, tokenToUse)
                 }
             }
             tvBackToLoginLink.apply {
@@ -214,7 +266,7 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
 
     override fun onDestroyView() {
         super.onDestroyView()
-        timer?.cancel()
+        cooldownHelper?.cancel()
         _binding = null
     }
 }

@@ -21,7 +21,10 @@ class TokenInterceptor(private val tokenStore: TokenStore) : Interceptor {
             "validateregisterotp",
             "forgotpassword",
             "validateforgototp",
-            "resetpassword"
+            "resetpassword",
+            // Resend OTP endpoints use session tokens in the request body and should not be sent the access token
+            "resendsignupotp",
+            "resendforgototp"
         )
         val isUnauthEndpoint = unauthEndpoints.any { path.contains(it, ignoreCase = true) }
 
@@ -29,10 +32,12 @@ class TokenInterceptor(private val tokenStore: TokenStore) : Interceptor {
         val tokenPresent = !token.isNullOrBlank()
 
         val newReq = if (!isUnauthEndpoint && tokenPresent) {
+            // Add Authorization header for authenticated endpoints
             original.newBuilder()
                 .header("Authorization", "Bearer $token")
                 .build()
         } else {
+            // Skip adding the header for unauthenticated endpoints
             original
         }
 

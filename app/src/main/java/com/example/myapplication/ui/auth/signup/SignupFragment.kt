@@ -67,6 +67,38 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                         is SignupViewModel.UiState.Loading -> {
                             setLoading(true)
                         }
+
+                        // NEW: handle EmailSent so we navigate to verification when signup response includes a temp token
+                        is SignupViewModel.UiState.EmailSent -> {
+                            setLoading(false)
+                            val emailArg = binding.etEmail.text.toString().trim()
+                            val passwordArg = binding.etPassword.text.toString()
+
+                            // Build bundle including tempToken so the verification fragment receives it
+                            val bundle = bundleOf(
+                                "email" to emailArg,
+                                "password" to passwordArg,
+                                "tempToken" to state.tempToken
+                            )
+
+                            try {
+                                val nav = findNavController()
+                                val actionId = R.id.action_signupFragment_to_signupVerificationFragment
+                                try {
+                                    nav.navigate(actionId, bundle)
+                                } catch (_: Exception) {
+                                    // fallback: try direct destination id as a last resort
+                                    try { nav.navigate(R.id.signupVerificationFragment, bundle) } catch (_: Exception) {
+                                        Toast.makeText(requireContext(), "Navigation failed. Please go to Login and try again.", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            } catch (_: Exception) {
+                                Toast.makeText(requireContext(), "Navigation failed. Please go to Login and try again.", Toast.LENGTH_LONG).show()
+                            } finally {
+                                viewModel.reset()
+                            }
+                        }
+
                         is SignupViewModel.UiState.Success -> {
                             setLoading(false)
                             // Use requiresVerification flag to decide where to route the user.
@@ -76,21 +108,12 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                                 val nav = findNavController()
                                 if (state.requiresVerification) {
                                     // Navigate to OTP verification screen and pass email/password
-                                    val hasAction = nav.currentDestination?.getAction(R.id.action_signupFragment_to_signupVerificationFragment) != null
-                                    if (nav.currentDestination?.id == R.id.signupFragment || hasAction) {
-                                        nav.navigate(
-                                            R.id.signupVerificationFragment,
-                                            bundleOf("email" to emailArg, "password" to passwordArg)
-                                        )
-                                    } else {
-                                        // Fallback: try direct navigate, otherwise show helper toast
-                                        try {
-                                            nav.navigate(
-                                                R.id.signupVerificationFragment,
-                                                bundleOf("email" to emailArg, "password" to passwordArg)
-                                            )
-                                        } catch (e: Exception) {
-                                            // navigation failed; inform the user
+                                    val bundle = bundleOf("email" to emailArg, "password" to passwordArg)
+                                    try {
+                                        val actionId = R.id.action_signupFragment_to_signupVerificationFragment
+                                        nav.navigate(actionId, bundle)
+                                    } catch (_: Exception) {
+                                        try { nav.navigate(R.id.signupVerificationFragment, bundle) } catch (_: Exception) {
                                             Toast.makeText(requireContext(), "Navigation failed. Please go to Login and try again.", Toast.LENGTH_LONG).show()
                                         }
                                     }
@@ -107,7 +130,7 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                                         if (!popped) nav.navigate(R.id.loginFragment)
                                     }
                                 }
-                            } catch (e: Exception) {
+                            } catch (_: Exception) {
                                 // navigation failed; inform the user
                                 Toast.makeText(requireContext(), "Navigation failed. Please go to Login and try again.", Toast.LENGTH_LONG).show()
                             } finally {
@@ -122,6 +145,8 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                             binding.tvPasswordError.text = state.message
                             binding.tvPasswordError.visibility = View.VISIBLE
                         }
+
+                        else -> {}
                     }
                 }
             }
