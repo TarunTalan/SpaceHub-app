@@ -1,6 +1,8 @@
 package com.example.myapplication.ui.auth.password
 
 import android.os.Bundle
+import android.content.res.ColorStateList
+import androidx.core.content.ContextCompat
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -10,21 +12,32 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import android.text.Editable
+import android.text.TextWatcher
 import kotlinx.coroutines.launch
 import com.example.myapplication.R
 import com.example.myapplication.databinding.FragmentNewPasswordBinding
 import com.example.myapplication.ui.auth.common.PasswordToggleUtil
 import com.example.myapplication.ui.auth.reset.ResetPasswordViewModel
 import com.example.myapplication.ui.common.BaseFragment
+import com.example.myapplication.ui.auth.common.InputValidationHelper
 import androidx.navigation.fragment.findNavController
 
 class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
 
     private var _binding: FragmentNewPasswordBinding? = null
     private val binding get() = _binding!!
+    private var passwordFieldWatcher: TextWatcher? = null
     private val viewModel: ResetPasswordViewModel by viewModels()
     private var emailArg: String? = null
     private var tempTokenArg: String? = null
+
+    // Colors and defaults used for validation visuals
+    private val redColor by lazy { ContextCompat.getColor(requireContext(), R.color.error_red) }
+    private val blueColor by lazy { ContextCompat.getColor(requireContext(), R.color.primary_blue) }
+    private val grayColor by lazy { ContextCompat.getColor(requireContext(), R.color.gray_medium) }
+    // don't access TextInputLayout start icon tint at class init (may not be available in this Material version)
+    private lateinit var passwordTextDefault: ColorStateList
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -40,11 +53,53 @@ class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
         ViewCompat.requestApplyInsets(binding.root)
         PasswordToggleUtil.attach(binding.passwordLayout, binding.etPassword)
         PasswordToggleUtil.attach(binding.confirmPasswordLayout, binding.etConfirmPassword)
+        // capture runtime defaults
+        try { passwordTextDefault = binding.etPassword.textColors } catch (_: Exception) { passwordTextDefault = ColorStateList.valueOf(blueColor) }
+        // initialize any defaults we will use for clearing invalid visuals
         emailArg = arguments?.getString("email")
         tempTokenArg = arguments?.getString("tempToken")
+        setupPasswordFieldTextWatchers()
         setupClickListeners()
         setupKeyboardDismiss(binding.root)
         observeViewModel()
+    }
+
+    // Clear invalid visuals as soon as user starts typing in password fields
+    private fun setupPasswordFieldTextWatchers() {
+        val clearBoth = {
+            binding.tvPasswordError.visibility = View.INVISIBLE
+            // Clear outline and text color but keep icon tints unchanged (pass null for icon defaults)
+            InputValidationHelper.clearInvalid(
+                binding.passwordLayout,
+                binding.etPassword,
+                null, // ivError
+                null, // startIconDefault (keep original icon)
+                null, // endIconDefault (keep original icon)
+                passwordTextDefault, // text default
+                blueColor,
+                grayColor
+            )
+            InputValidationHelper.clearInvalid(
+                binding.confirmPasswordLayout,
+                binding.etConfirmPassword,
+                null,
+                null,
+                null,
+                passwordTextDefault,
+                blueColor,
+                grayColor
+            )
+        }
+
+        val watcher = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) { clearBoth() }
+        }
+
+        binding.etPassword.addTextChangedListener(watcher)
+        binding.etConfirmPassword.addTextChangedListener(watcher)
+        passwordFieldWatcher = watcher
     }
 
     private fun observeViewModel() {
@@ -127,19 +182,54 @@ class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
         if (password.length < 6) {
             binding.tvPasswordError.text = getString(R.string.password_min_6)
             binding.tvPasswordError.visibility = View.VISIBLE
+            // mark both password fields invalid
+            InputValidationHelper.applyPasswordInvalid(binding.passwordLayout, binding.etPassword, redColor, ColorStateList.valueOf(redColor))
+            InputValidationHelper.applyPasswordInvalid(binding.confirmPasswordLayout, binding.etConfirmPassword, redColor, ColorStateList.valueOf(redColor))
             return false
         }
         if (password != confirmPassword) {
             binding.tvPasswordError.text = getString(R.string.passwords_do_not_match)
             binding.tvPasswordError.visibility = View.VISIBLE
+            InputValidationHelper.applyPasswordInvalid(binding.passwordLayout, binding.etPassword, redColor, ColorStateList.valueOf(redColor))
+            InputValidationHelper.applyPasswordInvalid(binding.confirmPasswordLayout, binding.etConfirmPassword, redColor, ColorStateList.valueOf(redColor))
             return false
         }
+        // clear error visuals
         binding.tvPasswordError.visibility = View.INVISIBLE
+        // Clear outline and text color but keep icon tints unchanged
+        InputValidationHelper.clearInvalid(
+            binding.passwordLayout,
+            binding.etPassword,
+            null,
+            null,
+            null,
+            passwordTextDefault,
+            blueColor,
+            grayColor
+        )
+        InputValidationHelper.clearInvalid(
+            binding.confirmPasswordLayout,
+            binding.etConfirmPassword,
+            null,
+            null,
+            null,
+            passwordTextDefault,
+            blueColor,
+            grayColor
+        )
         return true
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
+        // remove text watchers to avoid leaks
+        try {
+            passwordFieldWatcher?.let { pw ->
+                _binding?.etPassword?.removeTextChangedListener(pw)
+                _binding?.etConfirmPassword?.removeTextChangedListener(pw)
+            }
+        } catch (_: Exception) {}
+        passwordFieldWatcher = null
         _binding = null
     }
 }

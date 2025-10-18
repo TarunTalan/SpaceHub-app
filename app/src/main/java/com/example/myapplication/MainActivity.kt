@@ -13,6 +13,8 @@ import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import com.example.myapplication.databinding.ActivityMainBinding
 import android.content.Context
+import android.view.WindowManager
+import androidx.core.view.WindowCompat
 
 class MainActivity : AppCompatActivity() {
 
@@ -22,8 +24,15 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Ensure decor fits system windows so adjustResize works reliably
+        try { WindowCompat.setDecorFitsSystemWindows(window, true) } catch (_: Exception) {}
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Ensure window resizes when IME appears. Set at runtime to override any edge-to-edge side effects.
+        try {
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        } catch (_: Exception) {}
 
         // Find the NavHostFragment
         val navHostFragment = supportFragmentManager
@@ -32,14 +41,59 @@ class MainActivity : AppCompatActivity() {
         // Get the NavController
         navController = navHostFragment.navController
 
+        // Determine whether to show onboarding. Show only on first cold start.
+        try {
+            val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+            val shouldShowOnboarding = prefs.getBoolean("show_onboarding", true)
+
+            val navInflater = navController.navInflater
+            val graph = navInflater.inflate(R.navigation.auth_nav_graph)
+
+            if (shouldShowOnboarding) {
+                graph.setStartDestination(R.id.onboardingFragment)
+                prefs.edit().putBoolean("show_onboarding", false).apply()
+            } else {
+                graph.setStartDestination(R.id.loginFragment)
+            }
+
+            navController.graph = graph
+        } catch (_: Exception) {
+            // If anything fails, fall back to the XML-defined graph already linked to NavHostFragment
+        }
+
         // Handle back press with OnBackPressedDispatcher (modern API)
         onBackPressedDispatcher.addCallback(this) {
-            // Check if there's only one fragment in the back stack
-            if (navController.previousBackStackEntry == null) {
-                // Show exit confirmation dialog
+            // Treat several auth screens as top-level destinations where back should prompt for exit.
+            val topLevelDestinations = setOf(
+                R.id.loginFragment,
+                R.id.onboardingFragment,
+                R.id.signupFragment,
+                R.id.nameSignupFragment
+            )
+
+            val currentId = try { navController.currentDestination?.id } catch (_: Exception) { null }
+
+            val shouldConfirmExit = try {
+                // If current destination is one of the top-level auth destinations, confirm exit.
+                currentId != null && currentId in topLevelDestinations
+            } catch (_: Exception) {
+                true
+            }
+
+            if (shouldConfirmExit) {
                 showExitConfirmationDialog()
-            } else {
-                // Normal back navigation
+                return@addCallback
+            }
+
+            // Otherwise perform normal navigation
+            try {
+                if (!navController.navigateUp()) {
+                    if (isEnabled) {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                    }
+                }
+            } catch (_: Exception) {
                 if (isEnabled) {
                     isEnabled = false
                     onBackPressedDispatcher.onBackPressed()
