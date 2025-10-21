@@ -68,4 +68,7 @@
     <string name="navigation_failed_try_again">Navigation failed. Please try again.</string>
     <string name="registered_successful">Registered successfully. Please login.</string>
     <string name="navigation_error">Navigation error</string>
+    <string name="too_many_attempts_try_again">Too many attempts. Try again after %1$d minutes.</string>
+    <string name="please_wait_seconds">Please wait %1$d seconds before requesting OTP again.</string>
+    <string name="try_again_in_5_min">try_again_in_5min</string>
 </resources>

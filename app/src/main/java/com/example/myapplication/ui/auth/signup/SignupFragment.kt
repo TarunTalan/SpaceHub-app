@@ -11,8 +11,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewTreeObserver
 import android.view.WindowManager
-import android.util.Log
-import android.view.inputmethod.InputMethodManager
 import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
 import androidx.core.view.ViewCompat
@@ -31,7 +29,10 @@ import com.example.myapplication.ui.auth.common.PasswordToggleUtil
 import com.example.myapplication.ui.common.InputValidator
 import com.example.myapplication.ui.auth.common.InputValidationHelper
 import kotlinx.coroutines.launch
-import com.example.myapplication.BuildConfig
+import android.os.CountDownTimer
+import android.view.inputmethod.InputMethodManager
+import androidx.core.content.edit
+import kotlin.math.ceil
 
 /**
  * Signup screen - SECOND STEP where users enter email and password.
@@ -40,6 +41,9 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
 
     private var _binding: FragmentSignupBinding? = null
     private val binding get() = _binding!!
+
+    // Local lockout timer for signup send OTP button
+    private var signupLockoutTimer: CountDownTimer? = null
 
     private val viewModel: SignupViewModel by viewModels()
 
@@ -77,6 +81,8 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
         setupTextWatchers()
         setupClickListeners()
         setupKeyboardDismiss(binding.root)
+        // Apply any persisted OTP lockout (set by verification fragments on too-many-attempts)
+        checkAndApplyLockout()
         observeViewModel()
 
         // Add auto-scroll behavior for input fields (scroll up 70dp when focused or clicked)
@@ -91,7 +97,7 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
             // If IME appeared, try to scroll the last-focused input into view (short retries to handle animation)
             if (imeInsets.bottom > 0) {
                 try {
-                    if (BuildConfig.DEBUG) Log.d("SignupScroll", "IME insets bottom=${imeInsets.bottom} - scrolling focused")
+                    // scroll into view; logging removed
                     scrollToFocusedAfterIme()
                     v.postDelayed({ try { scrollToFocusedAfterIme() } catch (_: Exception) {} }, 120)
                     v.postDelayed({ try { scrollToFocusedAfterIme() } catch (_: Exception) {} }, 300)
@@ -111,7 +117,7 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
         val scrollRoot = binding.scrollRoot
         val offset = dpToPx()
         val target = lastFocusedInput ?: (requireActivity().currentFocus ?: binding.root.findFocus()) ?: run {
-            if (BuildConfig.DEBUG) Log.d("SignupScroll", "scrollToFocusedAfterIme: no target focused")
+            // logging removed
             return
         }
 
@@ -121,7 +127,7 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
             target.getLocationInWindow(targetCoords)
             scrollRoot.getLocationInWindow(scrollCoords)
         } catch (_: Exception) {
-            if (BuildConfig.DEBUG) Log.d("SignupScroll", "scrollToFocusedAfterIme: getLocationInWindow failed")
+            // logging removed
             return
         }
 
@@ -129,7 +135,7 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
         val targetBottomInScroll = targetTopInScroll + target.height
         val visibleBottom = scrollRoot.height - scrollRoot.paddingBottom - offset
 
-        if (BuildConfig.DEBUG) Log.d("SignupScroll", "focused target top=$targetTopInScroll bottom=$targetBottomInScroll visibleBottom=$visibleBottom scrollY=${scrollRoot.scrollY}")
+        // logging removed
 
         val desired = when {
             targetBottomInScroll > visibleBottom -> {
@@ -148,8 +154,8 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
         }
 
         desired?.let { y ->
-            if (BuildConfig.DEBUG) Log.d("SignupScroll", "scrolling to y=$y")
-            try { scrollRoot.smoothScrollTo(0, y) } catch (_: Exception) { if (BuildConfig.DEBUG) Log.d("SignupScroll", "smoothScrollTo failed") }
+            // logging removed
+            try { scrollRoot.smoothScrollTo(0, y) } catch (_: Exception) { /* ignore */ }
         }
     }
 
@@ -330,6 +336,22 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
     private fun setupClickListeners() {
         // Complete signup - navigate to OTP verification
         binding.btnSignup.setOnClickListener {
+            // Defensive: block signup if OTP lockout is active
+            try {
+                val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                val until = prefs.getLong("signup_otp_lockout_until", 0L)
+                if (System.currentTimeMillis() < until) {
+                    val remaining = until - System.currentTimeMillis()
+                    val minutesLeft = ceil(remaining / 60000.0).toInt()
+                    binding.tvEmailError.text = getString(R.string.too_many_attempts_try_again, minutesLeft)
+                    binding.tvEmailError.visibility = View.VISIBLE
+                    binding.btnSignup.isEnabled = false
+                    binding.btnSignup.alpha = 0.5f
+                    startSignupLockoutTimer(until)
+                    return@setOnClickListener
+                }
+            } catch (_: Exception) { /* ignore and continue */ }
+
             if (validateInput()) {
                 val email = binding.etEmail.text.toString().trim()
                 val password = binding.etPassword.text.toString()
@@ -509,7 +531,6 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
             val child = scrollRoot.getChildAt(0) ?: return
             if (!contentTranslated) {
                 contentTranslated = true
-                if (BuildConfig.DEBUG) Log.d("SignupScroll", "translateContentUp called")
                 try { child.animate().translationY(-offset.toFloat()).setDuration(180).start() } catch (_: Exception) {}
             }
         }
@@ -518,7 +539,6 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
             val child = scrollRoot.getChildAt(0) ?: return
             if (contentTranslated) {
                 contentTranslated = false
-                if (BuildConfig.DEBUG) Log.d("SignupScroll", "resetContentTranslation called")
                 try { child.animate().translationY(0f).setDuration(160).start() } catch (_: Exception) {}
             }
         }
@@ -562,19 +582,16 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                 imm?.showSoftInput(target, InputMethodManager.SHOW_IMPLICIT)
             } catch (_: Exception) {}
 
-            if (BuildConfig.DEBUG) Log.d("SignupScroll", "scrollToTargetWithRetries for id=${'$'}{target.id}")
             // immediate attempt
             scrollRoot.post {
                 try {
                     val y = computeScrollYForTarget(target)
                     if (y > 0) {
-                        if (BuildConfig.DEBUG) Log.d("SignupScroll", "immediate scrollTo y=${'$'}y")
                         resetContentTranslation()
                         try { scrollRoot.scrollTo(0, y) } catch (_: Exception) {}
                         try { scrollRoot.smoothScrollTo(0, y) } catch (_: Exception) {}
                     } else {
                         // no scrollable space — translate content up as fallback
-                        if (BuildConfig.DEBUG) Log.d("SignupScroll", "no scrollable space, translating content")
                         translateContentUp()
                     }
                 } catch (_: Exception) {
@@ -593,7 +610,6 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                 try {
                     val y = computeScrollYForTarget(target)
                     if (y > 0) {
-                        if (BuildConfig.DEBUG) Log.d("SignupScroll", "retry1 scrollTo y=${'$'}y")
                         resetContentTranslation()
                         try { scrollRoot.scrollTo(0, y) } catch (_: Exception) {}
                         try { scrollRoot.smoothScrollTo(0, y) } catch (_: Exception) {}
@@ -606,7 +622,6 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                 try {
                     val y = computeScrollYForTarget(target)
                     if (y > 0) {
-                        if (BuildConfig.DEBUG) Log.d("SignupScroll", "retry2 scrollTo y=${'$'}y")
                         resetContentTranslation()
                         try { scrollRoot.scrollTo(0, y) } catch (_: Exception) {}
                         try { scrollRoot.smoothScrollTo(0, y) } catch (_: Exception) {}
@@ -622,7 +637,6 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
         inputs.forEach { input ->
             input.setOnFocusChangeListener { _, hasFocus ->
                 if (hasFocus) {
-                    if (BuildConfig.DEBUG) Log.d("SignupScroll", "focus gained on id=${'$'}{input.id}")
                     lastFocusedInput = input
                     scrollToTargetWithRetries(input)
                 } else {
@@ -632,14 +646,12 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
             }
 
             input.setOnClickListener {
-                if (BuildConfig.DEBUG) Log.d("SignupScroll", "clicked on id=${'$'}{input.id}")
                 lastFocusedInput = input
                 scrollToTargetWithRetries(input)
             }
 
             input.setOnTouchListener { v, event ->
                 if (event.action == MotionEvent.ACTION_DOWN) {
-                    if (BuildConfig.DEBUG) Log.d("SignupScroll", "touch down on id=${'$'}{input.id}")
                     lastFocusedInput = input
                     input.requestFocus()
                     try {
@@ -714,8 +726,54 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                 globalFocusListener?.let { listener -> it.root.viewTreeObserver.removeOnGlobalFocusChangeListener(listener) }
             }
         } catch (_: Exception) {}
+        signupLockoutTimer?.cancel()
         _binding = null
 
         // No WindowInsetsAnimation callback to clean up (removed)
+    }
+
+    // Read persisted lockout and apply UI if active. Starts a local timer to update the message.
+    private fun checkAndApplyLockout() {
+        try {
+            val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+            val until = prefs.getLong("signup_otp_lockout_until", 0L)
+            if (System.currentTimeMillis() < until) {
+                // disable signup send button
+                binding.btnSignup.isEnabled = false
+                binding.btnSignup.alpha = 0.5f
+                // show an inline lockout message and start a timer to update it
+                startSignupLockoutTimer(until)
+            }
+        } catch (_: Exception) { /* ignore */ }
+    }
+
+    private fun startSignupLockoutTimer(untilMillis: Long) {
+        signupLockoutTimer?.cancel()
+        val remaining = untilMillis - System.currentTimeMillis()
+        if (remaining <= 0L) {
+            binding.btnSignup.isEnabled = true
+            binding.btnSignup.alpha = 1.0f
+            binding.tvPasswordError.visibility = View.INVISIBLE
+            try { requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE).edit { remove("signup_otp_lockout_until") } } catch (_: Exception) {}
+            return
+        }
+
+        signupLockoutTimer = object : CountDownTimer(remaining, 1000L) {
+            override fun onTick(millisUntilFinished: Long) {
+                val minutesLeft = Math.ceil(millisUntilFinished / 60000.0).toInt()
+                binding.tvEmailError.text = getString(R.string.too_many_attempts_try_again, minutesLeft)
+                binding.tvEmailError.visibility = View.VISIBLE
+            }
+
+            override fun onFinish() {
+                binding.btnSignup.isEnabled = true
+                binding.btnSignup.alpha = 1.0f
+                binding.tvPasswordError.visibility = View.INVISIBLE
+                try { requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE).edit { remove("signup_otp_lockout_until") } } catch (_: Exception) {}
+                signupLockoutTimer = null
+            }
+        }
+
+        signupLockoutTimer?.start()
     }
 }

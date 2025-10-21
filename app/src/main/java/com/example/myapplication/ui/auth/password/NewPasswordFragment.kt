@@ -28,6 +28,11 @@ class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
     private var _binding: FragmentNewPasswordBinding? = null
     private val binding get() = _binding!!
     private var passwordFieldWatcher: TextWatcher? = null
+    // store original icon tints so we can restore them later (separate for password and confirm fields)
+    private var startIconDefaultPassword: ColorStateList? = null
+    private var endIconDefaultPassword: ColorStateList? = null
+    private var startIconDefaultConfirm: ColorStateList? = null
+    private var endIconDefaultConfirm: ColorStateList? = null
     private val viewModel: ResetPasswordViewModel by viewModels()
     private var emailArg: String? = null
     private var tempTokenArg: String? = null
@@ -36,6 +41,7 @@ class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
     private val redColor by lazy { ContextCompat.getColor(requireContext(), R.color.error_red) }
     private val blueColor by lazy { ContextCompat.getColor(requireContext(), R.color.primary_blue) }
     private val grayColor by lazy { ContextCompat.getColor(requireContext(), R.color.gray_medium) }
+    private val subtitleGray by lazy { ContextCompat.getColor(requireContext(), R.color.subtitle_gray) }
     // don't access TextInputLayout start icon tint at class init (may not be available in this Material version)
     private lateinit var passwordTextDefault: ColorStateList
 
@@ -55,6 +61,23 @@ class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
         PasswordToggleUtil.attach(binding.confirmPasswordLayout, binding.etConfirmPassword)
         // capture runtime defaults
         try { passwordTextDefault = binding.etPassword.textColors } catch (_: Exception) { passwordTextDefault = ColorStateList.valueOf(blueColor) }
+        // capture original start/end icon tints (safe across Material versions via reflection)
+        startIconDefaultPassword = try {
+            val m = binding.passwordLayout.javaClass.getMethod("getStartIconTintList")
+            m.invoke(binding.passwordLayout) as? ColorStateList
+        } catch (_: Exception) { null }
+        endIconDefaultPassword = try {
+            val m = binding.passwordLayout.javaClass.getMethod("getEndIconTintList")
+            m.invoke(binding.passwordLayout) as? ColorStateList
+        } catch (_: Exception) { null }
+        startIconDefaultConfirm = try {
+            val m = binding.confirmPasswordLayout.javaClass.getMethod("getStartIconTintList")
+            m.invoke(binding.confirmPasswordLayout) as? ColorStateList
+        } catch (_: Exception) { null }
+        endIconDefaultConfirm = try {
+            val m = binding.confirmPasswordLayout.javaClass.getMethod("getEndIconTintList")
+            m.invoke(binding.confirmPasswordLayout) as? ColorStateList
+        } catch (_: Exception) { null }
         // initialize any defaults we will use for clearing invalid visuals
         emailArg = arguments?.getString("email")
         tempTokenArg = arguments?.getString("tempToken")
@@ -68,14 +91,15 @@ class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
     private fun setupPasswordFieldTextWatchers() {
         val clearBoth = {
             binding.tvPasswordError.visibility = View.INVISIBLE
-            // Clear outline and text color but keep icon tints unchanged (pass null for icon defaults)
+            // Clear outline and text color; set icons to subtitle_gray to match design
+            val subtitleTint = ColorStateList.valueOf(subtitleGray)
             InputValidationHelper.clearInvalid(
                 binding.passwordLayout,
                 binding.etPassword,
-                null, // ivError
-                null, // startIconDefault (keep original icon)
-                null, // endIconDefault (keep original icon)
-                passwordTextDefault, // text default
+                null,
+                subtitleTint,
+                subtitleTint,
+                passwordTextDefault,
                 blueColor,
                 grayColor
             )
@@ -83,12 +107,17 @@ class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
                 binding.confirmPasswordLayout,
                 binding.etConfirmPassword,
                 null,
-                null,
-                null,
+                subtitleTint,
+                subtitleTint,
                 passwordTextDefault,
                 blueColor,
                 grayColor
             )
+            // Also explicitly set start/end icon tints on the layouts to ensure they update immediately
+            try { binding.passwordLayout.setStartIconTintList(subtitleTint) } catch (_: Exception) {}
+            try { binding.passwordLayout.setEndIconTintList(subtitleTint) } catch (_: Exception) {}
+            try { binding.confirmPasswordLayout.setStartIconTintList(subtitleTint) } catch (_: Exception) {}
+            try { binding.confirmPasswordLayout.setEndIconTintList(subtitleTint) } catch (_: Exception) {}
         }
 
         val watcher = object : TextWatcher {
@@ -115,6 +144,7 @@ class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
                             // After password reset and automatic login, do not navigate to the login screen.
                             // Show a concise user message only.
                             android.widget.Toast.makeText(requireContext(), "Password changed. Logging in", android.widget.Toast.LENGTH_SHORT).show()
+                            findNavController().navigate(R.id.action_newPasswordFragment_to_logoutFragment)
                             // Keep the ViewModel state reset so UI can return to idle.
                             viewModel.reset()
                         }
@@ -196,13 +226,13 @@ class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
         }
         // clear error visuals
         binding.tvPasswordError.visibility = View.INVISIBLE
-        // Clear outline and text color but keep icon tints unchanged
+        // Clear outline, restore text color and restore original icon tints if available
         InputValidationHelper.clearInvalid(
             binding.passwordLayout,
             binding.etPassword,
             null,
-            null,
-            null,
+            startIconDefaultPassword,
+            endIconDefaultPassword,
             passwordTextDefault,
             blueColor,
             grayColor
@@ -211,8 +241,8 @@ class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
             binding.confirmPasswordLayout,
             binding.etConfirmPassword,
             null,
-            null,
-            null,
+            startIconDefaultConfirm,
+            endIconDefaultConfirm,
             passwordTextDefault,
             blueColor,
             grayColor

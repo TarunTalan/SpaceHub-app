@@ -1,5 +1,6 @@
 package com.example.myapplication.ui.auth.signup
 
+import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.os.Bundle
@@ -28,11 +29,20 @@ import com.example.myapplication.ui.auth.common.InputValidationHelper
 import androidx.core.content.ContextCompat
 import android.text.InputFilter
 import androidx.core.widget.addTextChangedListener
+import java.util.Locale
+import androidx.core.content.edit
 
 class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup) {
     private var _binding: FragmentVerifySignupBinding? = null
     private val binding get() = _binding!!
     private val viewModel: SignupViewModel by viewModels()
+
+    // Helper to detect 'too many attempts' or similar lockout messages
+    private fun isTooManyAttempts(message: String?): Boolean {
+        if (message.isNullOrBlank()) return false
+        val msg = message.lowercase(Locale.getDefault())
+        return msg.contains("too many") || (msg.contains("attempt") && msg.contains("limit")) || msg.contains("temporarily disabled") || msg.contains("blocked")
+    }
     private var emailArg: String? = null
     private var passwordArg: String? = null
     private var isLoading = false
@@ -94,6 +104,9 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
             cooldownHelper = cooldownHelper
         )
 
+        // Apply persisted lockout (if any) so UI stays disabled when user returns after server lockout
+        checkAndApplyLockout()
+
         // Restrict OTP input length to 6 digits and clear errors when user types
         binding.etOtp.filters = arrayOf(InputFilter.LengthFilter(6))
         binding.etOtp.addTextChangedListener { _ ->
@@ -124,6 +137,7 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                         is SignupViewModel.UiState.Success -> {
                             updateLoading(false)
                             Toast.makeText(requireContext(), "Signing in", Toast.LENGTH_SHORT).show()
+                            findNavController().navigate(R.id.action_signupVerificationFragment_to_logoutFragment)
                             viewModel.reset()
                         }
                         is SignupViewModel.UiState.Error -> {
@@ -134,6 +148,34 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                             binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(redColorInt)
                             binding.tvResendOtp.isEnabled = true
                             binding.tvResendOtp.alpha = 1.0f
+                            // If backend indicates too many attempts, disable local verify and resend controls
+                            if (isTooManyAttempts(message)) {
+                                // disable verify and resend controls
+                                binding.btnLogin.isEnabled = false
+                                binding.btnLogin.alpha = 0.5f
+                                binding.tvResendOtp.isEnabled = false
+                                binding.tvResendOtp.alpha = 0.5f
+
+                                // start a 5-minute lockout cooldown and show the timer
+                                val lockDuration = 5 * 60 * 1000L // 5 minutes
+                                val lockMillis = System.currentTimeMillis() + lockDuration
+
+                                // persist lockout so it's applied if user navigates away and returns
+                                try {
+                                    val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                                    prefs.edit { putLong("signup_otp_lockout_until", lockMillis) }
+                                } catch (_: Exception) { /* ignore */ }
+
+                                // update ViewModel and start helper so UI timer will run
+                                try {
+                                    viewModel.setCooldownEndMillis(lockMillis)
+                                    cooldownHelper?.startWithEndMillis(lockMillis)
+                                } catch (_: Exception) { /* ignore */ }
+
+                                // show an inline lockout message
+                                binding.tvOtpError.text = getString(R.string.too_many_attempts_try_again, 5)
+                                binding.tvOtpError.isVisible = true
+                            }
                         }
                     }
                 }
@@ -182,6 +224,12 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
     private fun setupClickListeners() {
         binding.apply {
             btnLogin.setOnClickListener {
+                if (validateOtp()) {
+                    // call ViewModel to verify OTP
+                    val email = emailArg ?: ""
+                    val otp = etOtp.text.toString().trim()
+                    viewModel.verifyOtp(email, otp)
+                }
                 if (!validateOtp()) return@setOnClickListener
                 val email = emailArg?.trim()
                 if (email.isNullOrEmpty()) {
@@ -297,6 +345,26 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                 true
             }
         }
+    }
+
+    private fun checkAndApplyLockout() {
+        try {
+            val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+            val until = prefs.getLong("signup_otp_lockout_until", 0L)
+            if (System.currentTimeMillis() < until) {
+                // disable verify/resend controls
+                binding.btnLogin.isEnabled = false
+                binding.btnLogin.alpha = 0.5f
+                binding.tvResendOtp.isEnabled = false
+                binding.tvResendOtp.alpha = 0.5f
+                // show an inline lockout message and start a timer to update it
+                val minutesLeft = Math.ceil((until - System.currentTimeMillis()) / 60000.0).toInt()
+                binding.tvOtpError.text = getString(R.string.too_many_attempts_try_again, minutesLeft)
+                binding.tvOtpError.isVisible = true
+                // resume viewmodel/visual timer if helpful
+                try { viewModel.setCooldownEndMillis(until); cooldownHelper?.startWithEndMillis(until) } catch (_: Exception) {}
+            }
+        } catch (_: Exception) { /* ignore */ }
     }
 
     override fun onDestroyView() {

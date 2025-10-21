@@ -1,20 +1,20 @@
 package com.example.myapplication
 
-import android.os.Bundle
 import android.graphics.Rect
+import android.os.Bundle
 import android.view.MotionEvent
+import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.addCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
+import com.example.myapplication.data.network.SharedPrefsTokenStore
 import com.example.myapplication.databinding.ActivityMainBinding
-import android.content.Context
-import android.view.WindowManager
-import androidx.core.view.WindowCompat
 
 class MainActivity : AppCompatActivity() {
 
@@ -25,79 +25,110 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         // Ensure decor fits system windows so adjustResize works reliably
-        try { WindowCompat.setDecorFitsSystemWindows(window, true) } catch (_: Exception) {}
+        try {
+            WindowCompat.setDecorFitsSystemWindows(window, true)
+        } catch (_: Exception) {
+        }
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         // Ensure window resizes when IME appears. Set at runtime to override any edge-to-edge side effects.
+        @Suppress("DEPRECATION")
         try {
             window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
 
         // Find the NavHostFragment
-        val navHostFragment = supportFragmentManager
-            .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+        val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
 
         // Get the NavController
         navController = navHostFragment.navController
 
-        // Determine whether to show onboarding. Show only on first cold start.
+        // Determine whether to show onboarding based on authentication token.
         try {
-            val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-            val shouldShowOnboarding = prefs.getBoolean("show_onboarding", true)
+            // Read token using the app's token store so we use the same storage keys.
+            val token = SharedPrefsTokenStore(this).getAccessToken()
 
             val navInflater = navController.navInflater
             val graph = navInflater.inflate(R.navigation.auth_nav_graph)
 
-            if (shouldShowOnboarding) {
-                graph.setStartDestination(R.id.onboardingFragment)
-                prefs.edit().putBoolean("show_onboarding", false).apply()
-            } else {
-                graph.setStartDestination(R.id.loginFragment)
-            }
-
+            // Always keep the graph with onboarding as the start destination so it remains available
             navController.graph = graph
+
+            if (token.isNullOrEmpty()) {
+                // No token -> user not authenticated -> show onboarding (start destination)
+                // Do nothing: onboarding is the start destination and will be shown.
+            } else {
+                // User already has a token; show logout screen on open (authenticated state)
+                try {
+                    navController.navigate(R.id.logoutFragment)
+                } catch (_: Exception) {
+                    // If navigation fails for any reason, fall back silently — the graph is still set.
+                }
+            }
         } catch (_: Exception) {
             // If anything fails, fall back to the XML-defined graph already linked to NavHostFragment
         }
 
         // Handle back press with OnBackPressedDispatcher (modern API)
         onBackPressedDispatcher.addCallback(this) {
-            // Treat several auth screens as top-level destinations where back should prompt for exit.
-            val topLevelDestinations = setOf(
-                R.id.loginFragment,
-                R.id.onboardingFragment,
-                R.id.signupFragment,
-                R.id.nameSignupFragment
-            )
-
-            val currentId = try { navController.currentDestination?.id } catch (_: Exception) { null }
-
-            val shouldConfirmExit = try {
-                // If current destination is one of the top-level auth destinations, confirm exit.
-                currentId != null && currentId in topLevelDestinations
+            val currentId = try {
+                navController.currentDestination?.id
             } catch (_: Exception) {
-                true
+                null
             }
 
-            if (shouldConfirmExit) {
+            // If the user is on login, nameSignup, or logout, go to onboarding and clear other fragments
+            val goToOnboardingWhenBack = setOf(
+                R.id.loginFragment,
+                R.id.nameSignupFragment,
+            )
+
+            if (currentId != null && currentId in goToOnboardingWhenBack) {
+                try {
+                    val startDest = navController.graph.startDestinationId
+                    // Prefer popBackStack to remove all fragments above the start destination.
+                    val popped = try {
+                        navController.popBackStack(startDest, false)
+                    } catch (_: Exception) {
+                        false
+                    }
+                    if (!popped) {
+                        // If onboarding wasn't in the back stack, navigate to it (singleTop to avoid duplicates).
+                        navController.navigate(R.id.onboardingFragment) {
+                            launchSingleTop = true
+                        }
+                    }
+                } catch (_: Exception) {
+                    // If navigation fails, fallback to default behavior
+                    try {
+                        if (!navController.navigateUp()) showExitConfirmationDialog()
+                    } catch (_: Exception) {
+                        showExitConfirmationDialog()
+                    }
+                }
+                return@addCallback
+            }
+
+            // Consider these as top-level destinations where back should prompt for exit.
+            val topLevelDestinations = setOf(
+                R.id.onboardingFragment, R.id.logoutFragment
+            )
+
+            if (currentId != null && currentId in topLevelDestinations) {
+                // On a top-level screen -> confirm exit
                 showExitConfirmationDialog()
                 return@addCallback
             }
 
-            // Otherwise perform normal navigation
+            // Otherwise try normal navigation (go to previous fragment). If that's not possible, confirm exit.
             try {
                 if (!navController.navigateUp()) {
-                    if (isEnabled) {
-                        isEnabled = false
-                        onBackPressedDispatcher.onBackPressed()
-                    }
+                    showExitConfirmationDialog()
                 }
             } catch (_: Exception) {
-                if (isEnabled) {
-                    isEnabled = false
-                    onBackPressedDispatcher.onBackPressed()
-                }
+                showExitConfirmationDialog()
             }
         }
     }
@@ -113,7 +144,7 @@ class MainActivity : AppCompatActivity() {
                 val rawY = ev.rawY.toInt()
                 if (!outRect.contains(rawX, rawY)) {
                     v.clearFocus()
-                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                    val imm = getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager
                     imm?.hideSoftInputFromWindow(v.windowToken, 0)
                 }
             }
@@ -125,17 +156,12 @@ class MainActivity : AppCompatActivity() {
      * Shows a confirmation dialog before exiting the app.
      */
     private fun showExitConfirmationDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Exit App")
-            .setMessage("Are you sure you want to exit SpaceHub?")
+        AlertDialog.Builder(this).setTitle("Exit App").setMessage("Are you sure you want to exit SpaceHub?")
             .setPositiveButton("Yes") { _, _ ->
                 // Exit the app
                 finish()
-            }
-            .setNegativeButton("No") { dialog, _ ->
+            }.setNegativeButton("No") { dialog, _ ->
                 dialog.dismiss()
-            }
-            .setCancelable(true)
-            .show()
+            }.setCancelable(true).show()
     }
 }

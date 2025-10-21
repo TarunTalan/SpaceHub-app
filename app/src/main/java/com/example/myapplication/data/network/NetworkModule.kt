@@ -16,18 +16,29 @@ object NetworkModule {
 
     private fun createOkHttpClient(context: Context): OkHttpClient {
         val tokenStore = SharedPrefsTokenStore(context)
-        // Disable HTTP logging to avoid debug output in logs
+        // Configure HTTP logging: enabled at BODY level only when BuildConfig.DEBUG is true
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.NONE
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
         }
 
-        return OkHttpClient.Builder()
+        // Avoid printing sensitive headers even in debug logs
+        if (BuildConfig.DEBUG) {
+            try {
+                logging.redactHeader("Authorization")
+                logging.redactHeader("Cookie")
+            } catch (_: Exception) { /* ignore if method unavailable */ }
+        }
+
+        val builder = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .addInterceptor(TokenInterceptor(tokenStore))
-            .addInterceptor(logging)
-            .build()
+
+        // Always add the logging interceptor; its level controls output based on BuildConfig.DEBUG
+        builder.addInterceptor(logging)
+
+        return builder.build()
     }
 
     fun createRetrofit(context: Context): Retrofit =

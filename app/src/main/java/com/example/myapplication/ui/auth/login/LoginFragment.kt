@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import com.example.myapplication.ui.common.BaseFragment
 import android.widget.Toast
+import androidx.activity.addCallback
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.viewModels
@@ -61,6 +62,9 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
         setupClickListeners()
         setupKeyboardDismiss(binding.root)
         observeViewModel()
+
+        // Remove fragment-local back press handler which forcibly popped to onboarding.
+        // The activity already manages back behavior centrally in MainActivity.
     }
 
     private fun observeViewModel() {
@@ -73,13 +77,14 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
                         is LoginViewModel.UiState.Success -> {
                             setLoading(false)
                             Toast.makeText(requireContext(), "Login successful", Toast.LENGTH_SHORT).show()
+                            findNavController().navigate(R.id.action_loginFragment_to_logoutFragment)
                             viewModel.reset()
                         }
                         is LoginViewModel.UiState.Error -> {
                             setLoading(false)
-                            binding.tvPasswordError.text = state.message
-                            binding.tvPasswordError.visibility = View.VISIBLE
-                            applyPasswordInvalidVisuals()
+                            binding.tvEmailError.text = state.message
+                            binding.tvEmailError.visibility = View.VISIBLE
+                            applyEmailInvalidVisuals()
                         }
                     }
                 }

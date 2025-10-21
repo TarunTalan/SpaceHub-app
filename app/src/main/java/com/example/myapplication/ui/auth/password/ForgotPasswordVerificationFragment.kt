@@ -1,33 +1,34 @@
 package com.example.myapplication.ui.auth.password
 
+import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.os.Bundle
+import android.text.InputFilter
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import com.example.myapplication.ui.common.BaseFragment
-import com.example.myapplication.ui.common.OtpResendCooldownHelper
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColorInt
 import androidx.core.view.ViewCompat
 import androidx.core.view.isVisible
+import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.example.myapplication.R
-import com.example.myapplication.databinding.FragmentVerifyForgotPasswordBinding
-import com.example.myapplication.ui.auth.reset.ResetPasswordViewModel
 import com.example.myapplication.data.network.SharedPrefsTokenStore
-import kotlinx.coroutines.launch
-import com.example.myapplication.ui.common.createOtpCooldownHelper
-import com.example.myapplication.ui.common.startCooldownIfTokenPresent
-import com.example.myapplication.ui.common.resumeCooldownFromVm
+import com.example.myapplication.databinding.FragmentVerifyForgotPasswordBinding
 import com.example.myapplication.ui.auth.common.InputValidationHelper
-import androidx.core.content.ContextCompat
+import com.example.myapplication.ui.auth.reset.ResetPasswordViewModel
+import com.example.myapplication.ui.common.*
+import kotlinx.coroutines.launch
+import java.util.*
 import android.content.res.ColorStateList as CSList
+import androidx.core.content.edit
 
 class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify_forgot_password) {
 
@@ -46,6 +47,7 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
     private val redColorInt by lazy { ContextCompat.getColor(requireContext(), R.color.error_red) }
     private val normalOtpBgRes = R.drawable.edit_text_outline_selector
     private val errorOtpBgRes = R.drawable.edit_text_outline_error
+
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -95,6 +97,17 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
             clearVmCooldown = { viewModel.clearCooldown() },
             cooldownHelper = cooldownHelper
         )
+
+        // Apply persisted lockout (if present) so UI shows timer and message
+        checkAndApplyLockout()
+
+        // Restrict OTP input length to 6 digits and clear errors when user types
+        binding.etOtp.filters = arrayOf(InputFilter.LengthFilter(6))
+        binding.etOtp.addTextChangedListener { _ ->
+            binding.tvOtpError.isVisible = false
+            InputValidationHelper.clearEditTextInvalid(binding.etOtp, otpTextDefault, normalOtpBgRes)
+            binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
+        }
     }
 
     private fun initializeDefaults() {
@@ -127,7 +140,7 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
                 paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
                 setOnClickListener {
                     if (!isEnabled) return@setOnClickListener
-                    setTextColor("#2563EB".toColorInt())
+                    setTextColor(ColorStateList.valueOf(Color.WHITE))
                     etOtp.text?.clear()
                     tvOtpError.isVisible = false
                     ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
@@ -152,7 +165,10 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
                         try {
                             findNavController().navigate(R.id.loginFragment)
                         } catch (_: Exception) {
-                            try { findNavController().popBackStack(R.id.loginFragment, false) } catch (_: Exception) { /* ignore */ }
+                            try {
+                                findNavController().popBackStack(R.id.loginFragment, false)
+                            } catch (_: Exception) { /* ignore */
+                            }
                         }
                     }
                 }
@@ -213,11 +229,13 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
                                 binding.tvResendOtp.alpha = 0.5f
                             }
                         }
+
                         is ResetPasswordViewModel.UiState.ResendLoading -> {
                             // Explicit resend call in-flight: always disable/dim resend
                             binding.tvResendOtp.isEnabled = false
                             binding.tvResendOtp.alpha = 0.5f
                         }
+
                         is ResetPasswordViewModel.UiState.EmailSent -> {
                             // On initial EmailSent (OTP requested) or after resend, show feedback and restart cooldown
                             binding.progressBar.isVisible = false
@@ -230,6 +248,7 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
                             // Start the cooldown timer using helper
                             cooldownHelper?.start(resendCooldownMillis)
                         }
+
                         is ResetPasswordViewModel.UiState.OtpVerified -> {
                             binding.progressBar.isVisible = false
                             // Use tempToken provided by ViewModel when available, otherwise fall back to stored token, argument, or entered OTP
@@ -260,6 +279,7 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
 
                             viewModel.reset()
                         }
+
                         is ResetPasswordViewModel.UiState.Error -> {
                             binding.progressBar.isVisible = false
                             // Removed error toast; show inline error in tvOtpError
@@ -277,9 +297,40 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
                                 binding.tvResendOtp.isEnabled = true
                                 binding.tvResendOtp.alpha = 1.0f
                             }
+
+                            // If backend indicates too many attempts, disable login and signup navigation
+                            if (isTooManyAttempts(state.message)) {
+                                // disable local verify button and resend
+                                binding.btnLogin.isEnabled = false
+                                binding.btnLogin.alpha = 0.5f
+                                binding.tvResendOtp.isEnabled = false
+                                binding.tvResendOtp.alpha = 0.5f
+
+                                // start a 5-minute lockout cooldown and show the timer
+                                val lockDuration = 5 * 60 * 1000L // 5 minutes
+                                val lockMillis = System.currentTimeMillis() + lockDuration
+
+                                // persist lockout so it's applied if user navigates away and returns
+                                try {
+                                    val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                                    prefs.edit { putLong("forgot_otp_lockout_until", lockMillis) }
+                                } catch (_: Exception) { /* ignore */ }
+
+                                // update ViewModel and start helper so UI timer will run
+                                try {
+                                    viewModel.setCooldownEndMillis(lockMillis)
+                                    cooldownHelper?.startWithEndMillis(lockMillis)
+                                } catch (_: Exception) { /* ignore */ }
+
+                                // show an inline lockout message
+                                binding.tvOtpError.text = getString(R.string.too_many_attempts_try_again, 5)
+                                binding.tvOtpError.isVisible = true
+                            }
+
                         }
+
                         else -> {
-                            // Idle / other states handled above
+                            // Idle, PasswordReset or other states: nothing special to do
                         }
                     }
                 }
@@ -287,6 +338,35 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
         }
     }
 
+    private fun isTooManyAttempts(message: String?): Boolean {
+        if (message.isNullOrBlank()) return false
+        val msg = message.lowercase(Locale.getDefault())
+        return msg.contains("too many") || (msg.contains("attempt") && msg.contains("limit")) || msg.contains("temporarily disabled") || msg.contains("blocked")
+    }
+
+    private fun checkAndApplyLockout() {
+        try {
+            val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+            val until = prefs.getLong("forgot_otp_lockout_until", 0L)
+            if (System.currentTimeMillis() < until) {
+                // apply UI lockout and resume timer from persisted end millis
+                binding.btnLogin.isEnabled = false
+                binding.btnLogin.alpha = 0.5f
+                binding.tvResendOtp.isEnabled = false
+                binding.tvResendOtp.alpha = 0.5f
+
+                // set ViewModel cooldown and start helper to show timer
+                try {
+                    viewModel.setCooldownEndMillis(until)
+                    cooldownHelper?.startWithEndMillis(until)
+                } catch (_: Exception) { /* ignore */ }
+
+                // show an inline lockout message
+                binding.tvOtpError.text = getString(R.string.too_many_attempts_try_again, 5)
+                binding.tvOtpError.isVisible = true
+            }
+        } catch (_: Exception) { /* ignore */ }
+    }
 
     override fun onDestroyView() {
         super.onDestroyView()
