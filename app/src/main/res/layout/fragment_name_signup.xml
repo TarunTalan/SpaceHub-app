@@ -87,6 +87,7 @@
                     android:layout_width="0dp"
                     android:layout_height="40dp"
                     android:maxWidth="400dp"
+                    android:maxLength="25"
                     android:background="@drawable/edit_text_outline_selector"
                     android:fontFamily="@font/roboto_regular"
                     android:hint="@string/enter_first_name"
@@ -111,6 +112,20 @@
                     app:layout_constraintStart_toStartOf="@+id/etFirstName"
                     app:layout_constraintTop_toBottomOf="@+id/etFirstName"
                     tools:text="First Name is required" />
+
+                <!-- Character counter for first name  -->
+                <TextView
+                    android:id="@+id/tvFirstNameCounter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:fontFamily="@font/roboto_regular"
+                    android:textColor="#C6CAD1"
+                    android:textSize="12sp"
+                    android:visibility="visible"
+                    app:layout_constraintEnd_toEndOf="@+id/etFirstName"
+                    app:layout_constraintTop_toBottomOf="@+id/etFirstName"
+                    tools:text="0 / 50" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
             <!-- Last Name Group -->
@@ -140,6 +155,7 @@
                     android:layout_width="0dp"
                     android:layout_height="40dp"
                     android:maxWidth="400dp"
+                    android:maxLength="25"
                     android:background="@drawable/edit_text_outline_selector"
                     android:fontFamily="@font/roboto_regular"
                     android:hint="@string/enter_last_name"
@@ -164,6 +180,20 @@
                     app:layout_constraintStart_toStartOf="@+id/etLastName"
                     app:layout_constraintTop_toBottomOf="@+id/etLastName"
                     tools:text="Last Name is required" />
+
+                <!-- Character counter for last name -->
+                <TextView
+                    android:id="@+id/tvLastNameCounter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:fontFamily="@font/roboto_regular"
+                    android:textColor="#C6CAD1"
+                    android:textSize="12sp"
+                    android:visibility="visible"
+                    app:layout_constraintEnd_toEndOf="@+id/etLastName"
+                    app:layout_constraintTop_toBottomOf="@+id/etLastName"
+                    tools:text="0 / 50" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
             <!-- Actions Group -->

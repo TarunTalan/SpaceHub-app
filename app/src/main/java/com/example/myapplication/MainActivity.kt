@@ -8,7 +8,6 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import androidx.activity.addCallback
 import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.navigation.NavController
@@ -32,18 +31,45 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Find the NavHostFragment and initialize navController early so it can be used by the action bar
+        try {
+            val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+            navController = navHostFragment.navController
+        } catch (_: Exception) { /* ignore for now */ }
+
+        // Set the MaterialToolbar as the support action bar so it shows titles and Up button
+        try {
+            setSupportActionBar(binding.toolbar)
+            // Configure the action bar to work with the NavController
+            val appBarConfiguration = androidx.navigation.ui.AppBarConfiguration(navController.graph)
+            // Use NavigationUI helper explicitly to avoid missing extension import
+            androidx.navigation.ui.NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration)
+
+            // Make the toolbar visually plain: hide title and remove navigation icon
+            try {
+                supportActionBar?.setDisplayShowTitleEnabled(false)
+            } catch (_: Exception) { }
+            try {
+                binding.toolbar.title = ""
+                binding.toolbar.navigationIcon = null
+            } catch (_: Exception) { }
+
+            // Ensure NavigationUI won't re-populate title/navigation icon: clear them on destination changes
+            try {
+                navController.addOnDestinationChangedListener { _, _, _ ->
+                    try { supportActionBar?.setDisplayShowTitleEnabled(false) } catch (_: Exception) {}
+                    try { binding.toolbar.title = "" } catch (_: Exception) {}
+                    try { binding.toolbar.navigationIcon = null } catch (_: Exception) {}
+                }
+            } catch (_: Exception) { }
+        } catch (_: Exception) { }
+
         // Ensure window resizes when IME appears. Set at runtime to override any edge-to-edge side effects.
         @Suppress("DEPRECATION")
         try {
             window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         } catch (_: Exception) {
         }
-
-        // Find the NavHostFragment
-        val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
-
-        // Get the NavController
-        navController = navHostFragment.navController
 
         // Determine whether to show onboarding based on authentication token.
         try {
@@ -156,12 +182,25 @@ class MainActivity : AppCompatActivity() {
      * Shows a confirmation dialog before exiting the app.
      */
     private fun showExitConfirmationDialog() {
-        AlertDialog.Builder(this).setTitle("Exit App").setMessage("Are you sure you want to exit SpaceHub?")
-            .setPositiveButton("Yes") { _, _ ->
-                // Exit the app
-                finish()
-            }.setNegativeButton("No") { dialog, _ ->
-                dialog.dismiss()
-            }.setCancelable(true).show()
+        // Use centralized dialog helper with app resources so it respects Material theme overlay
+        com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(
+            this,
+            R.string.exit_app_title,
+            R.string.exit_app_message,
+            positiveRes = android.R.string.ok,
+            negativeRes = android.R.string.cancel,
+            onPositive = { finish() },
+            themeRes = R.style.ThemeOverlay_MyApplication_MaterialAlertDialog
+        )
     }
+
+    // Allow the NavController to handle the Up button.
+    override fun onSupportNavigateUp(): Boolean {
+        return try {
+            navController.navigateUp() || super.onSupportNavigateUp()
+        } catch (_: Exception) {
+            super.onSupportNavigateUp()
+        }
+    }
+
 }

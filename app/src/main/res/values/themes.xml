@@ -78,4 +78,11 @@
     <style name="TextAppearance.App.Overline" parent="TextAppearance.MaterialComponents.Overline">
         <item name="android:fontFamily">@font/app_font</item>
     </style>
+
+    <style name="ThemeOverlay.MyApplication.MaterialAlertDialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <!-- Use the app primary color for dialog accents and ensure on-primary contrasts properly -->
+        <item name="colorPrimary">@color/primary_blue</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <!-- Adjust surface/foreground colors if needed in future -->
+    </style>
 </resources>

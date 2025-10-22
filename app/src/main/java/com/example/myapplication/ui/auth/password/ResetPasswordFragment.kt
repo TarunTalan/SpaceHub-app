@@ -3,6 +3,7 @@ package com.example.myapplication.ui.auth.password
 import android.content.res.ColorStateList
 import android.os.Bundle
 import android.text.Editable
+import android.text.InputFilter
 import android.text.TextWatcher
 import android.util.Patterns
 import android.view.LayoutInflater
@@ -107,6 +108,19 @@ class ResetPasswordFragment : BaseFragment(R.layout.fragment_reset_password) {
         }
         // Ensure initial visuals are the normal (non-error) state
         clearEmailInvalidVisuals()
+
+        // Prevent users from typing whitespace into the email field and enforce length limit
+        val noSpaceFilter = InputFilter { source, start, end, _, _, _ ->
+            val out = StringBuilder()
+            var removed = false
+            for (i in start until end) {
+                val c = source[i]
+                if (!Character.isWhitespace(c)) out.append(c) else removed = true
+            }
+            if (!removed) null else out.toString()
+        }
+        val emailMax = 50
+        binding.etEmail.filters = arrayOf(InputFilter.LengthFilter(emailMax), noSpaceFilter)
     }
 
     private fun setupTextWatchers() {
