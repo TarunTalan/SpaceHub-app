@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- IME timing values (milliseconds) - tweak these to change animation/restore speed -->
+    <integer name="ime_restore_delay_ms">0</integer>
+    <integer name="ime_animation_duration_ms">350</integer>
+</resources>
+

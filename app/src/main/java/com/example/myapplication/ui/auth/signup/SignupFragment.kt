@@ -1,26 +1,26 @@
 package com.example.myapplication.ui.auth.signup
 
-import android.annotation.SuppressLint
+import android.animation.ValueAnimator
 import android.content.Context
 import android.content.res.ColorStateList
-import android.graphics.Rect
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.text.Editable
 import android.text.InputFilter
 import android.text.TextWatcher
 import android.view.View
-import android.view.ViewTreeObserver
 import android.view.WindowManager
-import android.view.inputmethod.InputMethodManager
+import android.view.animation.DecelerateInterpolator
 import android.widget.Toast
+import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams as CLP
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.os.bundleOf
 import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat.Type
 import androidx.core.view.isVisible
-import androidx.core.view.updatePadding
+import androidx.core.view.updateLayoutParams
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsAnimationCompat
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -59,9 +59,34 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
     private lateinit var emailTextDefault: ColorStateList
     private lateinit var passwordTextDefault: ColorStateList
 
-    // track last focused input so keyboard-open events can scroll to it
-    private var lastFocusedInput: View? = null
-    private var keyboardListener: ViewTreeObserver.OnGlobalLayoutListener? = null
+    // store original margins so we can restore on IME hide
+    private var originalContentTopMargin: Int? = null
+    private var originalInputTopMargin: Int? = null
+    // original margins for inputContainer child groups
+    private var originalPasswordGroupTop: Int? = null
+    private var originalConfirmGroupTop: Int? = null
+    private var originalSignupGroupTop: Int? = null
+
+    // Runnable used to delay margin restore to avoid bouncing when IME hides
+    private var imeRestoreRunnable: Runnable? = null
+    // Reduced delay so elements restore faster when keyboard hides — read from resources for easy tuning
+    private val imeRestoreDelayMs: Long by lazy { resources.getInteger(R.integer.ime_restore_delay_ms).toLong() }
+    // Duration used to animate margin transitions when IME appears/disappears — read from resources
+    private val imeAnimationDurationMs: Long by lazy { resources.getInteger(R.integer.ime_animation_duration_ms).toLong() }
+    // Active animators per view so we can cancel previous animations when a new one starts
+    private val runningAnimators: MutableMap<View, ValueAnimator> = mutableMapOf()
+    // Track maximum IME height during an animation to normalize progress
+    private var imeMaxHeight: Int = 0
+
+    // Remember last observed IME visibility/height so focus switches don't trigger layout updates
+    private var lastImeVisible: Boolean? = null
+    private var lastImeHeight: Int = 0
+
+    // When true, UI is locked in the "IME visible" state and must not react to further IME changes
+    private var imeLockedWhileVisible: Boolean = false
+
+    // Flag so OnApplyWindowInsetsListener does not fight the WindowInsetsAnimation callback
+    private var isImeAnimating: Boolean = false
 
     @Suppress("DEPRECATION")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -86,94 +111,200 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
         checkAndApplyLockout()
         observeViewModel()
 
-        // Add auto-scroll behavior for input fields (scroll up 70dp when focused or clicked)
-        setupAutoScrollForInputs()
+        // NOTE: keyboard auto-scroll and IME insets handling for scrollRoot removed — layout will not auto-scroll.
 
-        // Apply IME insets as bottom padding to the scrollRoot so NestedScrollView resizes correctly
-        ViewCompat.setOnApplyWindowInsetsListener(binding.scrollRoot) { v, insets ->
-            val imeInsets = insets.getInsets(Type.ime() or Type.systemBars())
-            // keep existing padding left/top/right; update bottom to accommodate IME
-            v.updatePadding(bottom = imeInsets.bottom)
+        // Capture original top margins (safe) so we can restore them when IME hides
+        try {
+            val contentLp = binding.contentLayout.layoutParams as? CLP
+            val inputLp = binding.inputContainer.layoutParams as? CLP
+            originalContentTopMargin = contentLp?.topMargin ?: 0
+            originalInputTopMargin = inputLp?.topMargin ?: 0
 
-            // If IME appeared, try to scroll the last-focused input into view (short retries to handle animation)
-            if (imeInsets.bottom > 0) {
-                try {
-                    // scroll into view; logging removed
-                    scrollToFocusedAfterIme()
-                    v.postDelayed({
-                        try {
-                            scrollToFocusedAfterIme()
-                        } catch (_: Exception) {
-                        }
-                    }, 120)
-                    v.postDelayed({
-                        try {
-                            scrollToFocusedAfterIme()
-                        } catch (_: Exception) {
-                        }
-                    }, 300)
-                } catch (_: Exception) {
+            // capture original group margins
+            val pwdLp = binding.passwordGroup.layoutParams as? CLP
+            val confLp = binding.confirmGroup.layoutParams as? CLP
+            val signupLp = binding.signupGroup.layoutParams as? CLP
+            originalPasswordGroupTop = pwdLp?.topMargin ?: 0
+            originalConfirmGroupTop = confLp?.topMargin ?: 0
+            originalSignupGroupTop = signupLp?.topMargin ?: 0
+        } catch (_: Exception) {
+            originalContentTopMargin = 0
+            originalInputTopMargin = 0
+            originalPasswordGroupTop = 0
+            originalConfirmGroupTop = 0
+            originalSignupGroupTop = 0
+        }
+
+        // Listen for IME (keyboard) visibility and update margins accordingly.
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            try {
+                // If animation is running, skip the immediate apply listener to avoid conflicts
+                if (isImeAnimating) return@setOnApplyWindowInsetsListener insets
+
+                val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
+                val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
+                val imeHeight = imeInsets.bottom
+
+                // If IME is visible and we've already locked the UI for visible state, do nothing
+                if (imeVisible && imeLockedWhileVisible) {
+                    // update observed height but don't trigger layout changes for small fluctuations
+                    lastImeHeight = imeHeight
+                    lastImeVisible = true
+                    return@setOnApplyWindowInsetsListener insets
                 }
+
+                // If we have seen the same visibility already (for example when moving focus between inputs), skip re-applying margins
+                if (lastImeVisible != null && lastImeVisible == imeVisible) {
+                    // update observed height but don't trigger layout changes for small fluctuations
+                    lastImeHeight = imeHeight
+                    return@setOnApplyWindowInsetsListener insets
+                }
+
+                // record new visibility
+                lastImeVisible = imeVisible
+                lastImeHeight = imeHeight
+
+                val px20 = resources.getDimensionPixelSize(R.dimen.ime_input_top)
+                val imeContentTop = resources.getDimensionPixelSize(R.dimen.ime_content_top)
+                val compactPx = resources.getDimensionPixelSize(R.dimen.spacing_form_group_compact)
+                val signupMin = resources.getDimensionPixelSize(R.dimen.signup_group_min_compact)
+
+                if (imeVisible) {
+                    // IME visible (fallback path when animation not present): cancel scheduled restore and apply compact margins immediately
+                    imeRestoreRunnable?.let { binding.root.removeCallbacks(it) }
+                    imeRestoreRunnable = null
+
+                    // Apply compact spacing once and lock UI while IME remains visible
+                    try {
+                        // animate transitions rather than abrupt changes
+                        animateTopMargin(binding.contentLayout, imeContentTop)
+                        animateTopMargin(binding.inputContainer, px20)
+                        animateTopMargin(binding.passwordGroup, compactPx)
+                        animateTopMargin(binding.confirmGroup, compactPx)
+                        animateTopMargin(binding.signupGroup, compactPx.coerceAtLeast(signupMin))
+                        // lock UI so subsequent IME inset changes (focus switches) don't change layout
+                        imeLockedWhileVisible = true
+                    } catch (_: Exception) { }
+                } else {
+                    // IME hidden: clear the lock and schedule a delayed restore to prevent immediate bounce
+                    imeLockedWhileVisible = false
+                    imeRestoreRunnable?.let { binding.root.removeCallbacks(it) }
+                    val restoreRunnable = Runnable {
+                        try {
+                            // animate restore to original margins
+                            animateTopMargin(binding.contentLayout, originalContentTopMargin ?: imeContentTop)
+                            animateTopMargin(binding.inputContainer, originalInputTopMargin ?: px20)
+                            animateTopMargin(binding.passwordGroup, originalPasswordGroupTop ?: (resources.getDimensionPixelSize(R.dimen.spacing_form_group)))
+                            animateTopMargin(binding.confirmGroup, originalConfirmGroupTop ?: (resources.getDimensionPixelSize(R.dimen.spacing_form_group)))
+                            animateTopMargin(binding.signupGroup, originalSignupGroupTop ?: (resources.getDimensionPixelSize(R.dimen.margin_input_container_top) / 2))
+                        } catch (_: Exception) {
+                            // ignore
+                        }
+                    }
+                    imeRestoreRunnable = restoreRunnable
+                    binding.root.postDelayed(restoreRunnable, imeRestoreDelayMs)
+                }
+            } catch (_: Exception) {
+                // ignore layout update failures
             }
 
-            // return the insets unchanged
+            // return insets so other listeners can use them
             insets
         }
-        ViewCompat.requestApplyInsets(binding.scrollRoot)
 
-        // NOTE: Removed WindowInsetsAnimationCompat callback code — the insets listener + retries handle IME timing.
+        // Use WindowInsetsAnimationCompat to animate margins smoothly when IME animates (API 30+ effectively)
+        try {
+            ViewCompat.setWindowInsetsAnimationCallback(binding.root, object : WindowInsetsAnimationCompat.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
+                override fun onPrepare(animation: WindowInsetsAnimationCompat) {
+                    // cancel any scheduled restore
+                    imeRestoreRunnable?.let { binding.root.removeCallbacks(it) }
+                    imeRestoreRunnable = null
+                    // reset max tracker
+                    imeMaxHeight = 0
+                    // reset last observed height so animation measurements start fresh
+                    lastImeHeight = 0
+                    // mark that we're animating so the apply-listener won't stomp
+                    isImeAnimating = true
+                }
+
+                override fun onProgress(insets: WindowInsetsCompat, runningAnimations: MutableList<WindowInsetsAnimationCompat>): WindowInsetsCompat {
+                    try {
+                        val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
+                        val imeHeight = imeInsets.bottom
+
+                        // If IME is visible and we've already locked UI for visible state, ignore progressive updates
+                        if (imeHeight > 0 && imeLockedWhileVisible) {
+                            lastImeHeight = imeHeight
+                            lastImeVisible = true
+                            return insets
+                        }
+
+                        // If IME just started showing and UI isn't locked yet, apply compact spacing once and lock
+                        else if (imeHeight > 0) {
+                            val px20 = resources.getDimensionPixelSize(R.dimen.ime_input_top)
+                            val imeContentTop = resources.getDimensionPixelSize(R.dimen.ime_content_top)
+                            val compactPx = resources.getDimensionPixelSize(R.dimen.spacing_form_group_compact)
+                            val signupMin = resources.getDimensionPixelSize(R.dimen.signup_group_min_compact)
+
+                            try {
+                                // animate to the compact layout when IME shows
+                                animateTopMargin(binding.contentLayout, imeContentTop)
+                                animateTopMargin(binding.inputContainer, px20)
+                                animateTopMargin(binding.passwordGroup, compactPx)
+                                animateTopMargin(binding.confirmGroup, compactPx)
+                                animateTopMargin(binding.signupGroup, compactPx.coerceAtLeast(signupMin))
+                                imeLockedWhileVisible = true
+                                lastImeVisible = true
+                                lastImeHeight = imeHeight
+                            } catch (_: Exception) {
+                                // ignore
+                            }
+                            return insets
+                        }
+
+                        // If IME is hiding (height == 0) don't do progressive animation — let apply-listener schedule restore
+                        return insets
+                    } catch (_: Exception) {
+                        // ignore
+                    }
+                    return insets
+                }
+
+                override fun onEnd(animation: WindowInsetsAnimationCompat) {
+                    // reset max and mark animation finished
+                    imeMaxHeight = 0
+                    isImeAnimating = false
+                    // If IME is hidden now, ensure lock is cleared so apply-listener can restore
+                    // We delay requestApplyInsets slightly to let the system settle before running the apply-listener
+                    try {
+                        binding.root.postDelayed({
+                            try {
+                                imeLockedWhileVisible = false
+                                // request apply so the normal restore runnable animates back to original state
+                                binding.root.requestApplyInsets()
+                            } catch (_: Exception) { }
+                        }, 0L)
+                    } catch (_: Exception) { }
+                }
+            })
+        } catch (_: Exception) {
+            // If animation callback isn't supported, we'll keep the fallback listener
+        }
     }
 
-    // Ensure when IME appears we attempt to scroll the focused input into view.
-    private fun scrollToFocusedAfterIme() {
-        val scrollRoot = binding.scrollRoot
-        val offset = dpToPx()
-        val target = lastFocusedInput ?: (requireActivity().currentFocus ?: binding.root.findFocus()) ?: run {
-            // logging removed
-            return
-        }
-
-        val targetCoords = IntArray(2)
-        val scrollCoords = IntArray(2)
+    override fun onDestroyView() {
+        // cleanup any pending callbacks to avoid leaking the view
         try {
-            target.getLocationInWindow(targetCoords)
-            scrollRoot.getLocationInWindow(scrollCoords)
-        } catch (_: Exception) {
-            // logging removed
-            return
-        }
-
-        val targetTopInScroll = targetCoords[1] - scrollCoords[1]
-        val targetBottomInScroll = targetTopInScroll + target.height
-        val visibleBottom = scrollRoot.height - scrollRoot.paddingBottom - offset
-
-        // logging removed
-
-        val desired = when {
-            targetBottomInScroll > visibleBottom -> {
-                val delta = targetBottomInScroll - visibleBottom
-                var d = scrollRoot.scrollY + delta
-                val child = scrollRoot.getChildAt(0)
-                val maxScroll = if (child != null) (child.height - scrollRoot.height) else 0
-                if (d > maxScroll) d = maxScroll.coerceAtLeast(0)
-                if (d < 0) 0 else d
-            }
-
-            targetTopInScroll < offset -> {
-                val d = (scrollRoot.scrollY + targetTopInScroll - offset).coerceAtLeast(0)
-                d
-            }
-
-            else -> null
-        }
-
-        desired?.let { y ->
-            // logging removed
+            imeRestoreRunnable?.let { binding.root.removeCallbacks(it) }
+            imeRestoreRunnable = null
+            // cancel any running margin animations to avoid leaking view references
             try {
-                scrollRoot.smoothScrollTo(0, y)
-            } catch (_: Exception) { /* ignore */
-            }
-        }
+                runningAnimators.values.forEach { it.cancel() }
+            } catch (_: Exception) { }
+            runningAnimators.clear()
+        } catch (_: Exception) { }
+        _binding = null
+        super.onDestroyView()
     }
 
     private fun observeViewModel() {
@@ -586,105 +717,6 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
         )
     }
 
-    // New helper: setup auto scroll for inputs by 70dp when clicked or focused
-    @SuppressLint("ClickableViewAccessibility")
-    private fun setupAutoScrollForInputs() {
-        val scrollRoot = binding.scrollRoot
-        val rootView = binding.root
-        val offset = dpToPx(70)
-
-        fun computeScrollYForTarget(target: View): Int {
-            val rect = Rect()
-            try {
-                target.getDrawingRect(rect)
-                scrollRoot.offsetDescendantRectToMyCoords(target, rect)
-            } catch (_: Exception) {
-                return 0
-            }
-
-            val targetTop = rect.top
-            val targetBottom = rect.bottom
-            val visibleBottom = scrollRoot.height - scrollRoot.paddingBottom - offset
-
-            return when {
-                targetBottom > visibleBottom -> {
-                    val delta = targetBottom - visibleBottom
-                    var desired = scrollRoot.scrollY + delta
-                    val child = scrollRoot.getChildAt(0)
-                    val maxScroll = if (child != null) (child.height - scrollRoot.height) else 0
-                    if (desired > maxScroll) desired = maxScroll.coerceAtLeast(0)
-                    if (desired < 0) 0 else desired
-                }
-                targetTop < offset -> {
-                    (scrollRoot.scrollY + targetTop - offset).coerceAtLeast(0)
-                }
-                else -> 0
-            }
-        }
-
-        val inputs = listOf(binding.etEmail, binding.etPassword, binding.etConfirmPassword)
-
-        fun scrollToView(view: View) {
-            try {
-                val y = computeScrollYForTarget(view)
-                if (y > 0) {
-                    scrollRoot.post { try { scrollRoot.smoothScrollTo(0, y) } catch (_: Exception) {} }
-                }
-            } catch (_: Exception) { }
-        }
-
-        inputs.forEach { input ->
-            input.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) scrollToView(input) }
-            input.setOnClickListener { scrollToView(input) }
-            input.setOnTouchListener { _, event ->
-                if (event.action == android.view.MotionEvent.ACTION_DOWN) {
-                    input.requestFocus()
-                    try {
-                        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-                        imm?.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
-                    } catch (_: Exception) { }
-                    scrollToView(input)
-                }
-                // allow other listeners to handle the touch
-                false
-            }
-        }
-
-        // Global focus listener to catch programmatic focus changes
-        val focusSet = inputs.map { it as View }.toSet()
-        val globalFocusListener = ViewTreeObserver.OnGlobalFocusChangeListener { _, newFocus ->
-            if (newFocus is View && newFocus in focusSet) {
-                lastFocusedInput = newFocus
-                newFocus.post { scrollToView(newFocus) }
-            }
-        }
-        rootView.viewTreeObserver.addOnGlobalFocusChangeListener(globalFocusListener)
-        this.globalFocusListener = globalFocusListener
-
-        // Keyboard visibility listener: ensure last-focused input is visible when IME appears
-        keyboardListener = ViewTreeObserver.OnGlobalLayoutListener {
-            val r = Rect()
-            try {
-                rootView.getWindowVisibleDisplayFrame(r)
-            } catch (_: Exception) { return@OnGlobalLayoutListener }
-            val screenHeight = rootView.rootView.height
-            val keypadHeight = screenHeight - r.bottom
-            if (keypadHeight > screenHeight * 0.15) {
-                val target = lastFocusedInput ?: (requireActivity().currentFocus ?: rootView.findFocus())
-                target?.let { t -> t.post { scrollToView(t) } }
-            }
-        }
-        rootView.viewTreeObserver.addOnGlobalLayoutListener(keyboardListener)
-    }
-
-    // store reference so we can unregister
-    private var globalFocusListener: ViewTreeObserver.OnGlobalFocusChangeListener? = null
-
-    // Convert dp to pixels. Default dp is 70 for the signup scroll offset.
-    private fun dpToPx(dp: Int = 70): Int {
-        val density = resources.displayMetrics.density
-        return (dp * density).toInt()
-    }
 
     // Read persisted lockout and apply UI if active. Starts a local timer to update the message.
     private fun checkAndApplyLockout() {
@@ -728,5 +760,37 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
         }
 
         signupLockoutTimer?.start()
+    }
+
+    // Helper to animate the top margin of a view's ConstraintLayout.LayoutParams smoothly.
+    private fun animateTopMargin(view: View, to: Int, duration: Long = imeAnimationDurationMs) {
+        try {
+            val lp = view.layoutParams as? CLP ?: return
+            val from = lp.topMargin
+            if (from == to) return
+
+            // cancel previous animator for this view
+            runningAnimators[view]?.cancel()
+
+            val animator = ValueAnimator.ofInt(from, to).apply {
+                this.duration = duration
+                interpolator = DecelerateInterpolator()
+                addUpdateListener { anim ->
+                    val value = anim.animatedValue as Int
+                    try {
+                        view.updateLayoutParams<CLP> { topMargin = value }
+                    } catch (_: Exception) { }
+                }
+                addListener(object : android.animation.Animator.AnimatorListener {
+                    override fun onAnimationStart(animation: android.animation.Animator) {}
+                    override fun onAnimationEnd(animation: android.animation.Animator) { runningAnimators.remove(view) }
+                    override fun onAnimationCancel(animation: android.animation.Animator) { runningAnimators.remove(view) }
+                    override fun onAnimationRepeat(animation: android.animation.Animator) {}
+                })
+            }
+
+            runningAnimators[view] = animator
+            animator.start()
+        } catch (_: Exception) { /* ignore animation failures */ }
     }
 }

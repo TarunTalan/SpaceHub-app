@@ -464,13 +464,11 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
         binding.tvOtpError.isVisible = true
         // Also mirror OTP error to tvEmailError in parent/signup layout if available
         setEmailError(message)
-        binding.scrollRoot.post {
-            binding.scrollRoot.smoothScrollTo(0, binding.tvOtpError.top)
-            binding.tvOtpError.bringToFront()
-            binding.tvOtpError.requestLayout()
-            binding.tvOtpError.invalidate()
+        // Removed automatic scrolling to the error view to prevent keyboard-driven auto-scroll.
+        // Keep accessibility notification so screen readers announce the error.
+        try {
             binding.tvOtpError.sendAccessibilityEvent(android.view.accessibility.AccessibilityEvent.TYPE_VIEW_FOCUSED)
-        }
+        } catch (_: Exception) { /* ignore */ }
     }
 
     // Set an email-level error view if present in the current view hierarchy
