@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- When true, the fragment will set the activity softInputMode to adjustResize to allow scrollable small-screen layout to work. Default: false (large screens keep WindowInsetsAnimation behavior) -->
+    <bool name="use_adjust_resize_for_small_screens">false</bool>
+</resources>
+

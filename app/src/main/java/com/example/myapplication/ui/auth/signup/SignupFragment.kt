@@ -8,6 +8,7 @@ import android.os.CountDownTimer
 import android.text.Editable
 import android.text.InputFilter
 import android.text.TextWatcher
+import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
@@ -67,7 +68,7 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
     private var originalConfirmGroupTop: Int? = null
     private var originalSignupGroupTop: Int? = null
 
-    // Runnable used to delay margin restore to avoid bouncing when IME hides
+    // Runnable used to delay margin restore to avoid bouncing
     private var imeRestoreRunnable: Runnable? = null
     // Reduced delay so elements restore faster when keyboard hides — read from resources for easy tuning
     private val imeRestoreDelayMs: Long by lazy { resources.getInteger(R.integer.ime_restore_delay_ms).toLong() }
@@ -75,8 +76,6 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
     private val imeAnimationDurationMs: Long by lazy { resources.getInteger(R.integer.ime_animation_duration_ms).toLong() }
     // Active animators per view so we can cancel previous animations when a new one starts
     private val runningAnimators: MutableMap<View, ValueAnimator> = mutableMapOf()
-    // Track maximum IME height during an animation to normalize progress
-    private var imeMaxHeight: Int = 0
 
     // Remember last observed IME visibility/height so focus switches don't trigger layout updates
     private var lastImeVisible: Boolean? = null
@@ -88,19 +87,42 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
     // Flag so OnApplyWindowInsetsListener does not fight the WindowInsetsAnimation callback
     private var isImeAnimating: Boolean = false
 
+    // store previous softInputMode so we can restore it when the fragment is destroyed
+    private var previousSoftInputMode: Int? = null
+
     @Suppress("DEPRECATION")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         _binding = FragmentSignupBinding.bind(view)
 
-        // Request the activity to resize the window when the keyboard appears so ScrollView can resize
-        try {
-            requireActivity().window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        // Read configurable height threshold (fallback to 680dp) so resource overrides can change behavior per device class
+        val smallHeightThresholdDp = try {
+            resources.getInteger(R.integer.small_height_threshold_dp)
         } catch (_: Exception) {
-            // ignore if activity/window is not available
+            680
         }
 
-        // Keep default window IME behavior; do not change softInputMode here.
+        // Determine whether to use ADJUST_RESIZE based on height breakpoint or a boolean resource — do it once.
+        try {
+            val screenHeightDp = try { resources.configuration.screenHeightDp } catch (_: Exception) { -1 }
+            val useAdjustResizeByHeight = if (screenHeightDp > 0) screenHeightDp <= smallHeightThresholdDp else false
+            val useAdjustResizeRes = resources.getBoolean(R.bool.use_adjust_resize_for_small_screens)
+            val finalUseAdjustResize = useAdjustResizeRes || useAdjustResizeByHeight
+
+            Log.d("SignupDebug", "screenHeightDp=$screenHeightDp useAdjustResizeRes=$useAdjustResizeRes useAdjustResizeByHeight=$useAdjustResizeByHeight finalUseAdjustResize=$finalUseAdjustResize")
+
+            if (finalUseAdjustResize) {
+                try {
+                    val window = requireActivity().window
+                    previousSoftInputMode = window.attributes?.softInputMode
+                    window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+                } catch (_: Exception) { /* ignore if activity/window not available */ }
+            }
+        } catch (_: Exception) {
+            // ignore environment failures; nothing critical
+        }
+
+        // Keep default window IME behavior; do not change softInputMode here beyond the decision above.
         ViewCompat.requestApplyInsets(binding.root)
 
         initializeDefaults()
@@ -110,8 +132,6 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
         // Apply any persisted OTP lockout (set by verification fragments on too-many-attempts)
         checkAndApplyLockout()
         observeViewModel()
-
-        // NOTE: keyboard auto-scroll and IME insets handling for scrollRoot removed — layout will not auto-scroll.
 
         // Capture original top margins (safe) so we can restore them when IME hides
         try {
@@ -147,7 +167,6 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
 
                 // If IME is visible and we've already locked the UI for visible state, do nothing
                 if (imeVisible && imeLockedWhileVisible) {
-                    // update observed height but don't trigger layout changes for small fluctuations
                     lastImeHeight = imeHeight
                     lastImeVisible = true
                     return@setOnApplyWindowInsetsListener insets
@@ -155,12 +174,10 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
 
                 // If we have seen the same visibility already (for example when moving focus between inputs), skip re-applying margins
                 if (lastImeVisible != null && lastImeVisible == imeVisible) {
-                    // update observed height but don't trigger layout changes for small fluctuations
                     lastImeHeight = imeHeight
                     return@setOnApplyWindowInsetsListener insets
                 }
 
-                // record new visibility
                 lastImeVisible = imeVisible
                 lastImeHeight = imeHeight
 
@@ -170,21 +187,26 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                 val signupMin = resources.getDimensionPixelSize(R.dimen.signup_group_min_compact)
 
                 if (imeVisible) {
-                    // IME visible (fallback path when animation not present): cancel scheduled restore and apply compact margins immediately
-                    imeRestoreRunnable?.let { binding.root.removeCallbacks(it) }
-                    imeRestoreRunnable = null
+                    // Only apply IME-driven layout changes when the IME actually covers/hides the inputContainer.
+                    if (isInputContainerHiddenByIme(imeHeight)) {
+                        // IME visible (fallback path when animation not present): cancel scheduled restore and apply compact margins immediately
+                        imeRestoreRunnable?.let { binding.root.removeCallbacks(it) }
+                        imeRestoreRunnable = null
 
-                    // Apply compact spacing once and lock UI while IME remains visible
-                    try {
-                        // animate transitions rather than abrupt changes
-                        animateTopMargin(binding.contentLayout, imeContentTop)
-                        animateTopMargin(binding.inputContainer, px20)
-                        animateTopMargin(binding.passwordGroup, compactPx)
-                        animateTopMargin(binding.confirmGroup, compactPx)
-                        animateTopMargin(binding.signupGroup, compactPx.coerceAtLeast(signupMin))
-                        // lock UI so subsequent IME inset changes (focus switches) don't change layout
-                        imeLockedWhileVisible = true
-                    } catch (_: Exception) { }
+                        // Apply compact spacing once and lock UI while IME remains visible
+                        try {
+                            // animate transitions rather than abrupt changes
+                            animateTopMargin(binding.contentLayout, imeContentTop)
+                            animateTopMargin(binding.inputContainer, px20)
+                            animateTopMargin(binding.passwordGroup, compactPx)
+                            animateTopMargin(binding.confirmGroup, compactPx)
+                            animateTopMargin(binding.signupGroup, compactPx.coerceAtLeast(signupMin))
+                            // lock UI so subsequent IME inset changes (focus switches) don't change layout
+                            imeLockedWhileVisible = true
+                        } catch (_: Exception) { }
+                    } else {
+                        // IME visible but inputContainer still visible -> do not change layout or lock UI.
+                    }
                 } else {
                     // IME hidden: clear the lock and schedule a delayed restore to prevent immediate bounce
                     imeLockedWhileVisible = false
@@ -219,8 +241,6 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                     // cancel any scheduled restore
                     imeRestoreRunnable?.let { binding.root.removeCallbacks(it) }
                     imeRestoreRunnable = null
-                    // reset max tracker
-                    imeMaxHeight = 0
                     // reset last observed height so animation measurements start fresh
                     lastImeHeight = 0
                     // mark that we're animating so the apply-listener won't stomp
@@ -241,23 +261,30 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
 
                         // If IME just started showing and UI isn't locked yet, apply compact spacing once and lock
                         else if (imeHeight > 0) {
-                            val px20 = resources.getDimensionPixelSize(R.dimen.ime_input_top)
-                            val imeContentTop = resources.getDimensionPixelSize(R.dimen.ime_content_top)
-                            val compactPx = resources.getDimensionPixelSize(R.dimen.spacing_form_group_compact)
-                            val signupMin = resources.getDimensionPixelSize(R.dimen.signup_group_min_compact)
+                            // Only proceed if the IME actually hides the inputContainer
+                            if (isInputContainerHiddenByIme(imeHeight)) {
+                                val px20 = resources.getDimensionPixelSize(R.dimen.ime_input_top)
+                                val imeContentTop = resources.getDimensionPixelSize(R.dimen.ime_content_top)
+                                val compactPx = resources.getDimensionPixelSize(R.dimen.spacing_form_group_compact)
+                                val signupMin = resources.getDimensionPixelSize(R.dimen.signup_group_min_compact)
 
-                            try {
-                                // animate to the compact layout when IME shows
-                                animateTopMargin(binding.contentLayout, imeContentTop)
-                                animateTopMargin(binding.inputContainer, px20)
-                                animateTopMargin(binding.passwordGroup, compactPx)
-                                animateTopMargin(binding.confirmGroup, compactPx)
-                                animateTopMargin(binding.signupGroup, compactPx.coerceAtLeast(signupMin))
-                                imeLockedWhileVisible = true
+                                try {
+                                    // animate to the compact layout when IME shows
+                                    animateTopMargin(binding.contentLayout, imeContentTop)
+                                    animateTopMargin(binding.inputContainer, px20)
+                                    animateTopMargin(binding.passwordGroup, compactPx)
+                                    animateTopMargin(binding.confirmGroup, compactPx)
+                                    animateTopMargin(binding.signupGroup, compactPx.coerceAtLeast(signupMin))
+                                    imeLockedWhileVisible = true
+                                    lastImeVisible = true
+                                    lastImeHeight = imeHeight
+                                } catch (_: Exception) {
+                                    // ignore
+                                }
+                            } else {
+                                // IME visible but inputContainer is still visible — do not animate/lock
                                 lastImeVisible = true
                                 lastImeHeight = imeHeight
-                            } catch (_: Exception) {
-                                // ignore
                             }
                             return insets
                         }
@@ -271,11 +298,9 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                 }
 
                 override fun onEnd(animation: WindowInsetsAnimationCompat) {
-                    // reset max and mark animation finished
-                    imeMaxHeight = 0
+                    // mark animation finished
                     isImeAnimating = false
                     // If IME is hidden now, ensure lock is cleared so apply-listener can restore
-                    // We delay requestApplyInsets slightly to let the system settle before running the apply-listener
                     try {
                         binding.root.postDelayed({
                             try {
@@ -293,6 +318,15 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
     }
 
     override fun onDestroyView() {
+        // restore previous softInputMode if we changed it
+        try {
+            previousSoftInputMode?.let { prev ->
+                try {
+                    requireActivity().window.setSoftInputMode(prev)
+                } catch (_: Exception) { }
+            }
+        } catch (_: Exception) { }
+
         // cleanup any pending callbacks to avoid leaking the view
         try {
             imeRestoreRunnable?.let { binding.root.removeCallbacks(it) }
@@ -305,6 +339,25 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
         } catch (_: Exception) { }
         _binding = null
         super.onDestroyView()
+    }
+
+    // Helper that detects whether the IME height will cover/hide the inputContainer view.
+    private fun isInputContainerHiddenByIme(imeHeight: Int): Boolean {
+        return try {
+            if (imeHeight <= 0) return false
+            // root height in pixels
+            val rootHeight = binding.root.height
+            if (rootHeight <= 0) return false
+            val loc = IntArray(2)
+            binding.inputContainer.getLocationOnScreen(loc)
+            val inputBottomY = loc[1] + binding.inputContainer.height
+            // visible area bottom (excluding IME)
+            val visibleBottom = rootHeight - imeHeight
+            // If the bottom of inputContainer is below the visible bottom area, IME hides it
+            inputBottomY > visibleBottom
+        } catch (_: Exception) {
+            false
+        }
     }
 
     private fun observeViewModel() {
@@ -389,7 +442,6 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                             setLoading(false)
                             // Show failure inline for registration error instead of toast
                             val msg = state.message.trim()
-                            msg.lowercase()
                             // If the server says the user/email already exists, show it near the email field
                             // generic auth error — show near password field
                             binding.tvEmailError.text = msg

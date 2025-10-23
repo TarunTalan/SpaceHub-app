@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Height-qualified override for larger phones / small tablets. Devices with smallest height >= 800dp
+         will use this threshold unless another override exists. -->
+    <integer name="small_height_threshold_dp">800</integer>
+</resources>
+

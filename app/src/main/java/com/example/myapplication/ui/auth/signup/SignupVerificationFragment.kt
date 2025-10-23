@@ -1,6 +1,5 @@
 package com.example.myapplication.ui.auth.signup
 
-import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.os.Bundle
@@ -33,6 +32,7 @@ import java.util.Locale
 import androidx.core.content.edit
 import android.widget.TextView
 import android.view.View
+import kotlin.math.ceil
 
 class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup) {
     private var _binding: FragmentVerifySignupBinding? = null
@@ -71,84 +71,71 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
         return "signup_otp_lockout_until_$norm"
     }
 
-    // Helper to check if the email is locked (robust: checks multiple variants to cover older persisted keys)
-    private fun isEmailLocked(email: String?): Boolean {
+    // Persist a lockout for the normalized email key
+    private fun persistLockout(email: String?, lockMillis: Long) {
         try {
-            val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+            val prefs = requireContext().getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+            val key = getLockoutKey(email)
+            prefs.edit { putLong(key, lockMillis) }
+        } catch (_: Exception) { /* ignore */ }
+    }
+
+    // Return the lockout end millis for the given email if a lock is active, otherwise null.
+    private fun getLockoutUntil(email: String?): Long? {
+        try {
+            val prefs = requireContext().getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
             val now = System.currentTimeMillis()
-            val variants = mutableListOf<String?>()
             val norm = normalizeEmail(email)
-            variants.add(norm)
-            // also check raw and trimmed variants in case previous code saved under different form
-            variants.add(email)
-            variants.add(email?.trim())
-            // dedupe while preserving null handling
-            val checked = linkedSetOf<String?>()
-            variants.forEach { checked.add(it) }
-            // check both signup and forgot prefixes so a lock from either flow applies
+            // check normalized, raw and trimmed variants (ignore nulls) and dedupe
+            val variants = listOfNotNull(norm, email, email?.trim()).map { it }.distinct()
             val prefixes = listOf("signup_otp_lockout_until_", "forgot_otp_lockout_until_")
-            for (v in checked) {
+            for (v in variants) {
                 for (p in prefixes) {
-                    val key = p + (v ?: "unknown")
-                    val until = prefs.getLong(key, 0L)
-                    if (now < until) return true
+                    val until = prefs.getLong(p + v, 0L)
+                    if (now < until) return until
                 }
             }
-        } catch (_: Exception) {  }
-        return false
+        } catch (_: Exception) { /* ignore and treat as not locked */ }
+        return null
     }
+
+    // Helper that says whether there's an active lock for this email
+    private fun isEmailLocked(email: String?): Boolean = getLockoutUntil(email) != null
 
     // Apply UI lock state for a specific email: disable/dim controls and show message if locked
     private fun applyLockStateForEmail(email: String?) {
         try {
-            val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-            val now = System.currentTimeMillis()
-            // gather variants and prefixes to search
-            val variants = listOf(normalizeEmail(email), email, email?.trim())
-            val prefixes = listOf("signup_otp_lockout_until_", "forgot_otp_lockout_until_")
-            var foundUntil = 0L
-            var locked = false
-            for (v in variants) {
-                for (p in prefixes) {
-                    val key = p + (v ?: "unknown")
-                    val saved = prefs.getLong(key, 0L)
-                    if (saved > now) {
-                        foundUntil = saved
-                        locked = true
-                        break
-                    }
-                }
-                if (locked) break
+            val foundUntil = getLockoutUntil(email)
+            if (foundUntil != null) {
+                setLockUI(true, foundUntil)
+                return
             }
 
-            if (locked) {
-                binding.btnLogin.isEnabled = false
-                binding.btnLogin.alpha = 0.5f
-                binding.tvResendOtp.isEnabled = false
-                binding.tvResendOtp.alpha = 0.5f
-                val minutesLeft = Math.ceil((foundUntil - System.currentTimeMillis()) / 60000.0).toInt().coerceAtLeast(1)
+            // no persisted lock — consult ViewModel cooldown if present
+            val vmCooldown = viewModel.cooldownEndMillis.value
+            if (vmCooldown == null || System.currentTimeMillis() >= vmCooldown) setLockUI(false) else setLockUI(false, vmCooldown)
+        } catch (_: Exception) { /* ignore */ }
+    }
+
+    // Centralized helper to set lock/normal UI state for verify/resend controls.
+    private fun setLockUI(locked: Boolean, untilMillis: Long? = null) {
+        if (locked) {
+            binding.btnLogin.isEnabled = false
+            binding.btnLogin.alpha = 0.5f
+            binding.tvResendOtp.isEnabled = false
+            binding.tvResendOtp.alpha = 0.5f
+            untilMillis?.let {
+                val minutesLeft = ceil((it - System.currentTimeMillis()) / 60000.0).toInt().coerceAtLeast(1)
                 binding.tvOtpError.text = getString(R.string.too_many_attempts_try_again, minutesLeft)
                 binding.tvOtpError.isVisible = true
-                // start/resume visual timer in case ViewModel needs it
-                try { viewModel.setCooldownEndMillis(foundUntil); cooldownHelper?.startWithEndMillis(foundUntil) } catch (_: Exception) {}
-            } else {
-                // if there's an active cooldown in VM for another reason, keep resend disabled accordingly
-                val vmCooldown = viewModel.cooldownEndMillis.value
-                if (vmCooldown == null || System.currentTimeMillis() >= vmCooldown) {
-                    binding.btnLogin.isEnabled = true
-                    binding.btnLogin.alpha = 1.0f
-                    binding.tvResendOtp.isEnabled = true
-                    binding.tvResendOtp.alpha = 1.0f
-                    binding.tvOtpError.isVisible = false
-                } else {
-                    // VM cooldown active — respect it
-                    binding.btnLogin.isEnabled = true
-                    binding.btnLogin.alpha = 1.0f
-                    binding.tvResendOtp.isEnabled = false
-                    binding.tvResendOtp.alpha = 0.5f
-                }
             }
-        } catch (_: Exception) { /* ignore */ }
+        } else {
+            binding.btnLogin.isEnabled = true
+            binding.btnLogin.alpha = 1.0f
+            binding.tvResendOtp.isEnabled = true
+            binding.tvResendOtp.alpha = 1.0f
+            binding.tvOtpError.isVisible = false
+        }
     }
 
     override fun onCreateView(
@@ -201,17 +188,8 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                 if (isAdded) {
                     failedAttempts = 0
                     try {
-                        if (!isEmailLocked(emailArg)) {
-                            binding.btnLogin.isEnabled = true
-                            binding.btnLogin.alpha = 1.0f
-                            binding.tvResendOtp.isEnabled = true
-                            binding.tvResendOtp.alpha = 1.0f
-                        } else {
-                            binding.btnLogin.isEnabled = false
-                            binding.btnLogin.alpha = 0.5f
-                            binding.tvResendOtp.isEnabled = false
-                            binding.tvResendOtp.alpha = 0.5f
-                        }
+                        // restore controls depending on whether the email is locked
+                        if (!isEmailLocked(emailArg)) setLockUI(false) else setLockUI(true, getLockoutUntil(emailArg))
                         binding.tvOtpError.isVisible = false
                     } catch (_: Exception) {
                         // view may be gone; ignore
@@ -335,21 +313,11 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                                 val lockMillis = System.currentTimeMillis() + lockDuration
 
                                 // persist lockout so it's applied if user navigates away and returns
-                                try {
-                                    val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-                                    val lockoutKey = getLockoutKey(emailArg)
-                                    prefs.edit { putLong(lockoutKey, lockMillis) }
-                                } catch (_: Exception) { /* ignore */ }
-
                                 // update ViewModel and start helper so UI timer will run
-                                try {
-                                    viewModel.setCooldownEndMillis(lockMillis)
-                                    // start visual countdown only if this fragment's email matches lock key
-                                    cooldownHelper?.startWithEndMillis(lockMillis)
-                                } catch (_: Exception) { /* ignore */ }
-
-                                // ensure UI immediately reflects the persisted lock for current email
-                                applyLockStateForEmail(emailArg)
+                                // persist and apply lockout
+                                persistLockout(emailArg, lockMillis)
+                                try { viewModel.setCooldownEndMillis(lockMillis); cooldownHelper?.startWithEndMillis(lockMillis) } catch (_: Exception) { }
+                                setLockUI(true, lockMillis)
 
                                 // show an inline lockout message
                                 binding.tvOtpError.text = getString(R.string.too_many_attempts_try_again, 5)
@@ -374,19 +342,12 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
 
                                     val lockDuration = 5 * 60 * 1000L // 5 minutes
                                     val lockMillis = System.currentTimeMillis() + lockDuration
-                                    try {
-                                        val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-                                        val lockoutKey = getLockoutKey(emailArg)
-                                        prefs.edit { putLong(lockoutKey, lockMillis) }
-                                    } catch (_: Exception) { /* ignore */ }
-
-                                    try {
-                                        viewModel.setCooldownEndMillis(lockMillis)
-                                        cooldownHelper?.startWithEndMillis(lockMillis)
-                                    } catch (_: Exception) { /* ignore */ }
-
-                                    // ensure UI reflects local enforced lock
-                                    applyLockStateForEmail(emailArg)
+                                    // persist lockout so it's applied if user navigates away and returns
+                                    // update ViewModel and start helper so UI timer will run
+                                    // persist and apply local lockout
+                                    persistLockout(emailArg, lockMillis)
+                                    try { viewModel.setCooldownEndMillis(lockMillis); cooldownHelper?.startWithEndMillis(lockMillis) } catch (_: Exception) { }
+                                    setLockUI(true, lockMillis)
 
                                     binding.tvOtpError.text = getString(R.string.too_many_attempts_try_again, 5)
                                     binding.tvOtpError.isVisible = true
@@ -576,21 +537,10 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
     // Apply persisted lockout (if any) so UI stays disabled when user returns after server lockout
     private fun checkAndApplyLockout() {
         try {
-            val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-            val lockoutKey = getLockoutKey(emailArg)
-            val until = prefs.getLong(lockoutKey, 0L)
-            if (System.currentTimeMillis() < until) {
-                // disable verify/resend controls
-                binding.btnLogin.isEnabled = false
-                binding.btnLogin.alpha = 0.5f
-                binding.tvResendOtp.isEnabled = false
-                binding.tvResendOtp.alpha = 0.5f
-                // show an inline lockout message and start a timer to update it
-                val minutesLeft = Math.ceil((until - System.currentTimeMillis()) / 60000.0).toInt()
-                binding.tvOtpError.text = getString(R.string.too_many_attempts_try_again, minutesLeft)
-                binding.tvOtpError.isVisible = true
-                // resume viewmodel/visual timer if helpful
-                try { viewModel.setCooldownEndMillis(until); cooldownHelper?.startWithEndMillis(until) } catch (_: Exception) {}
+            val until = getLockoutUntil(emailArg)
+            if (until != null && System.currentTimeMillis() < until) {
+                setLockUI(true, until)
+                try { viewModel.setCooldownEndMillis(until); cooldownHelper?.startWithEndMillis(until) } catch (_: Exception){}
             }
         } catch (_: Exception) { /* ignore */ }
     }
