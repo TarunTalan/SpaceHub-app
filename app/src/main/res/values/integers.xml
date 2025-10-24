@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Default small screen height threshold (in dp) used by SignupFragment -->
+    <integer name="small_height_threshold_dp">680</integer>
+</resources>
+

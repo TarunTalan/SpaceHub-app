@@ -39,11 +39,13 @@
     <string name="invalid_email_format">Invalid email format</string>
     <string name="password_required">Password is required</string>
     <string name="password_min_6">Password must be at least 6 characters</string>
+    <string name="password_min_8">Password must be at least 8 characters</string>
     <string name="confirm_password_required">Please confirm your password</string>
     <string name="passwords_do_not_match">Passwords do not match</string>
     <string name="otp_required">OTP is required</string>
     <string name="password_require_uppercase">Password must contain at least one uppercase letter</string>
     <string name="password_require_special">Password must contain at least one special character</string>
+    <string name="invalid_password">Invalid password!</string>
     <string name="password_require_digit">Password must contain at least one digit</string>
     <string name="otp_must_be_6_digits">OTP must be 6 digits</string>
     <string name="invalid_otp_format">Invalid OTP format</string>
@@ -57,7 +59,7 @@
     <string name="please_enter_the_otp_to_continue">Please enter the OTP to continue</string>
     <string name="reset_password">Reset Password</string>
     <string name="welcome_ncreate_your_account">Welcome\nCreate your account</string>
-    <string name="otp_timer_zero">0:00</string>
+    <string name="otp_timer_zero">00</string>
     <string name="signed_in">Signed in</string>
     <string name="otp_resent">OTP resent</string>
     <string name="missing_email">Email required</string>
@@ -68,4 +70,39 @@
     <string name="navigation_failed_try_again">Navigation failed. Please try again.</string>
     <string name="registered_successful">Registered successfully. Please login.</string>
     <string name="navigation_error">Navigation error</string>
+    <string name="too_many_attempts_try_again">Too many attempts. Try again after %1$d minutes.</string>
+    <string name="please_wait_seconds">Please wait %1$d seconds before requesting OTP again.</string>
+    <string name="try_again_in_5_min">try_again_in_5min</string>
+    <string name="first_name_max_length">First name must be at most 25 characters</string>
+    <string name="last_name_max_length">Last name must be at most 25 characters</string>
+    <!-- Character counter accessibility string: "%1$d of %2$d characters" -->
+    <string name="char_count_of_max">%1$d of %2$d characters</string>
+    <string name="char_count_slash">%1$d / %2$d</string>
+
+    <string name="first_name_no_spaces">First name must not contain spaces</string>
+    <string name="last_name_no_spaces">Last name must not contain spaces</string>
+
+    <!-- Name no-digit validation -->
+    <string name="first_name_no_digits">First name must not contain digits</string>
+    <string name="last_name_no_digits">Last name must not contain digits</string>
+
+    <!-- New: only-letters error messages -->
+    <string name="first_name_only_letters">First name must contain only letters</string>
+    <string name="last_name_only_letters">Last name must contain only letters</string>
+
+    <!-- Email rules -->
+    <string name="email_no_spaces">Email must not contain spaces</string>
+    <string name="email_max_length">Email must be at most 25 characters</string>
+
+    <!-- Password rules -->
+    <string name="password_no_spaces">Password must not contain spaces</string>
+    <string name="password_max_length">Password must be at most 25 characters</string>
+    <string name="password_require_lowercase">Password must contain at least one lowercase letter</string>
+    <string name="incorrect_otp_attempts_left">Incorrect OTP. %1$d attempts left.</string>
+    <!-- Exit signup confirmation -->
+    <string name="exit_signup_title">Exit signup</string>
+    <string name="exit_signup_message">Are you sure you want to discard signup?</string>
+    <string name="exit_app_title">Exit App</string>
+    <string name="exit_app_message">Are you sure you want to exit SpaceHub?</string>
+
 </resources>

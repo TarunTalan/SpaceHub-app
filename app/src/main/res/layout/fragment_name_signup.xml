@@ -1,231 +1,278 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/scrollRoot"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fillViewport="true"
-    android:scrollbars="none"
-    android:overScrollMode="always"
-    android:background="@drawable/background_gradient">
-
-    <androidx.constraintlayout.widget.ConstraintLayout
+<androidx.constraintlayout.widget.ConstraintLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:id="@+id/rootLayout"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
+        android:background="@drawable/background_gradient"
         android:focusableInTouchMode="true"
         tools:context=".ui.auth.signup.NameSignupFragment">
 
-        <!-- Title Group -->
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/titleGroup"
+    <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/contentLayout"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="@dimen/margin_form_horizontal"
             android:layout_marginTop="@dimen/margin_title_top"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
+            app:layout_constraintStart_toStartOf="@+id/guideline_start"
+            app:layout_constraintEnd_toStartOf="@+id/guideline_end">
+
+        <!-- Title Group -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/titleGroup"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
 
             <TextView
-                android:id="@+id/tvSignupTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="@font/roboto_medium"
-                android:text="@string/sign_up"
-                android:textColor="@android:color/white"
-                android:textSize="32sp"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
+                    android:id="@+id/tvSignupTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/roboto_medium"
+                    android:text="@string/sign_up"
+                    android:textColor="@android:color/white"
+                    android:textSize="@dimen/title_text_size"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
 
             <TextView
-                android:id="@+id/tvSubtitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/margin_subtitle_top"
-                android:fontFamily="@font/roboto_regular"
-                android:text="@string/welcome_ncreate_your_account"
-                android:textColor="#C6CAD1"
-                android:textSize="17sp"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/tvSignupTitle" />
+                    android:id="@+id/tvSubtitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/margin_subtitle_top"
+                    android:fontFamily="@font/roboto_regular"
+                    android:text="@string/welcome_ncreate_your_account"
+                    android:textColor="#C6CAD1"
+                    android:textSize="@dimen/subtitle_text_size"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvSignupTitle" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <!-- Input Container -->
         <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/inputContainer"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/margin_input_container_top"
-            app:layout_constraintTop_toBottomOf="@id/titleGroup"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
+                android:id="@+id/inputContainer"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/margin_input_container_top"
+                app:layout_constraintTop_toBottomOf="@id/titleGroup"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
 
             <!-- First Name Group -->
             <androidx.constraintlayout.widget.ConstraintLayout
-                android:id="@+id/firstNameGroup"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="@dimen/margin_form_horizontal"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent">
+                    android:id="@+id/firstNameGroup"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent">
 
                 <TextView
-                    android:id="@+id/tvFirstNameLabel"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="@font/roboto_semibold"
-                    android:paddingBottom="5dp"
-                    android:text="@string/first_name"
-                    android:textColor="#FFFFFF"
-                    app:layout_constraintStart_toStartOf="@+id/etFirstName"
-                    app:layout_constraintTop_toTopOf="parent" />
+                        android:id="@+id/tvFirstNameLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/roboto_semibold"
+                        android:paddingBottom="5dp"
+                        android:text="@string/first_name"
+                        android:textSize="@dimen/label_text_size"
+                        android:textColor="#FFFFFF"
+                        app:layout_constraintStart_toStartOf="@+id/etFirstName"
+                        app:layout_constraintTop_toTopOf="parent" />
 
                 <EditText
-                    android:id="@+id/etFirstName"
-                    android:layout_width="0dp"
-                    android:layout_height="40dp"
-                    android:maxWidth="400dp"
-                    android:background="@drawable/edit_text_outline_selector"
-                    android:fontFamily="@font/roboto_regular"
-                    android:hint="@string/enter_first_name"
-                    android:inputType="textPersonName"
-                    android:paddingHorizontal="20dp"
-                    android:textColor="#FFFFFF"
-                    android:textColorHint="#475569"
-                    android:textSize="15sp"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvFirstNameLabel" />
+                        android:id="@+id/etFirstName"
+                        android:layout_width="0dp"
+                        android:layout_height="@dimen/input_height"
+                        android:maxWidth="@dimen/input_max_width"
+                        android:maxLength="25"
+                        android:background="@drawable/edit_text_outline_selector"
+                        android:fontFamily="@font/roboto_regular"
+                        android:hint="@string/enter_first_name"
+                        android:inputType="textPersonName"
+                        android:paddingHorizontal="20dp"
+                        android:textColor="#FFFFFF"
+                        android:textColorHint="#475569"
+                        android:textSize="@dimen/input_text_size"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/tvFirstNameLabel" />
 
                 <TextView
-                    android:id="@+id/tvFirstNameError"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:fontFamily="@font/roboto_regular"
-                    android:textColor="#F44336"
-                    android:textSize="12sp"
-                    android:visibility="invisible"
-                    app:layout_constraintStart_toStartOf="@+id/etFirstName"
-                    app:layout_constraintTop_toBottomOf="@+id/etFirstName"
-                    tools:text="First Name is required" />
+                        android:id="@+id/tvFirstNameError"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/error_margin_top"
+                        android:fontFamily="@font/roboto_regular"
+                        android:textColor="#F44336"
+                        android:textSize="@dimen/error_text_size"
+                        android:visibility="invisible"
+                        app:layout_constraintStart_toStartOf="@+id/etFirstName"
+                        app:layout_constraintTop_toBottomOf="@+id/etFirstName"
+                        tools:text="First Name is required" />
+
+                <!-- Character counter for first name  -->
+                <TextView
+                        android:id="@+id/tvFirstNameCounter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:fontFamily="@font/roboto_regular"
+                        android:textColor="#C6CAD1"
+                        android:textSize="12sp"
+                        android:visibility="visible"
+                        app:layout_constraintEnd_toEndOf="@+id/etFirstName"
+                        app:layout_constraintTop_toBottomOf="@+id/etFirstName"
+                        tools:text="0 / 50" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
             <!-- Last Name Group -->
             <androidx.constraintlayout.widget.ConstraintLayout
-                android:id="@+id/lastNameGroup"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="@dimen/margin_form_horizontal"
-                android:layout_marginTop="@dimen/spacing_form_group"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/firstNameGroup">
+                    android:id="@+id/lastNameGroup"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/spacing_form_group"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/firstNameGroup">
 
                 <TextView
-                    android:id="@+id/tvLastNameLabel"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="@font/roboto_semibold"
-                    android:paddingBottom="5dp"
-                    android:text="@string/last_name"
-                    android:textColor="#FFFFFF"
-                    app:layout_constraintStart_toStartOf="@+id/etLastName"
-                    app:layout_constraintTop_toTopOf="parent" />
+                        android:id="@+id/tvLastNameLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/roboto_semibold"
+                        android:paddingBottom="5dp"
+                        android:text="@string/last_name"
+                        android:textSize="@dimen/label_text_size"
+                        android:textColor="#FFFFFF"
+                        app:layout_constraintStart_toStartOf="@+id/etLastName"
+                        app:layout_constraintTop_toTopOf="parent" />
 
                 <EditText
-                    android:id="@+id/etLastName"
-                    android:layout_width="0dp"
-                    android:layout_height="40dp"
-                    android:maxWidth="400dp"
-                    android:background="@drawable/edit_text_outline_selector"
-                    android:fontFamily="@font/roboto_regular"
-                    android:hint="@string/enter_last_name"
-                    android:inputType="textPersonName"
-                    android:paddingHorizontal="20dp"
-                    android:textColor="#FFFFFF"
-                    android:textColorHint="#475569"
-                    android:textSize="15sp"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvLastNameLabel" />
+                        android:id="@+id/etLastName"
+                        android:layout_width="0dp"
+                        android:layout_height="@dimen/input_height"
+                        android:maxWidth="@dimen/input_max_width"
+                        android:maxLength="25"
+                        android:background="@drawable/edit_text_outline_selector"
+                        android:fontFamily="@font/roboto_regular"
+                        android:hint="@string/enter_last_name"
+                        android:inputType="textPersonName"
+                        android:paddingHorizontal="20dp"
+                        android:textColor="#FFFFFF"
+                        android:textColorHint="#475569"
+                        android:textSize="@dimen/input_text_size"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/tvLastNameLabel" />
 
                 <TextView
-                    android:id="@+id/tvLastError"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:fontFamily="@font/roboto_regular"
-                    android:textColor="#F44336"
-                    android:textSize="12sp"
-                    android:visibility="invisible"
-                    app:layout_constraintStart_toStartOf="@+id/etLastName"
-                    app:layout_constraintTop_toBottomOf="@+id/etLastName"
-                    tools:text="Last Name is required" />
+                        android:id="@+id/tvLastError"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/error_margin_top"
+                        android:fontFamily="@font/roboto_regular"
+                        android:textColor="#F44336"
+                        android:textSize="@dimen/error_text_size"
+                        android:visibility="invisible"
+                        app:layout_constraintStart_toStartOf="@+id/etLastName"
+                        app:layout_constraintTop_toBottomOf="@+id/etLastName"
+                        tools:text="Last Name is required" />
+
+                <!-- Character counter for last name -->
+                <TextView
+                        android:id="@+id/tvLastNameCounter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:fontFamily="@font/roboto_regular"
+                        android:textColor="#C6CAD1"
+                        android:textSize="12sp"
+                        android:visibility="visible"
+                        app:layout_constraintEnd_toEndOf="@+id/etLastName"
+                        app:layout_constraintTop_toBottomOf="@+id/etLastName"
+                        tools:text="0 / 50" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
             <!-- Actions Group -->
             <androidx.constraintlayout.widget.ConstraintLayout
-                android:id="@+id/actionsGroup"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="32dp"
-                android:layout_marginTop="42dp"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/lastNameGroup">
+                    android:id="@+id/actionsGroup"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/proceed_group_top_margin"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/lastNameGroup">
 
                 <androidx.appcompat.widget.AppCompatButton
-                    android:id="@+id/btnProceed"
-                    android:layout_width="0dp"
-                    android:layout_height="37dp"
-                    android:maxWidth="400dp"
-                    android:background="@drawable/rounded_button_bg"
-                    android:fontFamily="@font/roboto_regular"
-                    android:text="@string/proceed"
-                    android:textAllCaps="false"
-                    android:textColor="@android:color/white"
-                    android:textSize="16sp"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
+                        android:id="@+id/btnProceed"
+                        android:layout_width="0dp"
+                        android:layout_height="@dimen/button_height"
+                        android:maxWidth="400dp"
+                        android:background="@drawable/rounded_button_bg"
+                        android:fontFamily="@font/roboto_regular"
+                        android:text="@string/proceed"
+                        android:textAllCaps="false"
+                        android:textColor="@android:color/white"
+                        android:textSize="@dimen/button_text_size"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
 
                 <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/btnProceed">
-
-                    <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:fontFamily="@font/roboto_regular"
-                        android:text="@string/already_have_an_account"
-                        android:textColor="#FFFFFF"
-                        android:textSize="13sp" />
+                        android:orientation="horizontal"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/btnProceed">
 
                     <TextView
-                        android:id="@+id/tvLoginLink"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:fontFamily="@font/roboto_regular"
-                        android:paddingVertical="15dp"
-                        android:text="@string/log_in"
-                        android:textColor="#2563EB"
-                        android:textSize="13sp" />
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/roboto_regular"
+                            android:text="@string/already_have_an_account"
+                            android:textColor="#FFFFFF"
+                            android:textSize="@dimen/login_text_size" />
+
+                    <TextView
+                            android:id="@+id/tvLoginLink"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="@dimen/login_margin_start"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:fontFamily="@font/roboto_regular"
+                            android:paddingVertical="@dimen/login_padding_vertical"
+                            android:text="@string/log_in"
+                            android:textColor="#2563EB"
+                            android:textSize="@dimen/login_text_size" />
                 </LinearLayout>
             </androidx.constraintlayout.widget.ConstraintLayout>
         </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <!-- Decorative Ellipses (unchanged) -->
-        <ImageView
+    <androidx.constraintlayout.widget.Guideline
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/guideline_start"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.08"
+            />
+
+    <androidx.constraintlayout.widget.Guideline
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/guideline_end"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.92"
+            />
+
+    <!-- Decorative Ellipses (unchanged) -->
+    <ImageView
             android:id="@+id/ellipse1"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -238,7 +285,7 @@
             app:layout_constraintStart_toStartOf="parent"
             tools:ignore="ContentDescription"/>
 
-        <ImageView
+    <ImageView
             android:id="@+id/ellipse2"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -251,7 +298,7 @@
             app:layout_constraintStart_toStartOf="parent"
             tools:ignore="ContentDescription"/>
 
-        <ImageView
+    <ImageView
             android:id="@+id/ellipse3"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -264,5 +311,4 @@
             app:layout_constraintStart_toStartOf="parent"
             tools:ignore="ContentDescription"/>
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
-</ScrollView>
+</androidx.constraintlayout.widget.ConstraintLayout>

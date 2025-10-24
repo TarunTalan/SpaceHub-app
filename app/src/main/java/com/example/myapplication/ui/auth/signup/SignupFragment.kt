@@ -1,25 +1,22 @@
 package com.example.myapplication.ui.auth.signup
 
-import android.annotation.SuppressLint
+import android.animation.ValueAnimator
 import android.content.Context
 import android.content.res.ColorStateList
-import android.graphics.Rect
 import android.os.Bundle
+import android.os.CountDownTimer
 import android.text.Editable
+import android.text.InputFilter
 import android.text.TextWatcher
-import android.view.MotionEvent
-import android.view.View
-import android.view.ViewTreeObserver
-import android.view.WindowManager
 import android.util.Log
-import android.view.inputmethod.InputMethodManager
+import android.view.View
+import android.view.WindowManager
+import android.view.animation.DecelerateInterpolator
+import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import androidx.core.os.bundleOf
-import androidx.core.view.ViewCompat
-import androidx.core.view.isVisible
-import androidx.core.view.WindowInsetsCompat.Type
-import androidx.core.view.updatePadding
-import com.example.myapplication.ui.common.BaseFragment
+import androidx.core.view.*
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -27,11 +24,13 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.example.myapplication.R
 import com.example.myapplication.databinding.FragmentSignupBinding
-import com.example.myapplication.ui.auth.common.PasswordToggleUtil
-import com.example.myapplication.ui.common.InputValidator
 import com.example.myapplication.ui.auth.common.InputValidationHelper
+import com.example.myapplication.ui.auth.common.PasswordToggleUtil
+import com.example.myapplication.ui.common.BaseFragment
+import com.example.myapplication.ui.common.InputValidator
 import kotlinx.coroutines.launch
-import com.example.myapplication.BuildConfig
+import kotlin.math.ceil
+import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams as CLP
 
 /**
  * Signup screen - SECOND STEP where users enter email and password.
@@ -40,6 +39,9 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
 
     private var _binding: FragmentSignupBinding? = null
     private val binding get() = _binding!!
+
+    // Local lockout timer for signup send OTP button
+    private var signupLockoutTimer: CountDownTimer? = null
 
     private val viewModel: SignupViewModel by viewModels()
 
@@ -54,102 +56,340 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
     private lateinit var emailTextDefault: ColorStateList
     private lateinit var passwordTextDefault: ColorStateList
 
-    // track last focused input so keyboard-open events can scroll to it
-    private var lastFocusedInput: View? = null
-    private var keyboardListener: ViewTreeObserver.OnGlobalLayoutListener? = null
+    // store original margins so we can restore on IME hide
+    private var originalContentTopMargin: Int? = null
+    private var originalInputTopMargin: Int? = null
+
+    // original margins for inputContainer child groups
+    private var originalPasswordGroupTop: Int? = null
+    private var originalConfirmGroupTop: Int? = null
+    private var originalSignupGroupTop: Int? = null
+
+    // Runnable used to delay margin restore to avoid bouncing
+    private var imeRestoreRunnable: Runnable? = null
+
+    // Reduced delay so elements restore faster when keyboard hides — read from resources for easy tuning
+    private val imeRestoreDelayMs: Long by lazy { resources.getInteger(R.integer.ime_restore_delay_ms).toLong() }
+
+    // Duration used to animate margin transitions when IME appears/disappears — read from resources
+    private val imeAnimationDurationMs: Long by lazy {
+        resources.getInteger(R.integer.ime_animation_duration_ms).toLong()
+    }
+
+    // Active animators per view so we can cancel previous animations when a new one starts
+    private val runningAnimators: MutableMap<View, ValueAnimator> = mutableMapOf()
+
+    // Remember last observed IME visibility/height so focus switches don't trigger layout updates
+    private var lastImeVisible: Boolean? = null
+    private var lastImeHeight: Int = 0
+
+    // When true, UI is locked in the "IME visible" state and must not react to further IME changes
+    private var imeLockedWhileVisible: Boolean = false
+
+    // Flag so OnApplyWindowInsetsListener does not fight the WindowInsetsAnimation callback
+    private var isImeAnimating: Boolean = false
+
+    // store previous softInputMode so we can restore it when the fragment is destroyed
+    private var previousSoftInputMode: Int? = null
 
     @Suppress("DEPRECATION")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         _binding = FragmentSignupBinding.bind(view)
 
-        // Request the activity to resize the window when the keyboard appears so ScrollView can resize
-        try {
-            requireActivity().window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        // Read configurable height threshold (fallback to 680dp) so resource overrides can change behavior per device class
+        val smallHeightThresholdDp = try {
+            resources.getInteger(R.integer.small_height_threshold_dp)
         } catch (_: Exception) {
-            // ignore if activity/window is not available
+            680
         }
 
-        // Keep default window IME behavior; do not change softInputMode here.
+        // Determine whether to use ADJUST_RESIZE based on height breakpoint or a boolean resource — do it once.
+        try {
+            val screenHeightDp = try {
+                resources.configuration.screenHeightDp
+            } catch (_: Exception) {
+                -1
+            }
+            val useAdjustResizeByHeight = if (screenHeightDp > 0) screenHeightDp <= smallHeightThresholdDp else false
+            val useAdjustResizeRes = resources.getBoolean(R.bool.use_adjust_resize_for_small_screens)
+            val finalUseAdjustResize = useAdjustResizeRes || useAdjustResizeByHeight
+
+            Log.d(
+                "SignupDebug",
+                "screenHeightDp=$screenHeightDp useAdjustResizeRes=$useAdjustResizeRes useAdjustResizeByHeight=$useAdjustResizeByHeight finalUseAdjustResize=$finalUseAdjustResize"
+            )
+
+            if (finalUseAdjustResize) {
+                try {
+                    val window = requireActivity().window
+                    previousSoftInputMode = window.attributes?.softInputMode
+                    window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+                } catch (_: Exception) { /* ignore if activity/window not available */
+                }
+            }
+        } catch (_: Exception) {
+            // ignore environment failures; nothing critical
+        }
+
+        // Keep default window IME behavior; do not change softInputMode here beyond the decision above.
         ViewCompat.requestApplyInsets(binding.root)
 
         initializeDefaults()
         setupTextWatchers()
         setupClickListeners()
         setupKeyboardDismiss(binding.root)
+        // Apply any persisted OTP lockout (set by verification fragments on too-many-attempts)
+        checkAndApplyLockout()
         observeViewModel()
 
-        // Add auto-scroll behavior for input fields (scroll up 70dp when focused or clicked)
-        setupAutoScrollForInputs()
+        // Capture original top margins (safe) so we can restore them when IME hides
+        try {
+            val contentLp = binding.contentLayout.layoutParams as? CLP
+            val inputLp = binding.inputContainer.layoutParams as? CLP
+            originalContentTopMargin = contentLp?.topMargin ?: 0
+            originalInputTopMargin = inputLp?.topMargin ?: 0
 
-        // Apply IME insets as bottom padding to the scrollRoot so NestedScrollView resizes correctly
-        ViewCompat.setOnApplyWindowInsetsListener(binding.scrollRoot) { v, insets ->
-            val imeInsets = insets.getInsets(Type.ime() or Type.systemBars())
-            // keep existing padding left/top/right; update bottom to accommodate IME
-            v.updatePadding(bottom = imeInsets.bottom)
+            // capture original group margins
+            val pwdLp = binding.passwordGroup.layoutParams as? CLP
+            val confLp = binding.confirmGroup.layoutParams as? CLP
+            val signupLp = binding.signupGroup.layoutParams as? CLP
+            originalPasswordGroupTop = pwdLp?.topMargin ?: 0
+            originalConfirmGroupTop = confLp?.topMargin ?: 0
+            originalSignupGroupTop = signupLp?.topMargin ?: 0
+        } catch (_: Exception) {
+            originalContentTopMargin = 0
+            originalInputTopMargin = 0
+            originalPasswordGroupTop = 0
+            originalConfirmGroupTop = 0
+            originalSignupGroupTop = 0
+        }
 
-            // If IME appeared, try to scroll the last-focused input into view (short retries to handle animation)
-            if (imeInsets.bottom > 0) {
-                try {
-                    if (BuildConfig.DEBUG) Log.d("SignupScroll", "IME insets bottom=${imeInsets.bottom} - scrolling focused")
-                    scrollToFocusedAfterIme()
-                    v.postDelayed({ try { scrollToFocusedAfterIme() } catch (_: Exception) {} }, 120)
-                    v.postDelayed({ try { scrollToFocusedAfterIme() } catch (_: Exception) {} }, 300)
-                } catch (_: Exception) {}
+        // Listen for IME (keyboard) visibility and update margins accordingly.
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            try {
+                // If animation is running, skip the immediate apply listener to avoid conflicts
+                if (isImeAnimating) return@setOnApplyWindowInsetsListener insets
+
+                val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
+                val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
+                val imeHeight = imeInsets.bottom
+
+                // If IME is visible and we've already locked the UI for visible state, do nothing
+                if (imeVisible && imeLockedWhileVisible) {
+                    lastImeHeight = imeHeight
+                    lastImeVisible = true
+                    return@setOnApplyWindowInsetsListener insets
+                }
+
+                // If we have seen the same visibility already (for example when moving focus between inputs), skip re-applying margins
+                if (lastImeVisible != null && lastImeVisible == imeVisible) {
+                    lastImeHeight = imeHeight
+                    return@setOnApplyWindowInsetsListener insets
+                }
+
+                lastImeVisible = imeVisible
+                lastImeHeight = imeHeight
+
+                val px20 = resources.getDimensionPixelSize(R.dimen.ime_input_top)
+                val imeContentTop = resources.getDimensionPixelSize(R.dimen.ime_content_top)
+                val compactPx = resources.getDimensionPixelSize(R.dimen.spacing_form_group_compact)
+                val signupMin = resources.getDimensionPixelSize(R.dimen.signup_group_min_compact)
+
+                if (imeVisible) {
+                    // Only apply IME-driven layout changes when the IME actually covers/hides the inputContainer.
+                    if (isInputContainerHiddenByIme(imeHeight)) {
+                        // IME visible (fallback path when animation not present): cancel scheduled restore and apply compact margins immediately
+                        imeRestoreRunnable?.let { binding.root.removeCallbacks(it) }
+                        imeRestoreRunnable = null
+
+                        // Apply compact spacing once and lock UI while IME remains visible
+                        try {
+                            // animate transitions rather than abrupt changes
+                            animateTopMargin(binding.contentLayout, imeContentTop)
+                            animateTopMargin(binding.inputContainer, px20)
+                            animateTopMargin(binding.passwordGroup, compactPx)
+                            animateTopMargin(binding.confirmGroup, compactPx)
+                            animateTopMargin(binding.signupGroup, compactPx.coerceAtLeast(signupMin))
+                            // lock UI so subsequent IME inset changes (focus switches) don't change layout
+                            imeLockedWhileVisible = true
+                        } catch (_: Exception) {
+                        }
+                    } else {
+                        // IME visible but inputContainer still visible -> do not change layout or lock UI.
+                    }
+                } else {
+                    // IME hidden: clear the lock and schedule a delayed restore to prevent immediate bounce
+                    imeLockedWhileVisible = false
+                    imeRestoreRunnable?.let { binding.root.removeCallbacks(it) }
+                    val restoreRunnable = Runnable {
+                        try {
+                            // animate restore to original margins
+                            animateTopMargin(binding.contentLayout, originalContentTopMargin ?: imeContentTop)
+                            animateTopMargin(binding.inputContainer, originalInputTopMargin ?: px20)
+                            animateTopMargin(
+                                binding.passwordGroup,
+                                originalPasswordGroupTop
+                                    ?: (resources.getDimensionPixelSize(R.dimen.spacing_form_group))
+                            )
+                            animateTopMargin(
+                                binding.confirmGroup,
+                                originalConfirmGroupTop ?: (resources.getDimensionPixelSize(R.dimen.spacing_form_group))
+                            )
+                            animateTopMargin(
+                                binding.signupGroup,
+                                originalSignupGroupTop
+                                    ?: (resources.getDimensionPixelSize(R.dimen.margin_input_container_top) / 2)
+                            )
+                        } catch (_: Exception) {
+                            // ignore
+                        }
+                    }
+                    imeRestoreRunnable = restoreRunnable
+                    binding.root.postDelayed(restoreRunnable, imeRestoreDelayMs)
+                }
+            } catch (_: Exception) {
+                // ignore layout update failures
             }
 
-            // return the insets unchanged
+            // return insets so other listeners can use them
             insets
         }
-        ViewCompat.requestApplyInsets(binding.scrollRoot)
 
-        // NOTE: Removed WindowInsetsAnimationCompat callback code — the insets listener + retries handle IME timing.
+        // Use WindowInsetsAnimationCompat to animate margins smoothly when IME animates (API 30+ effectively)
+        try {
+            ViewCompat.setWindowInsetsAnimationCallback(
+                binding.root,
+                object : WindowInsetsAnimationCompat.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
+                    override fun onPrepare(animation: WindowInsetsAnimationCompat) {
+                        // cancel any scheduled restore
+                        imeRestoreRunnable?.let { binding.root.removeCallbacks(it) }
+                        imeRestoreRunnable = null
+                        // reset last observed height so animation measurements start fresh
+                        lastImeHeight = 0
+                        // mark that we're animating so the apply-listener won't stomp
+                        isImeAnimating = true
+                    }
+
+                    override fun onProgress(
+                        insets: WindowInsetsCompat,
+                        runningAnimations: MutableList<WindowInsetsAnimationCompat>
+                    ): WindowInsetsCompat {
+                        try {
+                            val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
+                            val imeHeight = imeInsets.bottom
+
+                            // If IME is visible and we've already locked UI for visible state, ignore progressive updates
+                            if (imeHeight > 0 && imeLockedWhileVisible) {
+                                lastImeHeight = imeHeight
+                                lastImeVisible = true
+                                return insets
+                            }
+
+                            // If IME just started showing and UI isn't locked yet, apply compact spacing once and lock
+                            else if (imeHeight > 0) {
+                                // Only proceed if the IME actually hides the inputContainer
+                                if (isInputContainerHiddenByIme(imeHeight)) {
+                                    val px20 = resources.getDimensionPixelSize(R.dimen.ime_input_top)
+                                    val imeContentTop = resources.getDimensionPixelSize(R.dimen.ime_content_top)
+                                    val compactPx = resources.getDimensionPixelSize(R.dimen.spacing_form_group_compact)
+                                    val signupMin = resources.getDimensionPixelSize(R.dimen.signup_group_min_compact)
+
+                                    try {
+                                        // animate to the compact layout when IME shows
+                                        animateTopMargin(binding.contentLayout, imeContentTop)
+                                        animateTopMargin(binding.inputContainer, px20)
+                                        animateTopMargin(binding.passwordGroup, compactPx)
+                                        animateTopMargin(binding.confirmGroup, compactPx)
+                                        animateTopMargin(binding.signupGroup, compactPx.coerceAtLeast(signupMin))
+                                        imeLockedWhileVisible = true
+                                        lastImeVisible = true
+                                        lastImeHeight = imeHeight
+                                    } catch (_: Exception) {
+                                        // ignore
+                                    }
+                                } else {
+                                    // IME visible but inputContainer is still visible — do not animate/lock
+                                    lastImeVisible = true
+                                    lastImeHeight = imeHeight
+                                }
+                                return insets
+                            }
+
+                            // If IME is hiding (height == 0) don't do progressive animation — let apply-listener schedule restore
+                            return insets
+                        } catch (_: Exception) {
+                            // ignore
+                        }
+                        return insets
+                    }
+
+                    override fun onEnd(animation: WindowInsetsAnimationCompat) {
+                        // mark animation finished
+                        isImeAnimating = false
+                        // If IME is hidden now, ensure lock is cleared so apply-listener can restore
+                        try {
+                            binding.root.postDelayed({
+                                try {
+                                    imeLockedWhileVisible = false
+                                    // request apply so the normal restore runnable animates back to original state
+                                    binding.root.requestApplyInsets()
+                                } catch (_: Exception) {
+                                }
+                            }, 0L)
+                        } catch (_: Exception) {
+                        }
+                    }
+                })
+        } catch (_: Exception) {
+            // If animation callback isn't supported, we'll keep the fallback listener
+        }
     }
 
-    // Ensure when IME appears we attempt to scroll the focused input into view.
-    private fun scrollToFocusedAfterIme() {
-        val scrollRoot = binding.scrollRoot
-        val offset = dpToPx()
-        val target = lastFocusedInput ?: (requireActivity().currentFocus ?: binding.root.findFocus()) ?: run {
-            if (BuildConfig.DEBUG) Log.d("SignupScroll", "scrollToFocusedAfterIme: no target focused")
-            return
-        }
-
-        val targetCoords = IntArray(2)
-        val scrollCoords = IntArray(2)
+    override fun onDestroyView() {
+        // restore previous softInputMode if we changed it
         try {
-            target.getLocationInWindow(targetCoords)
-            scrollRoot.getLocationInWindow(scrollCoords)
+            previousSoftInputMode?.let { prev ->
+                try {
+                    requireActivity().window.setSoftInputMode(prev)
+                } catch (_: Exception) {
+                }
+            }
         } catch (_: Exception) {
-            if (BuildConfig.DEBUG) Log.d("SignupScroll", "scrollToFocusedAfterIme: getLocationInWindow failed")
-            return
         }
 
-        val targetTopInScroll = targetCoords[1] - scrollCoords[1]
-        val targetBottomInScroll = targetTopInScroll + target.height
-        val visibleBottom = scrollRoot.height - scrollRoot.paddingBottom - offset
-
-        if (BuildConfig.DEBUG) Log.d("SignupScroll", "focused target top=$targetTopInScroll bottom=$targetBottomInScroll visibleBottom=$visibleBottom scrollY=${scrollRoot.scrollY}")
-
-        val desired = when {
-            targetBottomInScroll > visibleBottom -> {
-                val delta = targetBottomInScroll - visibleBottom
-                var d = scrollRoot.scrollY + delta
-                val child = scrollRoot.getChildAt(0)
-                val maxScroll = if (child != null) (child.height - scrollRoot.height) else 0
-                if (d > maxScroll) d = maxScroll.coerceAtLeast(0)
-                if (d < 0) 0 else d
+        // cleanup any pending callbacks to avoid leaking the view
+        try {
+            imeRestoreRunnable?.let { binding.root.removeCallbacks(it) }
+            imeRestoreRunnable = null
+            // cancel any running margin animations to avoid leaking view references
+            try {
+                runningAnimators.values.forEach { it.cancel() }
+            } catch (_: Exception) {
             }
-            targetTopInScroll < offset -> {
-                val d = (scrollRoot.scrollY + targetTopInScroll - offset).coerceAtLeast(0)
-                d
-            }
-            else -> null
+            runningAnimators.clear()
+        } catch (_: Exception) {
         }
+        _binding = null
+        super.onDestroyView()
+    }
 
-        desired?.let { y ->
-            if (BuildConfig.DEBUG) Log.d("SignupScroll", "scrolling to y=$y")
-            try { scrollRoot.smoothScrollTo(0, y) } catch (_: Exception) { if (BuildConfig.DEBUG) Log.d("SignupScroll", "smoothScrollTo failed") }
+    // Helper that detects whether the IME height will cover/hide the inputContainer view.
+    private fun isInputContainerHiddenByIme(imeHeight: Int): Boolean {
+        return try {
+            if (imeHeight <= 0) return false
+            // root height in pixels
+            val rootHeight = binding.root.height
+            if (rootHeight <= 0) return false
+            val loc = IntArray(2)
+            binding.inputContainer.getLocationOnScreen(loc)
+            val inputBottomY = loc[1] + binding.inputContainer.height
+            // visible area bottom (excluding IME)
+            val visibleBottom = rootHeight - imeHeight
+            // If the bottom of inputContainer is below the visible bottom area, IME hides it
+            inputBottomY > visibleBottom
+        } catch (_: Exception) {
+            false
         }
     }
 
@@ -161,6 +401,7 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                         is SignupViewModel.UiState.Idle -> {
                             setLoading(false)
                         }
+
                         is SignupViewModel.UiState.Loading -> {
                             setLoading(true)
                         }
@@ -173,9 +414,7 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
 
                             // Build bundle including tempToken so the verification fragment receives it
                             val bundle = bundleOf(
-                                "email" to emailArg,
-                                "password" to passwordArg,
-                                "tempToken" to state.tempToken
+                                "email" to emailArg, "password" to passwordArg, "tempToken" to state.tempToken
                             )
 
                             try {
@@ -184,15 +423,17 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                                 try {
                                     nav.navigate(actionId, bundle)
                                 } catch (_: Exception) {
-                                    try { nav.navigate(R.id.signupVerificationFragment, bundle) } catch (_: Exception) {
+                                    try {
+                                        nav.navigate(R.id.signupVerificationFragment, bundle)
+                                    } catch (_: Exception) {
                                         // navigation failed; show inline error instead of toast
-                                        binding.tvPasswordError.text = getString(R.string.navigation_failed_try_again)
-                                        binding.tvPasswordError.visibility = View.VISIBLE
+                                        binding.tvEmailError.text = getString(R.string.navigation_failed_try_again)
+                                        binding.tvEmailError.visibility = View.VISIBLE
                                     }
                                 }
                             } catch (_: Exception) {
-                                binding.tvPasswordError.text = getString(R.string.navigation_failed_try_again)
-                                binding.tvPasswordError.visibility = View.VISIBLE
+                                binding.tvEmailError.text = getString(R.string.navigation_failed_try_again)
+                                binding.tvEmailError.visibility = View.VISIBLE
                             } finally {
                                 viewModel.reset()
                             }
@@ -211,19 +452,20 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                                         val actionId = R.id.action_signupFragment_to_signupVerificationFragment
                                         nav.navigate(actionId, bundle)
                                     } catch (_: Exception) {
-                                        try { nav.navigate(R.id.signupVerificationFragment, bundle) } catch (_: Exception) {
-                                            binding.tvPasswordError.text = getString(R.string.navigation_failed_try_again)
-                                            binding.tvPasswordError.visibility = View.VISIBLE
+                                        try {
+                                            nav.navigate(R.id.signupVerificationFragment, bundle)
+                                        } catch (_: Exception) {
+                                            binding.tvEmailError.text = getString(R.string.navigation_failed_try_again)
+                                            binding.tvEmailError.visibility = View.VISIBLE
                                         }
                                     }
                                 } else {
                                     // no verification required — leave user on screen; show inline success message in password error field
-                                    binding.tvPasswordError.text = getString(R.string.registered_successful)
-                                    binding.tvPasswordError.visibility = View.VISIBLE
+                                    Toast.makeText(context, "Registration Successful", Toast.LENGTH_SHORT).show()
                                 }
                             } catch (_: Exception) {
-                                binding.tvPasswordError.text = getString(R.string.navigation_failed_try_again)
-                                binding.tvPasswordError.visibility = View.VISIBLE
+                                binding.tvEmailError.text = getString(R.string.navigation_failed_try_again)
+                                binding.tvEmailError.visibility = View.VISIBLE
                             } finally {
                                 viewModel.reset()
                             }
@@ -231,21 +473,14 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
 
                         is SignupViewModel.UiState.Error -> {
                             setLoading(false)
-                            // Show failure inline for registration error instead of toast
                             val msg = state.message.trim()
-                            val lower = msg.lowercase()
-                            // If the server says the user/email already exists, show it near the email field
-                            if ("already" in lower || "exist" in lower || "user already" in lower) {
-                                // show as email error
-                                showEmailError(msg)
-                                // clear password error if any
-                                hidePasswordError()
-                            } else {
-                                // generic auth error — show near password field
-                                binding.tvPasswordError.text = msg
+                            if (msg.contains("password must contain at least one", ignoreCase = true)) {
+                                binding.tvPasswordError.text = getString(R.string.password_require_special)
                                 binding.tvPasswordError.visibility = View.VISIBLE
-                                // also clear email error so UI is focused on the relevant field
-                                hideEmailError()
+                            }
+                            else {
+                                binding.tvEmailError.text = msg
+                                binding.tvEmailError.visibility = View.VISIBLE
                             }
                         }
 
@@ -257,8 +492,11 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
     }
 
     private fun setLoading(loading: Boolean) {
+        // Use BaseFragment loader overlay so all fragments share consistent UX
+        setLoaderVisible(loading)
+        // keep button state in sync
         binding.btnSignup.isEnabled = !loading
-        // Optionally change text or show a progress indicator if you have one
+        binding.btnSignup.alpha = if (loading) 0.5f else 1.0f
     }
 
     private fun initializeDefaults() {
@@ -287,6 +525,26 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
             isHelperTextEnabled = false
             errorIconDrawable = null
         }
+
+        // Prevent users from typing whitespace into email/password fields and enforce length limits.
+        val noSpaceFilter = InputFilter { source, start, end, _, _, _ ->
+            // Remove any whitespace characters from the input; if none removed, return null to accept original
+            val out = StringBuilder()
+            var removed = false
+            for (i in start until end) {
+                val c = source[i]
+                if (!Character.isWhitespace(c)) out.append(c) else removed = true
+            }
+            if (!removed) null else out.toString()
+        }
+
+        val emailMax = 50
+        val passwordMax = 25
+
+        // Keep any existing filters (if present), but ensure our filters are applied
+        binding.etEmail.filters = arrayOf(InputFilter.LengthFilter(emailMax), noSpaceFilter)
+        binding.etPassword.filters = arrayOf(InputFilter.LengthFilter(passwordMax), noSpaceFilter)
+        binding.etConfirmPassword.filters = arrayOf(InputFilter.LengthFilter(passwordMax), noSpaceFilter)
     }
 
     private fun setupTextWatchers() {
@@ -330,6 +588,23 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
     private fun setupClickListeners() {
         // Complete signup - navigate to OTP verification
         binding.btnSignup.setOnClickListener {
+            // Defensive: block signup if OTP lockout is active
+            try {
+                val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                val until = prefs.getLong("signup_otp_lockout_until", 0L)
+                if (System.currentTimeMillis() < until) {
+                    val remaining = until - System.currentTimeMillis()
+                    val minutesLeft = ceil(remaining / 60000.0).toInt()
+                    binding.tvEmailError.text = getString(R.string.too_many_attempts_try_again, minutesLeft)
+                    binding.tvEmailError.visibility = View.VISIBLE
+                    binding.btnSignup.isEnabled = false
+                    binding.btnSignup.alpha = 0.5f
+                    startSignupLockoutTimer(until)
+                    return@setOnClickListener
+                }
+            } catch (_: Exception) { /* ignore and continue */
+            }
+
             if (validateInput()) {
                 val email = binding.etEmail.text.toString().trim()
                 val password = binding.etPassword.text.toString()
@@ -354,46 +629,81 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
      */
     private fun validateInput(): Boolean {
         val email = binding.etEmail.text.toString().trim()
-        val password = binding.etPassword.text.toString()
-        val confirmPassword = binding.etConfirmPassword.text.toString()
+        val password = binding.etPassword.text.toString().trim()
+        val confirmPassword = binding.etConfirmPassword.text.toString().trim()
 
         var isValid = true
 
-        // Validate email using shared InputValidator
+        // Validate email using shared InputValidator, then apply signup-specific rules
         when (InputValidator.validateEmail(email)) {
             InputValidator.EmailResult.EMPTY -> {
                 showEmailError(getString(R.string.email_required))
                 isValid = false
             }
+
             InputValidator.EmailResult.INVALID_FORMAT -> {
                 showEmailError(getString(R.string.invalid_email_format))
                 isValid = false
             }
-            InputValidator.EmailResult.VALID -> hideEmailError()
+
+            InputValidator.EmailResult.TOO_LONG -> {
+                showEmailError(getString(R.string.email_max_length))
+                isValid = false
+            }
+
+            InputValidator.EmailResult.HAS_SPACE -> {
+                showEmailError(getString(R.string.email_no_spaces))
+                isValid = false
+            }
+
+            InputValidator.EmailResult.VALID -> {
+                // Additional email rules: max length (covered) and no-space (covered)
+                hideEmailError()
+            }
         }
 
-        // Validate password using shared InputValidator
-        when (InputValidator.validatePassword(password)) {
-            InputValidator.PasswordResult.EMPTY -> {
-                showPasswordError(getString(R.string.password_required))
-                isValid = false
-            }
-            InputValidator.PasswordResult.TOO_SHORT -> {
-                showPasswordError(getString(R.string.password_min_6))
-                isValid = false
-            }
-            InputValidator.PasswordResult.VALID -> {
-                // Additional signup-only password rules
-                if (!InputValidator.hasUppercase(password)) {
+        // --- Stronger password validation: require length 8..25, no spaces, at least one uppercase, lowercase, digit, special char ---
+        if (password.isEmpty()) {
+            showPasswordError(getString(R.string.password_required))
+            isValid = false
+        } else if (password.contains("\\s".toRegex())) {
+            showPasswordError(getString(R.string.password_no_spaces))
+            isValid = false
+        } else if (password.length < 8) {
+            // explicit message for minimum length
+            showPasswordError(getString(R.string.password_min_8))
+            isValid = false
+        } else if (password.length > 25) {
+            showPasswordError(getString(R.string.password_max_length))
+            isValid = false
+        } else {
+            val hasUpper = password.any { it.isUpperCase() }
+            val hasLower = password.any { it.isLowerCase() }
+            val hasDigit = password.any { it.isDigit() }
+            val hasSpecial = password.any { !it.isLetterOrDigit() }
+
+            when {
+                !hasUpper -> {
                     showPasswordError(getString(R.string.password_require_uppercase))
                     isValid = false
-                } else if (!InputValidator.hasDigit(password)) {
+                }
+
+                !hasLower -> {
+                    showPasswordError(getString(R.string.password_require_lowercase))
+                    isValid = false
+                }
+
+                !hasDigit -> {
                     showPasswordError(getString(R.string.password_require_digit))
                     isValid = false
-                } else if (!InputValidator.hasSpecialChar(password)) {
+                }
+
+                !hasSpecial -> {
                     showPasswordError(getString(R.string.password_require_special))
                     isValid = false
-                } else {
+                }
+
+                else -> {
                     // Then check confirm password
                     if (confirmPassword.isEmpty()) {
                         showPasswordError(getString(R.string.confirm_password_required))
@@ -495,227 +805,97 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
         )
     }
 
-    // New helper: setup auto scroll for inputs by 70dp when clicked or focused
-    private fun setupAutoScrollForInputs() {
-        // Capture strong references to the views we'll use inside listeners so callbacks don't access `binding`
-        val scrollRoot = binding.scrollRoot
-        val rootView = binding.root
-        val offset = dpToPx(70)
 
-        // flag whether we've translated content as fallback
-        var contentTranslated = false
-
-        fun translateContentUp() {
-            val child = scrollRoot.getChildAt(0) ?: return
-            if (!contentTranslated) {
-                contentTranslated = true
-                if (BuildConfig.DEBUG) Log.d("SignupScroll", "translateContentUp called")
-                try { child.animate().translationY(-offset.toFloat()).setDuration(180).start() } catch (_: Exception) {}
-            }
-        }
-
-        fun resetContentTranslation() {
-            val child = scrollRoot.getChildAt(0) ?: return
-            if (contentTranslated) {
-                contentTranslated = false
-                if (BuildConfig.DEBUG) Log.d("SignupScroll", "resetContentTranslation called")
-                try { child.animate().translationY(0f).setDuration(160).start() } catch (_: Exception) {}
-            }
-        }
-
-        // compute Y of target relative to scrollRoot using descendant rect (robust)
-        fun computeScrollYForTarget(target: View): Int {
-            val rect = Rect()
-            try {
-                target.getDrawingRect(rect)
-                // convert rect to scrollRoot coordinates
-                scrollRoot.offsetDescendantRectToMyCoords(target, rect)
-            } catch (_: Exception) {
-                return 0
-            }
-
-            val targetTopInScroll = rect.top
-            val targetBottomInScroll = rect.bottom
-            val visibleBottom = scrollRoot.height - scrollRoot.paddingBottom - offset
-
-            return if (targetBottomInScroll > visibleBottom) {
-                val delta = targetBottomInScroll - visibleBottom
-                var desired = scrollRoot.scrollY + delta
-                val child = scrollRoot.getChildAt(0)
-                val maxScroll = if (child != null) (child.height - scrollRoot.height) else 0
-                if (desired > maxScroll) desired = maxScroll.coerceAtLeast(0)
-                if (desired < 0) 0 else desired
-            } else {
-                if (targetTopInScroll < offset) {
-                    val desired = (scrollRoot.scrollY + targetTopInScroll - offset).coerceAtLeast(0)
-                    desired
-                } else 0
-            }
-        }
-
-        fun scrollToTargetWithRetries(target: View) {
-            try { target.requestFocus() } catch (_: Exception) {}
-
-            // show IME (best-effort) to help layout resize timing
-            try {
-                val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-                imm?.showSoftInput(target, InputMethodManager.SHOW_IMPLICIT)
-            } catch (_: Exception) {}
-
-            if (BuildConfig.DEBUG) Log.d("SignupScroll", "scrollToTargetWithRetries for id=${'$'}{target.id}")
-            // immediate attempt
-            scrollRoot.post {
-                try {
-                    val y = computeScrollYForTarget(target)
-                    if (y > 0) {
-                        if (BuildConfig.DEBUG) Log.d("SignupScroll", "immediate scrollTo y=${'$'}y")
-                        resetContentTranslation()
-                        try { scrollRoot.scrollTo(0, y) } catch (_: Exception) {}
-                        try { scrollRoot.smoothScrollTo(0, y) } catch (_: Exception) {}
-                    } else {
-                        // no scrollable space — translate content up as fallback
-                        if (BuildConfig.DEBUG) Log.d("SignupScroll", "no scrollable space, translating content")
-                        translateContentUp()
-                    }
-                } catch (_: Exception) {
-                    // fallback: request rectangle on screen
-                    try {
-                        val rect = Rect()
-                        target.getDrawingRect(rect)
-                        if (!scrollRoot.requestChildRectangleOnScreen(target, rect, true)) {
-                            translateContentUp()
-                        }
-                    } catch (_: Exception) { translateContentUp() }
-                }
-            }
-            // short retries for IME animation timing
-            scrollRoot.postDelayed({
-                try {
-                    val y = computeScrollYForTarget(target)
-                    if (y > 0) {
-                        if (BuildConfig.DEBUG) Log.d("SignupScroll", "retry1 scrollTo y=${'$'}y")
-                        resetContentTranslation()
-                        try { scrollRoot.scrollTo(0, y) } catch (_: Exception) {}
-                        try { scrollRoot.smoothScrollTo(0, y) } catch (_: Exception) {}
-                    } else {
-                        translateContentUp()
-                    }
-                } catch (_: Exception) {}
-            }, 120)
-            scrollRoot.postDelayed({
-                try {
-                    val y = computeScrollYForTarget(target)
-                    if (y > 0) {
-                        if (BuildConfig.DEBUG) Log.d("SignupScroll", "retry2 scrollTo y=${'$'}y")
-                        resetContentTranslation()
-                        try { scrollRoot.scrollTo(0, y) } catch (_: Exception) {}
-                        try { scrollRoot.smoothScrollTo(0, y) } catch (_: Exception) {}
-                    } else {
-                        translateContentUp()
-                    }
-                } catch (_: Exception) {}
-            }, 300)
-        }
-
-        val inputs = listOf(binding.etEmail, binding.etPassword, binding.etConfirmPassword)
-
-        inputs.forEach { input ->
-            input.setOnFocusChangeListener { _, hasFocus ->
-                if (hasFocus) {
-                    if (BuildConfig.DEBUG) Log.d("SignupScroll", "focus gained on id=${'$'}{input.id}")
-                    lastFocusedInput = input
-                    scrollToTargetWithRetries(input)
-                } else {
-                    // reset when focus lost
-                    try { resetContentTranslation() } catch (_: Exception) {}
-                }
-            }
-
-            input.setOnClickListener {
-                if (BuildConfig.DEBUG) Log.d("SignupScroll", "clicked on id=${'$'}{input.id}")
-                lastFocusedInput = input
-                scrollToTargetWithRetries(input)
-            }
-
-            input.setOnTouchListener { v, event ->
-                if (event.action == MotionEvent.ACTION_DOWN) {
-                    if (BuildConfig.DEBUG) Log.d("SignupScroll", "touch down on id=${'$'}{input.id}")
-                    lastFocusedInput = input
-                    input.requestFocus()
-                    try {
-                        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-                        imm?.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
-                    } catch (_: Exception) {}
-                    scrollToTargetWithRetries(input)
-                }
-                if (event.action == MotionEvent.ACTION_UP) {
-                    // Accessibility: ensure performClick is called when touch leads to click
-                    try { v.performClick() } catch (_: Exception) {}
-                }
-                false
-            }
-        }
-
-        // global focus listener catches IME-driven focus changes
-        val focusList = inputs.map { it as View }.toSet()
-        val globalFocusListener = ViewTreeObserver.OnGlobalFocusChangeListener { _, newFocus ->
-            if (newFocus is View && newFocus in focusList) {
-                lastFocusedInput = newFocus
-                newFocus.post { scrollToTargetWithRetries(newFocus) }
-            } else {
-                // If focus moved away, reset any translation
-                try { resetContentTranslation() } catch (_: Exception) {}
-            }
-        }
-        rootView.viewTreeObserver.addOnGlobalFocusChangeListener(globalFocusListener)
-        this.globalFocusListener = globalFocusListener
-
-        // keyboard listener: when keyboard shows, ensure last focused input is visible.
-        keyboardListener = ViewTreeObserver.OnGlobalLayoutListener {
-            val r = Rect()
-            try {
-                rootView.getWindowVisibleDisplayFrame(r)
-            } catch (_: Exception) {
-                return@OnGlobalLayoutListener
-            }
-            val screenHeight = rootView.rootView.height
-            val keypadHeight = screenHeight - r.bottom
-            if (keypadHeight > screenHeight * 0.15) {
-                val target = lastFocusedInput ?: (requireActivity().currentFocus ?: rootView.findFocus())
-                target?.let { input ->
-                    // immediate + two quick retries to handle IME animation
-                    input.post { try { val y = computeScrollYForTarget(input); if (y > 0) { resetContentTranslation(); scrollRoot.smoothScrollTo(0, y) } else translateContentUp() } catch (_: Exception) {} }
-                    input.postDelayed({ try { val y2 = computeScrollYForTarget(input); if (y2 > 0) { resetContentTranslation(); scrollRoot.smoothScrollTo(0, y2) } else translateContentUp() } catch (_: Exception) {} }, 120)
-                    input.postDelayed({ try { val y3 = computeScrollYForTarget(input); if (y3 > 0) { resetContentTranslation(); scrollRoot.smoothScrollTo(0, y3) } else translateContentUp() } catch (_: Exception) {} }, 300)
-                }
-            } else {
-                // keyboard hidden: reset translation
-                try { resetContentTranslation() } catch (_: Exception) {}
-            }
-        }
-        rootView.viewTreeObserver.addOnGlobalLayoutListener(keyboardListener)
-    }
-
-    // store reference so we can unregister
-    private var globalFocusListener: ViewTreeObserver.OnGlobalFocusChangeListener? = null
-
-    // Convert dp to pixels. Default dp is 70 for the signup scroll offset.
-    private fun dpToPx(dp: Int = 70): Int {
-        val density = resources.displayMetrics.density
-        return (dp * density).toInt()
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        // Use safe removal with the current binding if available; guard in case view already detached
+    // Read persisted lockout and apply UI if active. Starts a local timer to update the message.
+    private fun checkAndApplyLockout() {
         try {
-            _binding?.let {
-                keyboardListener?.let { listener -> it.root.viewTreeObserver.removeOnGlobalLayoutListener(listener) }
-                globalFocusListener?.let { listener -> it.root.viewTreeObserver.removeOnGlobalFocusChangeListener(listener) }
+            val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+            val until = prefs.getLong("signup_otp_lockout_until", 0L)
+            if (System.currentTimeMillis() < until) {
+                // disable signup send button
+                binding.btnSignup.isEnabled = false
+                binding.btnSignup.alpha = 0.5f
+                // show an inline lockout message and start a timer to update it
+                startSignupLockoutTimer(until)
             }
-        } catch (_: Exception) {}
-        _binding = null
+        } catch (_: Exception) {
+        }
+    }
 
-        // No WindowInsetsAnimation callback to clean up (removed)
+    private fun startSignupLockoutTimer(untilMillis: Long) {
+        signupLockoutTimer?.cancel()
+        val remaining = untilMillis - System.currentTimeMillis()
+        if (remaining <= 0L) {
+            binding.btnSignup.isEnabled = true
+            binding.btnSignup.alpha = 1.0f
+            try {
+                requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                    .edit { remove("signup_otp_lockout_until") }
+            } catch (_: Exception) {
+            }
+            return
+        }
+
+        signupLockoutTimer = object : CountDownTimer(remaining, 1000L) {
+            override fun onTick(millisUntilFinished: Long) {
+                val minutesLeft = ceil(millisUntilFinished / 60000.0).toInt()
+                binding.tvEmailError.text = getString(R.string.too_many_attempts_try_again, minutesLeft)
+                binding.tvEmailError.visibility = View.VISIBLE
+            }
+
+            override fun onFinish() {
+                binding.btnSignup.isEnabled = true
+                binding.btnSignup.alpha = 1.0f
+                binding.tvEmailError.visibility = View.INVISIBLE
+                try {
+                    requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                        .edit { remove("signup_otp_lockout_until") }
+                } catch (_: Exception) {
+                }
+                signupLockoutTimer = null
+            }
+        }
+
+        signupLockoutTimer?.start()
+    }
+
+    // Helper to animate the top margin of a view's ConstraintLayout.LayoutParams smoothly.
+    private fun animateTopMargin(view: View, to: Int, duration: Long = imeAnimationDurationMs) {
+        try {
+            val lp = view.layoutParams as? CLP ?: return
+            val from = lp.topMargin
+            if (from == to) return
+
+            // cancel previous animator for this view
+            runningAnimators[view]?.cancel()
+
+            val animator = ValueAnimator.ofInt(from, to).apply {
+                this.duration = duration
+                interpolator = DecelerateInterpolator()
+                addUpdateListener { anim ->
+                    val value = anim.animatedValue as Int
+                    try {
+                        view.updateLayoutParams<CLP> { topMargin = value }
+                    } catch (_: Exception) {
+                    }
+                }
+                addListener(object : android.animation.Animator.AnimatorListener {
+                    override fun onAnimationStart(animation: android.animation.Animator) {}
+                    override fun onAnimationEnd(animation: android.animation.Animator) {
+                        runningAnimators.remove(view)
+                    }
+
+                    override fun onAnimationCancel(animation: android.animation.Animator) {
+                        runningAnimators.remove(view)
+                    }
+
+                    override fun onAnimationRepeat(animation: android.animation.Animator) {}
+                })
+            }
+
+            runningAnimators[view] = animator
+            animator.start()
+        } catch (_: Exception) { /* ignore animation failures */
+        }
     }
 }

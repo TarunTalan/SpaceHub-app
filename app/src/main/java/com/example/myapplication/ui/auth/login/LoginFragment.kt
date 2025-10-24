@@ -3,11 +3,11 @@ package com.example.myapplication.ui.auth.login
 import android.content.res.ColorStateList
 import android.os.Bundle
 import android.text.Editable
+import android.text.InputFilter
 import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import com.example.myapplication.ui.common.BaseFragment
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -18,8 +18,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.example.myapplication.R
 import com.example.myapplication.databinding.FragmentLoginBinding
-import com.example.myapplication.ui.auth.common.PasswordToggleUtil
 import com.example.myapplication.ui.auth.common.InputValidationHelper
+import com.example.myapplication.ui.auth.common.PasswordToggleUtil
+import com.example.myapplication.ui.common.BaseFragment
 import com.example.myapplication.ui.common.InputValidator
 import kotlinx.coroutines.launch
 
@@ -61,6 +62,9 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
         setupClickListeners()
         setupKeyboardDismiss(binding.root)
         observeViewModel()
+
+        // Remove fragment-local back press handler which forcibly popped to onboarding.
+        // The activity already manages back behavior centrally in MainActivity.
     }
 
     private fun observeViewModel() {
@@ -73,13 +77,30 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
                         is LoginViewModel.UiState.Success -> {
                             setLoading(false)
                             Toast.makeText(requireContext(), "Login successful", Toast.LENGTH_SHORT).show()
+                            findNavController().navigate(R.id.action_loginFragment_to_logoutFragment)
                             viewModel.reset()
                         }
+
                         is LoginViewModel.UiState.Error -> {
                             setLoading(false)
-                            binding.tvPasswordError.text = state.message
-                            binding.tvPasswordError.visibility = View.VISIBLE
-                            applyPasswordInvalidVisuals()
+                            val msg = state.message
+                            // if message likely refers to password, show password error and latch it; otherwise show email error
+                            val isPasswordError =
+                                msg.contains("invalid credentials", ignoreCase = true) || msg.contains(
+                                    "password",
+                                    ignoreCase = true
+                                ) || msg.contains("credentials", ignoreCase = true)
+                            if (isPasswordError) {
+                                passwordErrorLatched = true
+                                binding.tvPasswordError.text = getString(R.string.invalid_password)
+                                binding.tvPasswordError.visibility = View.VISIBLE
+                                applyPasswordInvalidVisuals()
+                            } else {
+                                emailErrorLatched = true
+                                binding.tvEmailError.text = msg
+                                binding.tvEmailError.visibility = View.VISIBLE
+                                applyEmailInvalidVisuals()
+                            }
                         }
                     }
                 }
@@ -88,7 +109,11 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
     }
 
     private fun setLoading(loading: Boolean) {
+        // show fullscreen loader from BaseFragment for consistency
+        setLoaderVisible(loading)
+        // keep button state in sync and dim while loading
         binding.btnLogin.isEnabled = !loading
+        binding.btnLogin.alpha = if (loading) 0.5f else 1.0f
     }
 
     private fun initializeDefaults() {
@@ -119,6 +144,21 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
         binding.tvEmailError.visibility = View.INVISIBLE
         binding.ivEmailError.visibility = View.INVISIBLE
         binding.tvPasswordError.visibility = View.INVISIBLE
+
+        // Prevent users from typing whitespace into email/password fields and enforce length limits
+        val noSpaceFilter = InputFilter { source, start, end, _, _, _ ->
+            val out = StringBuilder()
+            var removed = false
+            for (i in start until end) {
+                val c = source[i]
+                if (!Character.isWhitespace(c)) out.append(c) else removed = true
+            }
+            if (!removed) null else out.toString()
+        }
+        val emailMax = 50
+        val passwordMax = 25
+        binding.etEmail.filters = arrayOf(InputFilter.LengthFilter(emailMax), noSpaceFilter)
+        binding.etPassword.filters = arrayOf(InputFilter.LengthFilter(passwordMax), noSpaceFilter)
     }
 
     private fun setupTextWatchers() {
@@ -184,6 +224,7 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
                 clearEmailInvalidVisuals()
                 true
             }
+
             InputValidator.EmailResult.EMPTY -> {
                 emailErrorLatched = true
                 binding.tvEmailError.text = getString(R.string.email_required)
@@ -192,9 +233,28 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
                 applyEmailInvalidVisuals()
                 false
             }
+
             InputValidator.EmailResult.INVALID_FORMAT -> {
                 emailErrorLatched = true
                 binding.tvEmailError.text = getString(R.string.invalid_email_format)
+                binding.tvEmailError.visibility = View.VISIBLE
+                binding.ivEmailError.visibility = View.VISIBLE
+                applyEmailInvalidVisuals()
+                false
+            }
+
+            InputValidator.EmailResult.TOO_LONG -> {
+                emailErrorLatched = true
+                binding.tvEmailError.text = getString(R.string.email_max_length)
+                binding.tvEmailError.visibility = View.VISIBLE
+                binding.ivEmailError.visibility = View.VISIBLE
+                applyEmailInvalidVisuals()
+                false
+            }
+
+            InputValidator.EmailResult.HAS_SPACE -> {
+                emailErrorLatched = true
+                binding.tvEmailError.text = getString(R.string.email_no_spaces)
                 binding.tvEmailError.visibility = View.VISIBLE
                 binding.ivEmailError.visibility = View.VISIBLE
                 applyEmailInvalidVisuals()
@@ -205,28 +265,20 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
 
     private fun validatePassword(): Boolean {
         val pwd = binding.etPassword.text?.toString()?.trim().orEmpty()
+        val result = InputValidator.validatePassword(pwd)
 
-        return when (InputValidator.validatePassword(pwd)) {
-            InputValidator.PasswordResult.VALID -> {
-                passwordErrorLatched = false
-                binding.tvPasswordError.visibility = View.INVISIBLE
-                clearPasswordInvalidVisuals()
-                true
-            }
-            InputValidator.PasswordResult.EMPTY -> {
-                passwordErrorLatched = true
-                binding.tvPasswordError.text = getString(R.string.password_required)
-                binding.tvPasswordError.visibility = View.VISIBLE
-                applyPasswordInvalidVisuals()
-                false
-            }
-            InputValidator.PasswordResult.TOO_SHORT -> {
-                passwordErrorLatched = true
-                binding.tvPasswordError.text = getString(R.string.password_min_6)
-                binding.tvPasswordError.visibility = View.VISIBLE
-                applyPasswordInvalidVisuals()
-                false
-            }
+        val isValid = result == InputValidator.PasswordResult.VALID
+        passwordErrorLatched = !isValid
+
+        if (isValid) {
+            binding.tvPasswordError.visibility = View.INVISIBLE
+            clearPasswordInvalidVisuals()
+            return true
+        } else {
+            binding.tvPasswordError.text = getString(R.string.invalid_password)
+            binding.tvPasswordError.visibility = View.VISIBLE
+            applyPasswordInvalidVisuals()
+            return false
         }
     }
 
@@ -262,6 +314,7 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
     }
 
     private fun clearPasswordInvalidVisuals() {
+
         InputValidationHelper.clearPasswordInvalid(
             passwordLayout = binding.passwordLayout,
             etPassword = binding.etPassword,
@@ -279,17 +332,11 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
 }
 
 private class SimpleWatcher(private val onChange: () -> Unit) : TextWatcher {
-    private var previousText = ""
-
-    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
-        previousText = s?.toString() ?: ""
-    }
+    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
 
     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-        val currentText = s?.toString() ?: ""
-        if (previousText != currentText) {
-            onChange()
-        }
+        // Call onChange whenever the text changes so UI invalid visuals can clear at the first character typed
+        onChange()
     }
 
     override fun afterTextChanged(s: Editable?) {}
