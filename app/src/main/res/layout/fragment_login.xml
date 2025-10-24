@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-        xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:app="http://schemas.android.com/apk/res-auto"
         xmlns:tools="http://schemas.android.com/tools"
         android:id="@+id/rootLayout"
@@ -13,16 +12,17 @@
 
     <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/contentLayout"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/margin_title_top"
-            app:layout_constraintTop_toTopOf="parent">
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="@+id/guideline_start"
+            app:layout_constraintEnd_toStartOf="@+id/guideline_end">
         <!-- Title Group -->
         <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/titleGroup"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginHorizontal="@dimen/margin_form_horizontal"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent">
@@ -36,7 +36,7 @@
                     android:textColor="@android:color/white"
                     android:textSize="@dimen/title_text_size"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"/>
+                    app:layout_constraintTop_toTopOf="parent" />
 
             <TextView
                     android:id="@+id/tvSubtitle"
@@ -48,7 +48,7 @@
                     android:textColor="#C6CAD1"
                     android:textSize="@dimen/subtitle_text_size"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvLoginTitle"/>
+                    app:layout_constraintTop_toBottomOf="@id/tvLoginTitle" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -64,7 +64,6 @@
                     android:id="@+id/emailGroup"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginHorizontal="@dimen/margin_form_horizontal"
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent">
@@ -79,7 +78,7 @@
                         android:textSize="@dimen/label_text_size"
                         android:textColor="#FFFFFF"
                         app:layout_constraintTop_toTopOf="parent"
-                        app:layout_constraintStart_toStartOf="@+id/emailLayout"/>
+                        app:layout_constraintStart_toStartOf="@+id/emailLayout" />
 
                 <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/emailLayout"
@@ -115,7 +114,7 @@
                             android:textSize="@dimen/input_text_size"
                             android:inputType="textEmailAddress"
                             android:paddingEnd="@dimen/input_padding_end"
-                            tools:ignore="RtlSymmetry"/>
+                            tools:ignore="RtlSymmetry" />
 
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -129,7 +128,7 @@
                         app:layout_constraintBottom_toBottomOf="@+id/emailLayout"
                         app:layout_constraintEnd_toEndOf="@+id/emailLayout"
                         app:layout_constraintTop_toTopOf="@+id/emailLayout"
-                        tools:ignore="ContentDescription"/>
+                        tools:ignore="ContentDescription" />
 
                 <TextView
                         android:id="@+id/tvEmailError"
@@ -142,14 +141,13 @@
                         android:visibility="invisible"
                         app:layout_constraintStart_toStartOf="@+id/emailLayout"
                         app:layout_constraintTop_toBottomOf="@+id/emailLayout"
-                        tools:text="Invalid email format"/>
+                        tools:text="Invalid email format" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
             <androidx.constraintlayout.widget.ConstraintLayout
                     android:id="@+id/passwordGroup"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginHorizontal="@dimen/margin_form_horizontal"
                     android:layout_marginTop="@dimen/spacing_form_group"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
@@ -165,7 +163,7 @@
                         android:textSize="@dimen/label_text_size"
                         android:textColor="#FFFFFF"
                         app:layout_constraintStart_toStartOf="@+id/passwordLayout"
-                        app:layout_constraintTop_toTopOf="parent"/>
+                        app:layout_constraintTop_toTopOf="parent" />
 
                 <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/passwordLayout"
@@ -199,7 +197,7 @@
                             android:layout_height="match_parent"
                             android:hint="@string/enter_your_password"
                             android:textSize="@dimen/input_text_size"
-                            android:inputType="textPassword"/>
+                            android:inputType="textPassword" />
 
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -214,7 +212,7 @@
                         android:visibility="invisible"
                         app:layout_constraintStart_toStartOf="@+id/passwordLayout"
                         app:layout_constraintTop_toBottomOf="@+id/passwordLayout"
-                        tools:text="Password is required"/>
+                        tools:text="Password is required" />
 
                 <TextView
                         android:id="@+id/tvForgotPassword"
@@ -228,7 +226,7 @@
                         android:textColor="#FFFFFF"
                         android:textSize="@dimen/login_text_size"
                         app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/passwordLayout"/>
+                        app:layout_constraintTop_toBottomOf="@id/passwordLayout" />
 
             </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -236,7 +234,6 @@
                     android:id="@+id/actionsGroup"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginHorizontal="@dimen/margin_form_horizontal"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@+id/passwordGroup">
@@ -254,7 +251,7 @@
                         android:textSize="@dimen/button_text_size"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent"/>
+                        app:layout_constraintTop_toTopOf="parent" />
 
                 <LinearLayout
                         android:layout_width="wrap_content"
@@ -270,7 +267,7 @@
                             android:fontFamily="@font/roboto_regular"
                             android:text="@string/not_have_any_account"
                             android:textColor="#FFFFFF"
-                            android:textSize="@dimen/login_text_size"/>
+                            android:textSize="@dimen/login_text_size" />
 
                     <TextView
                             android:id="@+id/tvSignupLink"
@@ -283,53 +280,68 @@
                             android:paddingVertical="@dimen/login_padding_vertical"
                             android:text="@string/sign_up"
                             android:textColor="#2563EB"
-                            android:textSize="@dimen/login_text_size"/>
+                            android:textSize="@dimen/login_text_size" />
                 </LinearLayout>
             </androidx.constraintlayout.widget.ConstraintLayout>
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
-        </androidx.constraintlayout.widget.ConstraintLayout>
-
-
-        <!-- Decorative Ellipses -->
-        <ImageView
-                android:id="@+id/ellipse1"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:adjustViewBounds="true"
-                android:scaleType="fitCenter"
-                android:src="@drawable/ellipse_1"
-                android:layout_marginBottom="@dimen/ellipse1_margin_bottom"
-                app:layout_constraintBottom_toBottomOf="@id/ellipse2"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                tools:ignore="ContentDescription"/>
-
-        <ImageView
-                android:id="@+id/ellipse2"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:adjustViewBounds="true"
-                android:scaleType="fitCenter"
-                android:src="@drawable/ellipse_1"
-                android:layout_marginBottom="@dimen/ellipse2_margin_bottom"
-                app:layout_constraintBottom_toBottomOf="@+id/ellipse3"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                tools:ignore="ContentDescription"/>
-
-        <ImageView
-                android:id="@+id/ellipse3"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:adjustViewBounds="true"
-                android:scaleType="fitCenter"
-                android:src="@drawable/ellipse_1"
-                android:paddingBottom="@dimen/ellipse3_padding_bottom"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                tools:ignore="ContentDescription"/>
-
     </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.constraintlayout.widget.Guideline
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/guideline_start"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.08"
+            />
+
+    <androidx.constraintlayout.widget.Guideline
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/guideline_end"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.92"
+            />
+
+    <!-- Decorative Ellipses -->
+    <ImageView
+            android:id="@+id/ellipse1"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ellipse_1"
+            android:layout_marginBottom="@dimen/ellipse1_margin_bottom"
+            app:layout_constraintBottom_toBottomOf="@id/ellipse2"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            tools:ignore="ContentDescription" />
+
+    <ImageView
+            android:id="@+id/ellipse2"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ellipse_1"
+            android:layout_marginBottom="@dimen/ellipse2_margin_bottom"
+            app:layout_constraintBottom_toBottomOf="@+id/ellipse3"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            tools:ignore="ContentDescription" />
+
+    <ImageView
+            android:id="@+id/ellipse3"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ellipse_1"
+            android:paddingBottom="@dimen/ellipse3_padding_bottom"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            tools:ignore="ContentDescription" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -55,6 +55,22 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
     private var resendCooldownMillis: Long = 30_000L // 30 seconds
     private var cooldownHelper: OtpResendCooldownHelper? = null
 
+    // When resend is clicked we set this flag so any Error responses from the server
+    // during the resend flow are not treated as OTP-verification failures (do not
+    // decrement failedAttempts). Lockout messages ("too many attempts") are still honored.
+    private var isResendInFlight: Boolean = false
+
+    // Clear OTP inline error and any parent email error view
+    private fun clearOtpAndEmailErrors() {
+        try {
+            binding.tvOtpError.isVisible = false
+            var emailErr: TextView? = binding.root.findViewById(R.id.tvEmailError)
+            if (emailErr == null) emailErr = parentFragment?.view?.findViewById(R.id.tvEmailError)
+            if (emailErr == null) emailErr = requireActivity().findViewById(R.id.tvEmailError)
+            emailErr?.let { it.visibility = View.GONE; it.text = "" }
+        } catch (_: Exception) { /* ignore */ }
+    }
+
     // defaults for OTP visuals
     private lateinit var otpTextDefault: ColorStateList
     private val redColorInt by lazy { ContextCompat.getColor(requireContext(), R.color.error_red) }
@@ -123,6 +139,7 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
             binding.btnLogin.isEnabled = false
             binding.btnLogin.alpha = 0.5f
             binding.tvResendOtp.isEnabled = false
+            binding.tvResendOtp.isClickable = false
             binding.tvResendOtp.alpha = 0.5f
             untilMillis?.let {
                 val minutesLeft = ceil((it - System.currentTimeMillis()) / 60000.0).toInt().coerceAtLeast(1)
@@ -132,8 +149,10 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
         } else {
             binding.btnLogin.isEnabled = true
             binding.btnLogin.alpha = 1.0f
-            binding.tvResendOtp.isEnabled = true
-            binding.tvResendOtp.alpha = 1.0f
+            // Keep resend disabled by default — it should only be enabled explicitly by the cooldown helper
+            binding.tvResendOtp.isEnabled = false
+            binding.tvResendOtp.isClickable = false
+            binding.tvResendOtp.alpha = 0.5f
             binding.tvOtpError.isVisible = false
         }
     }
@@ -144,6 +163,21 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentVerifySignupBinding.inflate(inflater, container, false)
+        // Defensive: always start with resend OTP disabled and dimmed until the cooldown helper
+        // or an explicit EmailSent action enables it. This prevents a momentary enabled state
+        // if the view XML default or other flows briefly set it enabled.
+        try {
+            binding.tvResendOtp.apply {
+                isEnabled = false
+                isClickable = false
+                isFocusable = false
+                isFocusableInTouchMode = false
+                alpha = 0.5f
+                // remove any existing click listener; do not add a touch listener (lint requires performClick)
+                setOnClickListener(null)
+            }
+            binding.otpTimer.isVisible = false
+        } catch (_: Exception) { /* ignore if view not ready */ }
         return binding.root
     }
 
@@ -171,8 +205,10 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                 // Only allow enabling resend when the current email is not locked
                 if (!isEmailLocked(emailArg)) {
                     binding.tvResendOtp.isEnabled = enabled
+                    binding.tvResendOtp.isClickable = enabled
                 } else {
                     binding.tvResendOtp.isEnabled = false
+                    binding.tvResendOtp.isClickable = false
                 }
             },
             setResendAlpha = { alpha ->
@@ -182,18 +218,16 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
             setTimerVisible = { visible -> binding.otpTimer.isVisible = visible },
             setTimerText = { text -> binding.otpTimer.text = getString(R.string.resend_in, text) },
             onFinish = {
-                // clear VM cooldown marker
                 viewModel.clearCooldown()
-                // when cooldown finishes, reset local attempt counter and restore controls only if email not locked
                 if (isAdded) {
                     failedAttempts = 0
                     try {
-                        // restore controls depending on whether the email is locked
-                        if (!isEmailLocked(emailArg)) setLockUI(false) else setLockUI(true, getLockoutUntil(emailArg))
+                        // Only restore verify button and clear errors. Do NOT touch resend button here.
+                        binding.btnLogin.isEnabled = true
+                        binding.btnLogin.alpha = 1.0f
                         binding.tvOtpError.isVisible = false
-                    } catch (_: Exception) {
-                        // view may be gone; ignore
-                    }
+                        // Do not call setLockUI(false) here!
+                    } catch (_: Exception) { }
                 }
             }
         )
@@ -221,8 +255,10 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                     try {
                         binding.btnLogin.isEnabled = true
                         binding.btnLogin.alpha = 1.0f
-                        binding.tvResendOtp.isEnabled = true
-                        binding.tvResendOtp.alpha = 1.0f
+                        // keep resend disabled by default; do not enable here so incorrect OTP
+                        // errors or resume flows don't prematurely enable resend. Resend should
+                        // only be enabled by the cooldown helper or on explicit EmailSent.
+                        binding.tvResendOtp.alpha = 0.5f
                         binding.tvOtpError.isVisible = false
                     } catch (_: Exception) { }
                 }
@@ -255,6 +291,20 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
             emailArg = it?.toString()
             applyLockStateForEmail(emailArg)
         }
+
+        // Also guard against any brief re-enablement by posting a runnable to the UI thread
+        // which will run after inflation and any view-system updates.
+        try {
+            binding.root.post {
+                try {
+                    binding.tvResendOtp.isEnabled = false
+                    binding.tvResendOtp.isClickable = false
+                    binding.tvResendOtp.isFocusable = false
+                    binding.tvResendOtp.alpha = 0.5f
+                } catch (_: Exception) { }
+            }
+            // do not set a touch listener here; rely on isEnabled/isClickable to prevent interactions
+        } catch (_: Exception) { }
     }
 
     private fun observeViewModel() {
@@ -268,8 +318,13 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                             // keep resend disabled while request in-flight; but respect email lock
                             binding.tvResendOtp.isEnabled = false
                             binding.tvResendOtp.alpha = 0.5f
+                            // mark resend flow in-flight so any server Error during this flow
+                            // is not treated as an OTP verification failure on the client
+                            isResendInFlight = true
                         }
                         is SignupViewModel.UiState.EmailSent -> {
+                            // resend succeeded; clear in-flight flag
+                            isResendInFlight = false
                             updateLoading(false)
                             // Reset failed attempts on successful resend
                             failedAttempts = 0
@@ -295,11 +350,20 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                         is SignupViewModel.UiState.Error -> {
                             updateLoading(false)
                             val message = state.message.ifBlank { getString(R.string.invalid_otp_format) }
+                            // If this error happened while a resend is in-flight, and it's not a lockout
+                            // message, treat it as a resend failure (do not decrement attempts or show OTP error).
+                            if (isResendInFlight && !isTooManyAttempts(message)) {
+                                isResendInFlight = false
+                                // keep resend disabled until cooldown/timer logic enables it
+                                // optionally show a short toast if you want: Toast.makeText(...)
+                                return@collect
+                            }
+
+                            // Normal error handling for verification attempts or lockout messages
                             showOtpError(message)
                             InputValidationHelper.applyEditTextInvalid(binding.etOtp, redColorInt, errorOtpBgRes)
                             binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(redColorInt)
-                            binding.tvResendOtp.isEnabled = true
-                            binding.tvResendOtp.alpha = 1.0f
+
                             // If backend indicates too many attempts, disable local verify and resend controls
                             if (isTooManyAttempts(message)) {
                                 // disable verify and resend controls
@@ -369,6 +433,8 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
         if (loading) {
             binding.btnLogin.isEnabled = false
         }
+        // Use BaseFragment loader overlay for consistent UX
+        setLoaderVisible(loading)
     }
 
     private fun initializeDefaults() {
@@ -377,11 +443,9 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
         binding.tvOtpError.isVisible = false
         // reset local failed attempts counter when fragment starts
         failedAttempts = 0
-        // Start with the button enabled so the user can press it to trigger validation
-        // and see inline errors (e.g., "OTP must be 6 digits"). The text watcher will
-        // keep the button enabled only when OTP looks valid while typing.
         binding.btnLogin.isEnabled = true
         binding.tvResendOtp.isEnabled = false
+        binding.tvResendOtp.isClickable = false
         binding.tvResendOtp.alpha = 0.5f
         binding.otpTimer.isVisible = false
         otpTextDefault = binding.etOtp.textColors
@@ -485,7 +549,6 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                         return@setOnClickListener
                     }
                     if (!isEnabled) return@setOnClickListener
-                    setTextColor("#2563EB".toColorInt())
                     etOtp.text?.clear()
                     tvOtpError.isVisible = false
                     ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
@@ -505,6 +568,13 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                         showOtpError(getString(R.string.missing_token))
                         return@setOnClickListener
                     }
+                    // Clear errors since resend was clicked
+                    clearOtpAndEmailErrors()
+                    isResendInFlight = true // Set flag to ignore any error from server during resend
+                    // Start the local 30s resend cooldown immediately so resend stays inactive
+                    // even if the server returns an error. The cooldown helper will update the timer UI
+                    // and re-enable the resend control when finished.
+                    try { cooldownHelper?.start(resendCooldownMillis) } catch (_: Exception) { }
                     viewModel.resendOtp(emailToUse, tokenToUse)
                 }
             }

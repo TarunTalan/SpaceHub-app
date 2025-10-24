@@ -3,7 +3,6 @@
     <!-- General spacing/text dims (default / smaller screens) -->
     <dimen name="margin_title_top">5dp</dimen>
     <dimen name="margin_subtitle_top">4dp</dimen>
-    <dimen name="margin_form_horizontal">20dp</dimen>
     <dimen name="spacing_form_group">7dp</dimen>
     <dimen name="margin_input_container_top">30dp</dimen>
 
@@ -59,5 +58,6 @@
     <dimen name="onboarding_button_height">30dp</dimen>
     <dimen name="onboarding_button_margin_top">30dp</dimen>
     <dimen name="onboarding_button_margin_top2">18dp</dimen>
-
+    <!-- Loader size used by BaseFragment fullscreen loader -->
+    <dimen name="loader_size">48dp</dimen>
 </resources>

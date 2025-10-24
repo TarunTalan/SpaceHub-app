@@ -16,7 +16,6 @@ import androidx.navigation.fragment.findNavController
 import com.example.myapplication.R
 import com.example.myapplication.databinding.FragmentResetPasswordBinding
 import androidx.core.view.isVisible
-import android.widget.ProgressBar
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
@@ -71,11 +70,13 @@ class ResetPasswordFragment : BaseFragment(R.layout.fragment_reset_password) {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
-                    val progressBar = binding.root.findViewById<ProgressBar>(R.id.progressBar)
+                    // Use BaseFragment loader overlay instead of per-layout ProgressBar
+                    setLoaderVisible(state is ResetPasswordViewModel.UiState.Loading)
                     when (state) {
-                        is ResetPasswordViewModel.UiState.Loading -> progressBar?.let { it.isVisible = true }
+                        is ResetPasswordViewModel.UiState.Loading -> { /* loader shown via BaseFragment */ }
                         is ResetPasswordViewModel.UiState.EmailSent -> {
-                            progressBar?.let { it.isVisible = false }
+                            // ensure loader hidden when terminal state reached
+                            setLoaderVisible(false)
                             // include tempToken in bundle so verification fragment can use it for debugging/prefill
                             val temp = state.tempToken
                             findNavController().navigate(R.id.action_resetPasswordFragment_to_verifyForgotPasswordFragment,
@@ -86,11 +87,11 @@ class ResetPasswordFragment : BaseFragment(R.layout.fragment_reset_password) {
                             viewModel.reset()
                         }
                         is ResetPasswordViewModel.UiState.Error -> {
-                            progressBar?.let { it.isVisible = false }
+                            setLoaderVisible(false)
                             // Use helper to display email-related errors consistently
                             showEmailError(state.message)
                         }
-                        else -> progressBar?.let { it.isVisible = false }
+                        else -> setLoaderVisible(false)
                     }
                 }
             }

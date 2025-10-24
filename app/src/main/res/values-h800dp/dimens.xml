@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Overrides for h>=800dp breakpoint -->
-    <dimen name="margin_form_horizontal">32dp</dimen>
     <dimen name="margin_title_top">30dp</dimen>
     <dimen name="margin_subtitle_top">6dp</dimen>
     <dimen name="spacing_form_group">10dp</dimen>
@@ -17,8 +16,8 @@
     <dimen name="subtitle_text_size">18sp</dimen>
 
     <dimen name="label_padding_bottom">6dp</dimen>
-    <dimen name="label_text_size">16sp</dimen>
-    <dimen name="input_height">40dp</dimen>
+    <dimen name="label_text_size">15sp</dimen>
+    <dimen name="input_height">39dp</dimen>
     <dimen name="input_text_size">16sp</dimen>
     <dimen name="input_max_width">520dp</dimen>
     <dimen name="input_corner_radius">28dp</dimen>
@@ -26,16 +25,16 @@
 
     <dimen name="email_error_icon_margin_end">12dp</dimen>
     <dimen name="error_margin_top">3dp</dimen>
-    <dimen name="error_text_size">13sp</dimen>
+    <dimen name="error_text_size">12sp</dimen>
 
     <dimen name="proceed_group_top_margin">30dp</dimen>
     <dimen name="login_group_top_margin">52dp</dimen>
     <dimen name="signup_group_top_margin">36dp</dimen>
     <dimen name="login_margin_start">8dp</dimen>
     <dimen name="login_padding_vertical">16dp</dimen>
-    <dimen name="button_height">40dp</dimen>
+    <dimen name="button_height">39dp</dimen>
     <dimen name="button_text_size">18sp</dimen>
-    <dimen name="login_text_size">16sp</dimen>
+    <dimen name="login_text_size">14sp</dimen>
 
     <dimen name="forgot_password_padding_vertical">17dp</dimen>
     <dimen name="forgot_password_margin_top">18dp</dimen>
@@ -53,7 +52,7 @@
     <dimen name="onboarding_subtitle_text_size">17sp</dimen>
     <dimen name="onboarding_subtitle_margin_top">6dp</dimen>
     <dimen name="onboarding_button_text_size">17sp</dimen>
-    <dimen name="onboarding_button_height">36dp</dimen>
+    <dimen name="onboarding_button_height">38dp</dimen>
     <dimen name="onboarding_button_margin_top">37dp</dimen>
     <dimen name="onboarding_button_margin_top2">21dp</dimen>
 </resources>

@@ -29,7 +29,6 @@ import kotlinx.coroutines.launch
 import java.util.*
 import android.content.res.ColorStateList as CSList
 import androidx.core.content.edit
-import android.os.CountDownTimer
 
 class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify_forgot_password) {
 
@@ -42,10 +41,6 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
     // Use shared helper with 30s cooldown to match signup flow
     private var resendCooldownMillis: Long = 30_000L // 30 seconds
     private var cooldownHelper: OtpResendCooldownHelper? = null
-
-    // local cooldown timer for resend button
-    private var otpCooldownTimer: CountDownTimer? = null
-    private var isResendCooldownRunning: Boolean = false
 
     // OTP visuals defaults
     private lateinit var otpTextDefault: CSList
@@ -79,11 +74,34 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
         // instantiate reusable cooldown helper
         cooldownHelper = createOtpCooldownHelper(
             resendCooldownMillis,
-            setResendEnabled = { enabled -> binding.tvResendOtp.isEnabled = enabled },
-            setResendAlpha = { alpha -> binding.tvResendOtp.alpha = alpha },
+            setResendEnabled = { enabled ->
+                // Only allow enabling resend when the current email is not locked
+                if (!isEmailLocked(emailArg)) {
+                    binding.tvResendOtp.isEnabled = enabled
+                    binding.tvResendOtp.alpha = 1.0f
+                    binding.tvResendOtp.isClickable = enabled
+                } else {
+                    binding.tvResendOtp.isEnabled = false
+                    binding.tvResendOtp.alpha = 0.5f
+                    binding.tvResendOtp.isClickable = false
+                }
+            },
+            setResendAlpha = { alpha ->
+                if (isEmailLocked(emailArg)) binding.tvResendOtp.alpha = 0.5f else binding.tvResendOtp.alpha = alpha
+            },
             setTimerVisible = { visible -> binding.otpTimer.isVisible = visible },
             setTimerText = { text -> binding.otpTimer.text = getString(R.string.resend_in, text) },
-            onFinish = { viewModel.clearCooldown() }
+            onFinish = {
+                viewModel.clearCooldown()
+                if (isAdded) {
+                    try {
+                        binding.btnLogin.isEnabled = true
+                        binding.btnLogin.alpha = 1.0f
+                        binding.tvOtpError.isVisible = false
+                        // Do not touch resend button here; cooldown helper will handle it
+                    } catch (_: Exception) { }
+                }
+            }
         )
 
         // Start cooldown if token present (nav arg or ViewModel) only when fragment is first created.
@@ -123,11 +141,14 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
             val isLocked = isEmailLocked(emailArg)
             if (isLocked) {
                 binding.tvResendOtp.isEnabled = false
+                binding.tvResendOtp.isClickable = false
                 binding.tvResendOtp.alpha = 0.5f
                 checkAndApplyLockout()
             } else {
-                binding.tvResendOtp.isEnabled = true
-                binding.tvResendOtp.alpha = 1.0f
+                // Do NOT enable resend automatically here; allow cooldown helper or explicit EmailSent to enable it.
+                binding.tvResendOtp.isEnabled = false
+                binding.tvResendOtp.isClickable = false
+                binding.tvResendOtp.alpha = 0.5f
                 binding.tvOtpError.isVisible = false
                 InputValidationHelper.clearEditTextInvalid(binding.etOtp, otpTextDefault, normalOtpBgRes)
                 binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
@@ -141,8 +162,9 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
         binding.tvOtpError.isVisible = false
         // hide timer initially
         binding.otpTimer.isVisible = false
-        // Ensure resend link is disabled and faded initially until server confirms EmailSent
+        // Ensure resend link is disabled, non-clickable and faded initially until server confirms EmailSent
         binding.tvResendOtp.isEnabled = false
+        binding.tvResendOtp.isClickable = false
         binding.tvResendOtp.alpha = 0.5f
 
         // Ensure OTP input uses normal outline initially
@@ -166,12 +188,14 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
                 setOnClickListener {
                     if (!isEnabled) return@setOnClickListener
 
-                    // Immediately start a 30s local cooldown so user can't spam requests.
-                    startResendCooldown()
+                    // Immediately start the shared cooldown UI to prevent double-taps/spam.
+                    // The cooldown helper will disable the control and show the timer.
+                    try { cooldownHelper?.start(resendCooldownMillis) } catch (_: Exception) { }
 
-                    setTextColor(ColorStateList.valueOf(Color.WHITE))
-                    etOtp.text?.clear()
-                    ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
+                    // Clear inline OTP errors and reset visual state for a fresh resend attempt
+                    binding.etOtp.text?.clear()
+                    binding.tvOtpError.isVisible = false
+                    binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(Color.WHITE)
 
                     // trigger resend via ViewModel: use tempToken from server if available, otherwise fallback to initial request
                     val tokenToUse = viewModel.tempToken.value
@@ -259,8 +283,8 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
-                    // show/hide a simple progress indicator if present
-                    binding.progressBar.let { it.isVisible = state is ResetPasswordViewModel.UiState.Loading }
+                    // Use BaseFragment loader overlay instead of per-layout progressBar
+                    setLoaderVisible(state is ResetPasswordViewModel.UiState.Loading)
 
                     when (state) {
                         is ResetPasswordViewModel.UiState.Loading -> {
@@ -280,99 +304,97 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
 
                         is ResetPasswordViewModel.UiState.EmailSent -> {
                             // On initial EmailSent (OTP requested) or after resend, show feedback and restart cooldown
-                            binding.progressBar.isVisible = false
-                            Toast.makeText(requireContext(), getString(R.string.otp_resent), Toast.LENGTH_SHORT).show()
+                            setLoaderVisible(false)
+                             Toast.makeText(requireContext(), getString(R.string.otp_resent), Toast.LENGTH_SHORT).show()
 
-                            // Start local UI cooldown (ensures timer visible even if we already started when user tapped)
-                            startResendCooldown()
-                        }
+                             // Start local UI cooldown (ensures timer visible even if we already started when user tapped)
+                             cooldownHelper?.start(resendCooldownMillis)
+                         }
 
-                        is ResetPasswordViewModel.UiState.OtpVerified -> {
-                            binding.progressBar.isVisible = false
-                            // Use tempToken provided by ViewModel when available, otherwise fall back to stored token, argument, or entered OTP
-                            val vmToken = state.tempToken
-                            val prefsToken = try { SharedPrefsTokenStore(requireContext()).getAccessToken() } catch (_: Exception) { null }
-                            val vmStoredToken = viewModel.tempToken.value
-                            val tokenToSend = vmToken ?: prefsToken ?: vmStoredToken ?: binding.etOtp.text.toString().trim()
+                         is ResetPasswordViewModel.UiState.OtpVerified -> {
+                            setLoaderVisible(false)
+                             // Use tempToken provided by ViewModel when available, otherwise fall back to stored token, argument, or entered OTP
+                             val vmToken = state.tempToken
+                             val prefsToken = try { SharedPrefsTokenStore(requireContext()).getAccessToken() } catch (_: Exception) { null }
+                             val vmStoredToken = viewModel.tempToken.value
+                             val tokenToSend = vmToken ?: prefsToken ?: vmStoredToken ?: binding.etOtp.text.toString().trim()
 
-                            if (emailArg.isNullOrBlank()) {
-                                // replace toast with inline error
-                                binding.tvOtpError.text = getString(R.string.missing_email)
-                                binding.tvOtpError.isVisible = true
-                                return@collect
-                            }
+                             if (emailArg.isNullOrBlank()) {
+                                 // replace toast with inline error
+                                 binding.tvOtpError.text = getString(R.string.missing_email)
+                                 binding.tvOtpError.isVisible = true
+                                 return@collect
+                             }
 
-                            val bundle = Bundle().apply {
-                                putString("email", emailArg)
-                                putString("tempToken", tokenToSend)
-                            }
+                             val bundle = Bundle().apply {
+                                 putString("email", emailArg)
+                                 putString("tempToken", tokenToSend)
+                             }
 
-                            try {
-                                findNavController().navigate(R.id.newPasswordFragment, bundle)
-                            } catch (_: Exception) {
-                                // Navigation failed — show inline error
-                                binding.tvOtpError.text = getString(R.string.navigation_failed)
-                                binding.tvOtpError.isVisible = true
-                            }
+                             try {
+                                 findNavController().navigate(R.id.newPasswordFragment, bundle)
+                             } catch (_: Exception) {
+                                 // Navigation failed — show inline error
+                                 binding.tvOtpError.text = getString(R.string.navigation_failed)
+                                 binding.tvOtpError.isVisible = true
+                             }
 
-                            viewModel.reset()
-                        }
+                             viewModel.reset()
+                         }
 
-                        is ResetPasswordViewModel.UiState.Error -> {
-                            binding.progressBar.isVisible = false
-                            // Removed error toast; show inline error in tvOtpError
-                            binding.tvOtpError.text = state.message
-                            binding.tvOtpError.isVisible = true
+                         is ResetPasswordViewModel.UiState.Error -> {
+                            setLoaderVisible(false)
+                             // Removed error toast; show inline error in tvOtpError
+                             binding.tvOtpError.text = state.message
+                             binding.tvOtpError.isVisible = true
 
-                            // show red outline on error
-                            InputValidationHelper.applyEditTextInvalid(binding.etOtp, redColorInt, errorOtpBgRes)
-                            // show red tick for invalid OTP
-                            binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(redColorInt)
+                             // show red outline on error
+                             InputValidationHelper.applyEditTextInvalid(binding.etOtp, redColorInt, errorOtpBgRes)
+                             // show red tick for invalid OTP
+                             binding.ivOtpVerified.imageTintList = ColorStateList.valueOf(redColorInt)
 
-                            // If a local cooldown is not running, allow resend; otherwise keep it disabled until timer finishes.
-                            if (!isResendCooldownRunning) {
-                                binding.tvResendOtp.isEnabled = true
-                                binding.tvResendOtp.alpha = 1.0f
-                            }
+                             // Do NOT enable resend on a normal verification error. Resend should be
+                             // enabled only by the cooldown helper (after EmailSent/resend) or when
+                             // there is no active VM cooldown and an explicit flow enables it.
 
-                            // If backend indicates too many attempts, disable login and signup navigation
-                            if (isTooManyAttempts(state.message)) {
-                                // disable local verify button and resend
-                                binding.btnLogin.isEnabled = false
-                                binding.btnLogin.alpha = 0.5f
-                                binding.tvResendOtp.isEnabled = false
-                                binding.tvResendOtp.alpha = 0.5f
+                             // If backend indicates too many attempts, disable login and signup navigation
+                             if (isTooManyAttempts(state.message)) {
+                                 // disable local verify button and resend
+                                 binding.btnLogin.isEnabled = false
+                                 binding.btnLogin.alpha = 0.5f
+                                 binding.tvResendOtp.isEnabled = false
+                                 binding.tvResendOtp.alpha = 0.5f
 
-                                // start a 5-minute lockout cooldown and show the timer
-                                val lockDuration = 5 * 60 * 1000L // 5 minutes
-                                val lockMillis = System.currentTimeMillis() + lockDuration
-                                try {
-                                    val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-                                    val lockoutKey = getLockoutKey(emailArg)
-                                    prefs.edit { putLong(lockoutKey, lockMillis) }
-                                } catch (_: Exception) { /* ignore */ }
+                                 // start a 5-minute lockout cooldown and show the timer
+                                 val lockDuration = 5 * 60 * 1000L // 5 minutes
+                                 val lockMillis = System.currentTimeMillis() + lockDuration
+                                 try {
+                                     val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                                     val lockoutKey = getLockoutKey(emailArg)
+                                     prefs.edit { putLong(lockoutKey, lockMillis) }
+                                 } catch (_: Exception) { /* ignore */ }
 
-                                // update ViewModel and start helper so UI timer will run
-                                try {
-                                    viewModel.setCooldownEndMillis(lockMillis)
-                                    cooldownHelper?.startWithEndMillis(lockMillis)
-                                } catch (_: Exception) { /* ignore */ }
+                                 // update ViewModel and start helper so UI timer will run
+                                 try {
+                                     viewModel.setCooldownEndMillis(lockMillis)
+                                     cooldownHelper?.startWithEndMillis(lockMillis)
+                                 } catch (_: Exception) { /* ignore */ }
 
-                                // show an inline lockout message
-                                binding.tvOtpError.text = getString(R.string.too_many_attempts_try_again, 5)
-                                binding.tvOtpError.isVisible = true
-                            }
+                                 // show an inline lockout message
+                                 binding.tvOtpError.text = getString(R.string.too_many_attempts_try_again, 5)
+                                 binding.tvOtpError.isVisible = true
+                             }
 
-                        }
+                         }
 
-                        else -> {
-                            // Idle, PasswordReset or other states: nothing special to do
-                        }
-                    }
-                }
-            }
-        }
-    }
+                         else -> {
+                             // Idle, PasswordReset or other states: nothing special to do
+                         }
+                     }
+                 }
+             }
+         }
+     }
 
     private fun isTooManyAttempts(message: String?): Boolean {
         if (message.isNullOrBlank()) return false
@@ -405,40 +427,9 @@ class ForgotPasswordVerificationFragment : BaseFragment(R.layout.fragment_verify
         } catch (_: Exception) { /* ignore */ }
     }
 
-    // Start a local 30s cooldown for resend button and show timer/message
-    private fun startResendCooldown() {
-        // cancel existing timer if any
-        otpCooldownTimer?.cancel()
-        isResendCooldownRunning = true
-
-        binding.tvResendOtp.isEnabled = false
-        binding.tvResendOtp.alpha = 0.5f
-        val seconds = (resendCooldownMillis / 1000).toInt()
-        binding.tvOtpError.text = getString(R.string.please_wait_seconds, seconds)
-         binding.tvOtpError.isVisible = true
-
-         binding.otpTimer.isVisible = true
-         otpCooldownTimer = object : CountDownTimer(resendCooldownMillis, 1000) {
-             override fun onTick(millisUntilFinished: Long) {
-                 val secs = millisUntilFinished / 1000
-                binding.otpTimer.text = getString(R.string.resend_in, secs.toString())
-             }
-
-             override fun onFinish() {
-                 isResendCooldownRunning = false
-                 binding.tvResendOtp.isEnabled = true
-                 binding.tvResendOtp.alpha = 1.0f
-                 binding.otpTimer.isVisible = false
-                 binding.tvOtpError.isVisible = false
-             }
-         }
-         otpCooldownTimer?.start()
-     }
-
     override fun onDestroyView() {
         super.onDestroyView()
         cooldownHelper?.cancel()
-        otpCooldownTimer?.cancel()
         _binding = null
     }
 }

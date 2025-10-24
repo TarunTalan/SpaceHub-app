@@ -12,17 +12,18 @@
 
     <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/contentLayout"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/margin_title_top"
-            app:layout_constraintTop_toTopOf="parent">
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="@+id/guideline_start"
+            app:layout_constraintEnd_toStartOf="@+id/guideline_end">
 
         <!-- Title Container -->
         <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/titleGroup"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginHorizontal="@dimen/margin_form_horizontal"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent">
@@ -36,8 +37,7 @@
                     android:textColor="@android:color/white"
                     android:textSize="@dimen/title_text_size"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-            />
+                    app:layout_constraintTop_toTopOf="parent" />
 
             <TextView
                     android:id="@+id/tvSubtitle"
@@ -49,8 +49,7 @@
                     android:textColor="#C6CAD1"
                     android:textSize="@dimen/subtitle_text_size"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvSignupTitle"
-            />
+                    app:layout_constraintTop_toBottomOf="@id/tvSignupTitle" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <!-- Input Container -->
@@ -68,7 +67,6 @@
                     android:id="@+id/emailGroup"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginHorizontal="@dimen/margin_form_horizontal"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent">
@@ -83,8 +81,7 @@
                         android:text="@string/enter_email"
                         android:textColor="#FFFFFF"
                         app:layout_constraintStart_toStartOf="@+id/emailLayout"
-                        app:layout_constraintTop_toTopOf="parent"
-                />
+                        app:layout_constraintTop_toTopOf="parent" />
 
                 <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/emailLayout"
@@ -111,8 +108,7 @@
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@id/tvEmailLabel"
                         app:startIconDrawable="@drawable/email"
-                        app:startIconTint="#ADADAD"
-                >
+                        app:startIconTint="#ADADAD">
 
                     <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etEmail"
@@ -122,8 +118,7 @@
                             android:hint="@string/enter_your_email"
                             android:textSize="@dimen/input_text_size"
                             android:inputType="textEmailAddress"
-                            android:paddingEnd="@dimen/input_padding_end"
-                    />
+                            android:paddingEnd="@dimen/input_padding_end" />
 
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -137,8 +132,7 @@
                         app:layout_constraintBottom_toBottomOf="@id/emailLayout"
                         app:layout_constraintEnd_toEndOf="@id/emailLayout"
                         app:layout_constraintTop_toTopOf="@id/emailLayout"
-                        tools:ignore="ContentDescription"
-                />
+                        tools:ignore="ContentDescription" />
 
                 <TextView
                         android:id="@+id/tvEmailError"
@@ -151,8 +145,7 @@
                         android:visibility="invisible"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@+id/emailLayout"
-                        tools:text="Invalid email format"
-                />
+                        tools:text="Invalid email format" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
             <!-- Password Group -->
@@ -160,7 +153,6 @@
                     android:id="@+id/passwordGroup"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginHorizontal="@dimen/margin_form_horizontal"
                     android:layout_marginTop="@dimen/spacing_form_group"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
@@ -176,8 +168,7 @@
                         android:text="@string/enter_password"
                         android:textColor="#FFFFFF"
                         app:layout_constraintStart_toStartOf="@+id/passwordLayout"
-                        app:layout_constraintTop_toTopOf="parent"
-                />
+                        app:layout_constraintTop_toTopOf="parent" />
 
                 <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/passwordLayout"
@@ -203,8 +194,7 @@
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@id/passwordLabel"
                         app:startIconDrawable="@drawable/lock"
-                        app:startIconTint="#C6CAD1"
-                >
+                        app:startIconTint="#C6CAD1">
 
                     <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etPassword"
@@ -213,8 +203,7 @@
                             android:layout_height="match_parent"
                             android:hint="@string/enter_your_password"
                             android:textSize="@dimen/input_text_size"
-                            android:inputType="textPassword"
-                    />
+                            android:inputType="textPassword" />
 
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -229,8 +218,7 @@
                         android:visibility="invisible"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@+id/passwordLayout"
-                        tools:text="Password is required"
-                />
+                        tools:text="Password is required" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
             <!-- Confirm Password Group -->
@@ -238,7 +226,6 @@
                     android:id="@+id/confirmGroup"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginHorizontal="@dimen/margin_form_horizontal"
                     android:layout_marginTop="@dimen/spacing_form_group"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
@@ -254,8 +241,7 @@
                         android:text="@string/confirm_password"
                         android:textColor="#FFFFFF"
                         app:layout_constraintStart_toStartOf="@+id/confirmPasswordLayout"
-                        app:layout_constraintTop_toTopOf="parent"
-                />
+                        app:layout_constraintTop_toTopOf="parent" />
 
                 <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/confirmPasswordLayout"
@@ -281,8 +267,7 @@
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@id/confirmPasswordLabel"
                         app:startIconDrawable="@drawable/lock"
-                        app:startIconTint="#C6CAD1"
-                >
+                        app:startIconTint="#C6CAD1">
 
                     <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etConfirmPassword"
@@ -291,8 +276,7 @@
                             android:layout_height="match_parent"
                             android:hint="@string/confirm_your_password"
                             android:textSize="@dimen/input_text_size"
-                            android:inputType="textPassword"
-                    />
+                            android:inputType="textPassword" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView
@@ -306,8 +290,7 @@
                         android:visibility="invisible"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@+id/confirmPasswordLayout"
-                        tools:text="Password is required"
-                />
+                        tools:text="Password is required" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
             <!-- SignUp Group (slightly reduced) -->
@@ -315,7 +298,6 @@
                     android:id="@+id/signupGroup"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginHorizontal="@dimen/margin_form_horizontal"
                     android:layout_marginTop="@dimen/signup_group_top_margin"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
@@ -335,8 +317,7 @@
                         android:textSize="@dimen/button_text_size"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent"
-                />
+                        app:layout_constraintTop_toTopOf="parent" />
 
                 <!-- Log In Link -->
                 <LinearLayout
@@ -353,8 +334,7 @@
                             android:fontFamily="@font/roboto_regular"
                             android:text="@string/already_have_an_account"
                             android:textColor="#FFFFFF"
-                            android:textSize="@dimen/login_text_size"
-                    />
+                            android:textSize="@dimen/login_text_size" />
 
                     <TextView
                             android:id="@+id/tvLoginLink"
@@ -367,8 +347,7 @@
                             android:paddingVertical="@dimen/login_padding_vertical"
                             android:text="@string/log_in"
                             android:textColor="#2563EB"
-                            android:textSize="@dimen/login_text_size"
-                    />
+                            android:textSize="@dimen/login_text_size" />
                 </LinearLayout>
             </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -376,7 +355,22 @@
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 
-    <!-- End Input Container -->
+    <androidx.constraintlayout.widget.Guideline
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/guideline_start"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.08"
+            />
+
+    <androidx.constraintlayout.widget.Guideline
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/guideline_end"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.92"
+            />
+
 
     <!-- Decorative Ellipses -->
     <ImageView

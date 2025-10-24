@@ -92,7 +92,7 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
                                 ) || msg.contains("credentials", ignoreCase = true)
                             if (isPasswordError) {
                                 passwordErrorLatched = true
-                                binding.tvPasswordError.text = "Invalid password!"
+                                binding.tvPasswordError.text = getString(R.string.invalid_password)
                                 binding.tvPasswordError.visibility = View.VISIBLE
                                 applyPasswordInvalidVisuals()
                             } else {
@@ -109,7 +109,11 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
     }
 
     private fun setLoading(loading: Boolean) {
+        // show fullscreen loader from BaseFragment for consistency
+        setLoaderVisible(loading)
+        // keep button state in sync and dim while loading
         binding.btnLogin.isEnabled = !loading
+        binding.btnLogin.alpha = if (loading) 0.5f else 1.0f
     }
 
     private fun initializeDefaults() {
@@ -271,7 +275,7 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
             clearPasswordInvalidVisuals()
             return true
         } else {
-            binding.tvPasswordError.text = "Invalid password!"
+            binding.tvPasswordError.text = getString(R.string.invalid_password)
             binding.tvPasswordError.visibility = View.VISIBLE
             applyPasswordInvalidVisuals()
             return false

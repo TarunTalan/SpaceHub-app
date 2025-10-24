@@ -45,6 +45,7 @@
     <string name="otp_required">OTP is required</string>
     <string name="password_require_uppercase">Password must contain at least one uppercase letter</string>
     <string name="password_require_special">Password must contain at least one special character</string>
+    <string name="invalid_password">Invalid password!</string>
     <string name="password_require_digit">Password must contain at least one digit</string>
     <string name="otp_must_be_6_digits">OTP must be 6 digits</string>
     <string name="invalid_otp_format">Invalid OTP format</string>
@@ -58,7 +59,7 @@
     <string name="please_enter_the_otp_to_continue">Please enter the OTP to continue</string>
     <string name="reset_password">Reset Password</string>
     <string name="welcome_ncreate_your_account">Welcome\nCreate your account</string>
-    <string name="otp_timer_zero">0:00</string>
+    <string name="otp_timer_zero">00</string>
     <string name="signed_in">Signed in</string>
     <string name="otp_resent">OTP resent</string>
     <string name="missing_email">Email required</string>

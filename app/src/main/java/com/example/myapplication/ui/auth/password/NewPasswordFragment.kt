@@ -153,13 +153,14 @@ class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
-                    // centralized progress handling using view binding's progress bar (exists in layout)
-                    binding.progressBar.isVisible = state is ResetPasswordViewModel.UiState.Loading
+                    // Use BaseFragment loader overlay instead of layout progressBar
+                    setLoaderVisible(state is ResetPasswordViewModel.UiState.Loading)
 
                     when (state) {
                         is ResetPasswordViewModel.UiState.PasswordReset -> {
                             // After password reset and automatic login, do not navigate to the login screen.
                             // Show a concise user message only.
+                            setLoaderVisible(false)
                             android.widget.Toast.makeText(requireContext(), "Password changed. Logging in", android.widget.Toast.LENGTH_SHORT).show()
                             findNavController().navigate(R.id.action_newPasswordFragment_to_logoutFragment)
                             // Keep the ViewModel state reset so UI can return to idle.
@@ -167,25 +168,21 @@ class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
                         }
 
                         is ResetPasswordViewModel.UiState.Error -> {
+                            // hide loader and display inline error
+                            setLoaderVisible(false)
                             val msg = state.message.trim()
-                            // Show inline error in the fragment instead of an error toast
                             binding.tvPasswordError.text = msg
                             binding.tvPasswordError.isVisible = true
 
-                            // If server indicates OTP not validated or token expired, guide user to request a new OTP
                             val lower2 = msg.lowercase()
                             if ("otp not validated" in lower2 || "token expired" in lower2 || "unauthorized" in lower2) {
-                                // navigate back to reset password screen so user can request a new OTP
-                                try {
-                                    findNavController().navigate(R.id.resetPasswordFragment)
-                                } catch (_: Exception) {
-                                    // ignore navigation failure
-                                }
+                                try { findNavController().navigate(R.id.resetPasswordFragment) } catch (_: Exception) { }
                             }
                         }
 
                         else -> {
-                            // Idle or other states: nothing else to do
+                            // Ensure loader hidden for other states
+                            setLoaderVisible(false)
                         }
                     }
                 }
