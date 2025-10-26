@@ -74,9 +74,16 @@ dependencies {
     // Lifecycle
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.livedata.ktx)
+    implementation(libs.androidx.ui.test)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     implementation("com.google.android.material:material:1.13.0")
+
+    // uCrop for interactive image cropping
+    implementation("com.github.yalantis:ucrop:2.2.8")
+
+    // Glide for image loading (no annotation processor)
+    implementation("com.github.bumptech.glide:glide:4.15.1")
 }

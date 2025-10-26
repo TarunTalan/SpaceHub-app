@@ -162,7 +162,7 @@ class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
                             // Show a concise user message only.
                             setLoaderVisible(false)
                             android.widget.Toast.makeText(requireContext(), "Password changed. Logging in", android.widget.Toast.LENGTH_SHORT).show()
-                            findNavController().navigate(R.id.action_newPasswordFragment_to_logoutFragment)
+                            findNavController().navigate(R.id.action_newPasswordFragment_to_chooseProfilePicFragment)
                             // Keep the ViewModel state reset so UI can return to idle.
                             viewModel.reset()
                         }

@@ -16,9 +16,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // JitPack required for some GitHub-hosted libraries (ucrop)
+        maven("https://jitpack.io")
     }
 }
 
 rootProject.name = "My Application"
 include(":app")
- 

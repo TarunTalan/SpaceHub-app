@@ -86,9 +86,9 @@ class MainActivity : AppCompatActivity() {
                 // No token -> user not authenticated -> show onboarding (start destination)
                 // Do nothing: onboarding is the start destination and will be shown.
             } else {
-                // User already has a token; show logout screen on open (authenticated state)
+                // User already has a token; show choose profile picture screen on open (authenticated state)
                 try {
-                    navController.navigate(R.id.logoutFragment)
+                    navController.navigate(R.id.chooseProfilePicFragment)
                 } catch (_: Exception) {
                     // If navigation fails for any reason, fall back silently — the graph is still set.
                 }
@@ -139,7 +139,7 @@ class MainActivity : AppCompatActivity() {
 
             // Consider these as top-level destinations where back should prompt for exit.
             val topLevelDestinations = setOf(
-                R.id.onboardingFragment, R.id.logoutFragment
+                R.id.onboardingFragment, R.id.chooseProfilePicFragment
             )
 
             if (currentId != null && currentId in topLevelDestinations) {

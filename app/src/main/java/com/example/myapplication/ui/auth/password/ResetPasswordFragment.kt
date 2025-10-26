@@ -157,6 +157,11 @@ class ResetPasswordFragment : BaseFragment(R.layout.fragment_reset_password) {
                 return@setOnClickListener
             }
             val email = binding.etEmail.text.toString().trim()
+            // Show explicit required error when email is empty
+            if (email.isEmpty()) {
+                showEmailError(getString(R.string.email_required))
+                return@setOnClickListener
+            }
             if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
                 showEmailError(getString(R.string.invalid_email_format))
                 return@setOnClickListener

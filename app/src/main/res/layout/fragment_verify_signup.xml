@@ -79,7 +79,7 @@
                     android:background="@drawable/edit_text_outline_selector"
                     android:fontFamily="@font/roboto_regular"
                     android:maxWidth="@dimen/input_max_width"
-                    android:paddingStart="25dp"
+                    android:paddingStart="20dp"
                     android:textColor="#FFFFFF"
                     android:textColorHint="@color/hint_color"
                     android:textSize="@dimen/input_text_size"

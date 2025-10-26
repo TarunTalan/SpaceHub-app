@@ -344,7 +344,8 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                             // Reset attempts on success
                             failedAttempts = 0
                             Toast.makeText(requireContext(), "Signing in", Toast.LENGTH_SHORT).show()
-                            findNavController().navigate(R.id.action_signupVerificationFragment_to_logoutFragment)
+                            // Navigate to choose profile pic after successful signup verification
+                            findNavController().navigate(R.id.action_signupVerificationFragment_to_chooseProfilePicFragment)
                             viewModel.reset()
                         }
                         is SignupViewModel.UiState.Error -> {

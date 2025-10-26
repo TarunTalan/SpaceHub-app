@@ -93,7 +93,6 @@
             android:text="@string/onboarding_title"
             android:textColor="#FFFFFF"
             android:textSize="@dimen/onboarding_title_text_size"
-            android:textStyle="bold"
             android:gravity="center"
             android:visibility="invisible"
             app:layout_constraintEnd_toStartOf="@+id/guideline_end"

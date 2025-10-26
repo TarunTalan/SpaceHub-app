@@ -77,7 +77,7 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
                         is LoginViewModel.UiState.Success -> {
                             setLoading(false)
                             Toast.makeText(requireContext(), "Login successful", Toast.LENGTH_SHORT).show()
-                            findNavController().navigate(R.id.action_loginFragment_to_logoutFragment)
+                            findNavController().navigate(R.id.action_loginFragment_to_chooseProfilePicFragment)
                             viewModel.reset()
                         }
 
@@ -266,19 +266,28 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
     private fun validatePassword(): Boolean {
         val pwd = binding.etPassword.text?.toString()?.trim().orEmpty()
         val result = InputValidator.validatePassword(pwd)
-
-        val isValid = result == InputValidator.PasswordResult.VALID
-        passwordErrorLatched = !isValid
-
-        if (isValid) {
-            binding.tvPasswordError.visibility = View.INVISIBLE
-            clearPasswordInvalidVisuals()
-            return true
-        } else {
-            binding.tvPasswordError.text = getString(R.string.invalid_password)
-            binding.tvPasswordError.visibility = View.VISIBLE
-            applyPasswordInvalidVisuals()
-            return false
+        return when (result) {
+            InputValidator.PasswordResult.EMPTY -> {
+                passwordErrorLatched = true
+                binding.tvPasswordError.text = getString(R.string.password_required)
+                binding.tvPasswordError.visibility = View.VISIBLE
+                applyPasswordInvalidVisuals()
+                false
+            }
+            InputValidator.PasswordResult.VALID -> {
+                passwordErrorLatched = false
+                binding.tvPasswordError.visibility = View.INVISIBLE
+                clearPasswordInvalidVisuals()
+                true
+            }
+            else -> {
+                // For all other invalid cases show a single generic invalid-password message
+                passwordErrorLatched = true
+                binding.tvPasswordError.text = getString(R.string.invalid_password)
+                binding.tvPasswordError.visibility = View.VISIBLE
+                applyPasswordInvalidVisuals()
+                false
+            }
         }
     }
 

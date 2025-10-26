@@ -104,5 +104,23 @@
     <string name="exit_signup_message">Are you sure you want to discard signup?</string>
     <string name="exit_app_title">Exit App</string>
     <string name="exit_app_message">Are you sure you want to exit SpaceHub?</string>
+    <string name="skip">Skip</string>
+    <string name="next">Next</string>
+    <string name="choose_profile_pic">Choose profile picture</string>
+    <string name="choose_a_photo">Choosse a photo that represents you!</string>
+    <string name="create_your_community">Create Your Community</string>
+    <string name="create_community_subtitle">Your community is where you and your friends hang out and start talking.</string>
+    <string name="create_my_own">Create My Own</string>
+    <string name="gaming">Gaming</string>
+    <string name="school_club">School Club</string>
+    <string name="friends">Friends</string>
+    <string name="artist">Artist</string>
+    <string name="local_community">Local Community</string>
+    <string name="have_invite_already">Have an invite already?</string>
+    <string name="join_a_community">Join a Community</string>
 
+    <!-- Toast shown when an avatar is selected via Skip -->
+    <string name="avatar_selected">Avatar selected</string>
+    <string name="username_instruction">User Name must contain (letters, digits, -,  @)</string>
+    <string name="username_no_spaces">Username must not contain any space</string>
 </resources>
