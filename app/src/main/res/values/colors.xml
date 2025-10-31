@@ -10,4 +10,9 @@
     <!-- Auth Screen Colors -->
     <color name="subtitle_gray">#C6CAD1</color>
     <color name="input_error">#F44336</color>
+
+
+    <!-- Dashboard Screen Colors -->
+    <color name="dashboard_toolbar">#20262F</color>
+    <color name="color_tab_focus">#008000</color>
 </resources>

@@ -121,6 +121,25 @@
 
     <!-- Toast shown when an avatar is selected via Skip -->
     <string name="avatar_selected">Avatar selected</string>
+
     <string name="username_instruction">User Name must contain (letters, digits, -,  @)</string>
     <string name="username_no_spaces">Username must not contain any space</string>
+    <string name="username_required">Username is required</string>
+    <string name="username_invalid_chars">Invalid characters in username!</string>
+    <string name="logged_out_message">You have been logged out</string>
+
+    <!-- Bottom navigation titles -->
+    <string name="home">Home</string>
+    <string name="search">Search</string>
+    <string name="chat">Chat</string>
+    <string name="profile">Profile</string>
+    <string name="logout_confirm_title">Confirm logout</string>
+    <string name="logout_confirm_message">Are you sure you want to log out?</string>
+    <string name="logout_confirm_yes">Logout</string>
+    <string name="username_fallback">Username</string>
+    <string name="username_taken">Username already exist!</string>
+    <string name="username_invalid_server">Invalid username!</string>
+    <string name="username_too_long">Username too long!</string>
+    <string name="server_error">Server error! Try again later</string>
+    <string name="username_error_generic">Some error occurred! Try again</string>
 </resources>
