@@ -61,3 +61,4 @@
     <!-- Loader size used by BaseFragment fullscreen loader -->
     <dimen name="loader_size">48dp</dimen>
 </resources>
+

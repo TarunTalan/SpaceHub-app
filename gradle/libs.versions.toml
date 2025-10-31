@@ -17,6 +17,7 @@ gson = "2.10.1"
 jwtdecode = "2.0.1"
 coroutines = "1.7.3"
 lifecycleViewmodel = "2.7.0"
+ucrop = "2.2.8"
 uiTest = "1.9.4"
 
 [libraries]
@@ -51,6 +52,7 @@ kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycleViewmodel" }
 androidx-lifecycle-livedata-ktx = { group = "androidx.lifecycle", name = "lifecycle-livedata-ktx", version.ref = "lifecycleViewmodel" }
 androidx-ui-test = { group = "androidx.compose.ui", name = "ui-test", version.ref = "uiTest" }
+ucrop = { module = "com.github.yalantis:ucrop", version.ref = "ucrop" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

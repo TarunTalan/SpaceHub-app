@@ -8,13 +8,13 @@ import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
 import com.example.myapplication.R
 import com.example.myapplication.databinding.FragmentLoginBinding
@@ -63,8 +63,6 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
         setupKeyboardDismiss(binding.root)
         observeViewModel()
 
-        // Remove fragment-local back press handler which forcibly popped to onboarding.
-        // The activity already manages back behavior centrally in MainActivity.
     }
 
     private fun observeViewModel() {
@@ -76,9 +74,23 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
                         is LoginViewModel.UiState.Loading -> setLoading(true)
                         is LoginViewModel.UiState.Success -> {
                             setLoading(false)
-                            Toast.makeText(requireContext(), "Login successful", Toast.LENGTH_SHORT).show()
-                            findNavController().navigate(R.id.action_loginFragment_to_chooseProfilePicFragment)
-                            viewModel.reset()
+                            // Clear persisted signup email on successful login to avoid stale data
+                            try {
+                                com.example.myapplication.data.session.SessionManager.clearSignupEmail(requireContext())
+                            } catch (_: Exception) { }
+
+//                            Toast.makeText(requireContext(), "Login successful", Toast.LENGTH_SHORT).show()
+                            try {
+                                val navOptions = NavOptions.Builder()
+                                    .setPopUpTo(R.id.auth_nav_graph, true)
+                                    .build()
+                                // Navigate to dashboard (primary post-login screen) and clear backstack
+                                findNavController().navigate(R.id.dashboardFragment, null, navOptions)
+                            } catch (_: Exception) {
+                                // fallback to simple navigation
+                                try { findNavController().navigate(R.id.dashboardFragment) } catch (_: Exception) {}
+                            }
+                             viewModel.reset()
                         }
 
                         is LoginViewModel.UiState.Error -> {
@@ -145,20 +157,42 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
         binding.ivEmailError.visibility = View.INVISIBLE
         binding.tvPasswordError.visibility = View.INVISIBLE
 
-        // Prevent users from typing whitespace into email/password fields and enforce length limits
-        val noSpaceFilter = InputFilter { source, start, end, _, _, _ ->
-            val out = StringBuilder()
-            var removed = false
-            for (i in start until end) {
-                val c = source[i]
-                if (!Character.isWhitespace(c)) out.append(c) else removed = true
-            }
-            if (!removed) null else out.toString()
-        }
+        // Keep length limits but allow symbols/special characters
         val emailMax = 50
         val passwordMax = 25
-        binding.etEmail.filters = arrayOf(InputFilter.LengthFilter(emailMax), noSpaceFilter)
-        binding.etPassword.filters = arrayOf(InputFilter.LengthFilter(passwordMax), noSpaceFilter)
+        // Filter: disallow whitespace and emoji; allow letters, digits and punctuation/symbol characters
+        val noSpaceOrEmojiFilter = InputFilter { source, start, end, _, _, _ ->
+            val out = StringBuilder()
+            var i = start
+            val allowedTypes = setOf(
+                Character.CONNECTOR_PUNCTUATION.toInt(),
+                Character.DASH_PUNCTUATION.toInt(),
+                Character.START_PUNCTUATION.toInt(),
+                Character.END_PUNCTUATION.toInt(),
+                Character.OTHER_PUNCTUATION.toInt(),
+                Character.MATH_SYMBOL.toInt(),
+                Character.CURRENCY_SYMBOL.toInt(),
+                Character.MODIFIER_SYMBOL.toInt(),
+                Character.OTHER_SYMBOL.toInt()
+            )
+            while (i < end) {
+                val cp = Character.codePointAt(source, i)
+                val charCount = Character.charCount(cp)
+                val isSpace = Character.isWhitespace(cp)
+                val isEmoji = (cp in 0x1F600..0x1F64F) || (cp in 0x1F300..0x1F5FF) || (cp in 0x1F680..0x1F6FF) || (cp in 0x1F1E6..0x1F1FF) || (cp in 0x2600..0x26FF) || (cp in 0x2700..0x27BF) || (cp in 0x1F900..0x1F9FF) || (cp in 0x1FA70..0x1FAFF) || (cp in 0xFE00..0xFE0F)
+                val type = Character.getType(cp)
+                val isLetterOrDigit = Character.isLetterOrDigit(cp)
+                val isAllowedSymbol = allowedTypes.contains(type)
+                if (!isSpace && !isEmoji && (isLetterOrDigit || isAllowedSymbol)) {
+                    out.appendCodePoint(cp)
+                }
+                i += charCount
+            }
+            if (out.length == end - start) null else out.toString()
+        }
+
+        binding.etEmail.filters = arrayOf(InputFilter.LengthFilter(emailMax), noSpaceOrEmojiFilter)
+        binding.etPassword.filters = arrayOf(InputFilter.LengthFilter(passwordMax), noSpaceOrEmojiFilter)
     }
 
     private fun setupTextWatchers() {

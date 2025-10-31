@@ -8,11 +8,9 @@ import android.os.CountDownTimer
 import android.text.Editable
 import android.text.InputFilter
 import android.text.TextWatcher
-import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
-import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.os.bundleOf
@@ -115,10 +113,7 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
             val useAdjustResizeRes = resources.getBoolean(R.bool.use_adjust_resize_for_small_screens)
             val finalUseAdjustResize = useAdjustResizeRes || useAdjustResizeByHeight
 
-            Log.d(
-                "SignupDebug",
-                "screenHeightDp=$screenHeightDp useAdjustResizeRes=$useAdjustResizeRes useAdjustResizeByHeight=$useAdjustResizeByHeight finalUseAdjustResize=$finalUseAdjustResize"
-            )
+
 
             if (finalUseAdjustResize) {
                 try {
@@ -412,6 +407,12 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                             val emailArg = binding.etEmail.text.toString().trim()
                             val passwordArg = binding.etPassword.text.toString()
 
+                            // Persist the signup email so subsequent fragments can access it (robust fallback)
+                            try {
+                                requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                                    .edit { putString("email", emailArg) }
+                            } catch (_: Exception) { }
+
                             // Build bundle including tempToken so the verification fragment receives it
                             val bundle = bundleOf(
                                 "email" to emailArg, "password" to passwordArg, "tempToken" to state.tempToken
@@ -444,6 +445,13 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                             // If verification required, navigate; otherwise keep UI state (no toast)
                             val emailArg = binding.etEmail.text.toString().trim()
                             val passwordArg = binding.etPassword.text.toString()
+
+                            // Persist signup email to SharedPreferences as a robust fallback for downstream flows
+                            try {
+                                requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                                    .edit { putString("email", emailArg) }
+                            } catch (_: Exception) { }
+
                             try {
                                 val nav = findNavController()
                                 if (state.requiresVerification) {
@@ -460,8 +468,8 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                                         }
                                     }
                                 } else {
-                                    // no verification required — leave user on screen; show inline success message in password error field
-                                    Toast.makeText(context, "Registration Successful", Toast.LENGTH_SHORT).show()
+                                    // no verification required — leave user on screen; previously a Toast was shown here
+                                    // Toast removed as requested; keep UI state unchanged
                                 }
                             } catch (_: Exception) {
                                 binding.tvEmailError.text = getString(R.string.navigation_failed_try_again)
@@ -542,9 +550,46 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
         val passwordMax = 25
 
         // Keep any existing filters (if present), but ensure our filters are applied
+        // Keep length limits but allow symbols/special characters (do not strip spaces/symbols here)
         binding.etEmail.filters = arrayOf(InputFilter.LengthFilter(emailMax), noSpaceFilter)
         binding.etPassword.filters = arrayOf(InputFilter.LengthFilter(passwordMax), noSpaceFilter)
         binding.etConfirmPassword.filters = arrayOf(InputFilter.LengthFilter(passwordMax), noSpaceFilter)
+
+        // Filter: disallow whitespace and emoji; allow letters, digits and punctuation/symbol characters
+        val noSpaceOrEmojiFilter = InputFilter { source, start, end, _, _, _ ->
+            val out = StringBuilder()
+            var i = start
+            while (i < end) {
+                val cp = Character.codePointAt(source, i)
+                val charCount = Character.charCount(cp)
+                val isSpace = Character.isWhitespace(cp)
+                val isEmoji = (cp in 0x1F600..0x1F64F) || (cp in 0x1F300..0x1F5FF) || (cp in 0x1F680..0x1F6FF) || (cp in 0x1F1E6..0x1F1FF) || (cp in 0x2600..0x26FF) || (cp in 0x2700..0x27BF) || (cp in 0x1F900..0x1F9FF) || (cp in 0x1FA70..0x1FAFF) || (cp in 0xFE00..0xFE0F)
+                val type = Character.getType(cp)
+                val isLetterOrDigit = Character.isLetterOrDigit(cp)
+                // Convert Character category constants to Int and check membership to avoid Int/Byte comparison issues
+                val allowedTypes = setOf(
+                    Character.CONNECTOR_PUNCTUATION.toInt(),
+                    Character.DASH_PUNCTUATION.toInt(),
+                    Character.START_PUNCTUATION.toInt(),
+                    Character.END_PUNCTUATION.toInt(),
+                    Character.OTHER_PUNCTUATION.toInt(),
+                    Character.MATH_SYMBOL.toInt(),
+                    Character.CURRENCY_SYMBOL.toInt(),
+                    Character.MODIFIER_SYMBOL.toInt(),
+                    Character.OTHER_SYMBOL.toInt()
+                )
+                val isAllowedSymbol = allowedTypes.contains(type)
+                if (!isSpace && !isEmoji && (isLetterOrDigit || isAllowedSymbol)) {
+                    out.appendCodePoint(cp)
+                }
+                i += charCount
+            }
+            if (out.length == end - start) null else out.toString()
+        }
+
+        binding.etEmail.filters = arrayOf(InputFilter.LengthFilter(emailMax), noSpaceOrEmojiFilter)
+        binding.etPassword.filters = arrayOf(InputFilter.LengthFilter(passwordMax), noSpaceOrEmojiFilter)
+        binding.etConfirmPassword.filters = arrayOf(InputFilter.LengthFilter(passwordMax), noSpaceOrEmojiFilter)
     }
 
     private fun setupTextWatchers() {

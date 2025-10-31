@@ -6,7 +6,6 @@ import android.os.Bundle
 import com.example.myapplication.ui.common.OtpResendCooldownHelper
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.core.graphics.toColorInt
 import androidx.core.view.ViewCompat
@@ -32,6 +31,7 @@ import java.util.Locale
 import androidx.core.content.edit
 import android.widget.TextView
 import android.view.View
+import android.widget.Toast
 import kotlin.math.ceil
 
 class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup) {
@@ -343,9 +343,22 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                             updateLoading(false)
                             // Reset attempts on success
                             failedAttempts = 0
-                            Toast.makeText(requireContext(), "Signing in", Toast.LENGTH_SHORT).show()
                             // Navigate to choose profile pic after successful signup verification
-                            findNavController().navigate(R.id.action_signupVerificationFragment_to_chooseProfilePicFragment)
+                            try {
+                                val bundle = Bundle().apply { putString("email", emailArg ?: "") }
+                                val navOptions = androidx.navigation.NavOptions.Builder()
+                                    .setPopUpTo(R.id.auth_nav_graph, true)
+                                    .build()
+                                findNavController().navigate(R.id.action_signupVerificationFragment_to_chooseProfilePicFragment, bundle, navOptions)
+                            } catch (_: Exception) {
+                                // fallback to navigate without args
+                                try {
+                                    val navOptions = androidx.navigation.NavOptions.Builder()
+                                        .setPopUpTo(R.id.auth_nav_graph, true)
+                                        .build()
+                                    findNavController().navigate(R.id.action_signupVerificationFragment_to_chooseProfilePicFragment, null, navOptions)
+                                } catch (_: Exception) {}
+                            }
                             viewModel.reset()
                         }
                         is SignupViewModel.UiState.Error -> {
@@ -571,10 +584,7 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                     }
                     // Clear errors since resend was clicked
                     clearOtpAndEmailErrors()
-                    isResendInFlight = true // Set flag to ignore any error from server during resend
-                    // Start the local 30s resend cooldown immediately so resend stays inactive
-                    // even if the server returns an error. The cooldown helper will update the timer UI
-                    // and re-enable the resend control when finished.
+                    isResendInFlight = true
                     try { cooldownHelper?.start(resendCooldownMillis) } catch (_: Exception) { }
                     viewModel.resendOtp(emailToUse, tokenToUse)
                 }
@@ -595,14 +605,14 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                 R.string.exit_signup_message,
                 onPositive = {
                     try {
-                        findNavController().navigate(R.id.nameSignupFragment)
-                    } catch (_: Exception) {
-                        try { findNavController().popBackStack(R.id.nameSignupFragment, false) } catch (_: Exception) { }
-                    }
+                        findNavController().navigate(R.id.action_signupVerificationFragment_to_nameSignupFragment)
+                     } catch (_: Exception) {
+                         try { findNavController().popBackStack(R.id.nameSignupFragment, false) } catch (_: Exception) { }
+                     }
                 },
                 themeRes = R.style.ThemeOverlay_MyApplication_MaterialAlertDialog
             )
-        } catch (_: Exception) { /* ignore UI problems */ }
+        } catch (_: Exception) { /* ignore */ }
     }
 
     // Apply persisted lockout (if any) so UI stays disabled when user returns after server lockout

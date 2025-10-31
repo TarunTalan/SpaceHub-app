@@ -118,7 +118,7 @@
                             android:hint="@string/enter_your_email"
                             android:textSize="@dimen/input_text_size"
                             android:inputType="textEmailAddress"
-                            android:paddingEnd="@dimen/input_padding_end" />
+                            android:paddingEnd="40dp" />
 
                 </com.google.android.material.textfield.TextInputLayout>
 

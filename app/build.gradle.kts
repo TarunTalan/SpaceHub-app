@@ -78,11 +78,8 @@ dependencies {
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
-    implementation("com.google.android.material:material:1.13.0")
-
-    // uCrop for interactive image cropping
-    implementation("com.github.yalantis:ucrop:2.2.8")
+    implementation(libs.material)
 
     // Glide for image loading (no annotation processor)
-    implementation("com.github.bumptech.glide:glide:4.15.1")
+    implementation("com.github.bumptech.glide:glide:5.0.5")
 }

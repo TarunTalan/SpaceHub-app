@@ -142,4 +142,5 @@
     <string name="username_too_long">Username too long!</string>
     <string name="server_error">Server error! Try again later</string>
     <string name="username_error_generic">Some error occurred! Try again</string>
+    <string name="select_image">Select image</string>
 </resources>

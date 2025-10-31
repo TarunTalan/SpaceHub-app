@@ -13,11 +13,19 @@
         <action
                 android:id="@+id/action_onboardingFragment_to_loginFragment"
                 app:destination="@id/loginFragment"
-                app:launchSingleTop="true"/>
+                app:launchSingleTop="true"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left"
+                app:popEnterAnim="@anim/slide_in_left"
+                app:popExitAnim="@anim/slide_out_right"/>
         <action
                 android:id="@+id/action_onboardingFragment_to_signupFragment"
                 app:destination="@id/nameSignupFragment"
-                app:launchSingleTop="true"/>
+                app:launchSingleTop="true"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left"
+                app:popEnterAnim="@anim/slide_in_left"
+                app:popExitAnim="@anim/slide_out_right"/>
     </fragment>
 
     <fragment
@@ -35,7 +43,11 @@
         <action
                 android:id="@+id/action_loginFragment_to_chooseProfilePicFragment"
                 app:destination="@id/chooseProfilePicFragment"
-                app:launchSingleTop="true"/>
+                app:launchSingleTop="true"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left"
+                app:popEnterAnim="@anim/slide_in_left"
+                app:popExitAnim="@anim/slide_out_right"/>
     </fragment>
 
     <fragment
@@ -45,7 +57,11 @@
             tools:layout="@layout/fragment_name_signup">
         <action
                 android:id="@+id/action_nameSignupFragment_to_signupFragment"
-                app:destination="@id/signupFragment"/>
+                app:destination="@id/signupFragment"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left"
+                app:popEnterAnim="@anim/slide_in_left"
+                app:popExitAnim="@anim/slide_out_right"/>
         <action
                 android:id="@+id/action_nameSignupFragment_to_loginFragment"
                 app:destination="@id/loginFragment"/>
@@ -62,7 +78,11 @@
                 app:launchSingleTop="true"/>
         <action
                 android:id="@+id/action_signupFragment_to_signupVerificationFragment"
-                app:destination="@id/signupVerificationFragment"/>
+                app:destination="@id/signupVerificationFragment"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left"
+                app:popEnterAnim="@anim/slide_in_left"
+                app:popExitAnim="@anim/slide_out_right"/>
     </fragment>
 
     <fragment
@@ -74,15 +94,30 @@
                 android:id="@+id/action_signupVerificationFragment_to_loginFragment"
                 app:destination="@id/loginFragment"/>
         <action
+                android:id="@+id/action_signupVerificationFragment_to_nameSignupFragment"
+                app:destination="@id/nameSignupFragment"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left"
+                app:popEnterAnim="@anim/slide_in_left"
+                app:popExitAnim="@anim/slide_out_right"/>
+        <action
                 android:id="@+id/action_signupVerificationFragment_to_onboardingFragment"
                 app:destination="@id/onboardingFragment"
                 app:launchSingleTop="true"
                 app:popUpTo="@id/auth_nav_graph"
-                app:popUpToInclusive="true"/>
+                app:popUpToInclusive="true"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left"
+                app:popEnterAnim="@anim/slide_in_left"
+                app:popExitAnim="@anim/slide_out_right"/>
         <action
                 android:id="@+id/action_signupVerificationFragment_to_chooseProfilePicFragment"
                 app:destination="@id/chooseProfilePicFragment"
-                app:launchSingleTop="true"/>
+                app:launchSingleTop="true"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left"
+                app:popEnterAnim="@anim/slide_in_left"
+                app:popExitAnim="@anim/slide_out_right"/>
     </fragment>
 
     <fragment
@@ -92,10 +127,11 @@
             tools:layout="@layout/fragment_reset_password">
         <action
                 android:id="@+id/action_resetPasswordFragment_to_forgotPasswordVerificationFragment"
-                app:destination="@id/forgotPasswordVerificationFragment"/>
-        <action
-                android:id="@+id/action_resetPasswordFragment_to_verifyForgotPasswordFragment"
-                app:destination="@id/verifyForgotPasswordFragment"/>
+                app:destination="@id/forgotPasswordVerificationFragment"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left"
+                app:popEnterAnim="@anim/slide_in_left"
+                app:popExitAnim="@anim/slide_out_right"/>
         <action
                 android:id="@+id/action_resetPasswordFragment_to_loginFragment"
                 app:destination="@id/loginFragment"
@@ -103,15 +139,6 @@
                 app:popUpToInclusive="false"/>
     </fragment>
 
-    <fragment
-            android:id="@+id/verifyForgotPasswordFragment"
-            android:name="com.example.myapplication.ui.auth.password.ForgotPasswordVerificationFragment"
-            android:label="Verify Forgot Password"
-            tools:layout="@layout/fragment_verify_forgot_password">
-        <action
-                android:id="@+id/action_verifyForgotPasswordFragment_to_newPasswordFragment"
-                app:destination="@id/newPasswordFragment"/>
-    </fragment>
 
     <fragment
             android:id="@+id/forgotPasswordVerificationFragment"
@@ -120,7 +147,11 @@
             tools:layout="@layout/fragment_verify_forgot_password">
         <action
                 android:id="@+id/action_forgotPasswordVerificationFragment_to_newPasswordFragment"
-                app:destination="@id/newPasswordFragment"/>
+                app:destination="@id/newPasswordFragment"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left"
+                app:popEnterAnim="@anim/slide_in_left"
+                app:popExitAnim="@anim/slide_out_right"/>
         <action
                 android:id="@+id/action_forgotPasswordVerificationFragment_to_loginFragment"
                 app:destination="@id/loginFragment"
@@ -140,49 +171,142 @@
                 app:popUpToInclusive="false"/>
         <action
                 android:id="@+id/action_newPasswordFragment_to_chooseProfilePicFragment"
-                app:destination="@id/chooseProfilePicFragment"/>
+                app:destination="@id/chooseProfilePicFragment"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left"
+                app:popEnterAnim="@anim/slide_in_left"
+                app:popExitAnim="@anim/slide_out_right"/>
+        <action
+                android:id="@+id/action_newPasswordFragment_to_resetPasswordFragment"
+                app:destination="@id/resetPasswordFragment"/>
     </fragment>
-
 
     <fragment
             android:id="@+id/chooseProfilePicFragment"
-            android:name="com.example.myapplication.ui.ChooseProfilePicFragment"
+            android:name="com.example.myapplication.ui.dashboard.ChooseProfilePicFragment"
             android:label="ChooseProfilePicFragment"
             tools:layout="@layout/fragment_choose_profile_pic">
         <action
                 android:id="@+id/action_chooseProfilePicFragment_to_usernameFragment"
-                app:destination="@id/usernameFragment" />
+                app:destination="@id/usernameFragment"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left"
+                app:popEnterAnim="@anim/slide_in_left"
+                app:popExitAnim="@anim/slide_out_right" />
     </fragment>
     <action
             android:id="@+id/action_chooseProfilePicFragment_to_onboardingFragment"
             app:destination="@id/onboardingFragment"
             app:popUpTo="@id/auth_nav_graph"
-            app:popUpToInclusive="true"/>
+            app:popUpToInclusive="true"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right"/>
 
     <fragment
             android:id="@+id/usernameFragment"
-            android:name="com.example.myapplication.ui.UsernameFragment"
+            android:name="com.example.myapplication.ui.dashboard.UsernameFragment"
             android:label="UsernameFragment"
             tools:layout="@layout/fragment_username">
         <action
-                android:id="@+id/action_usernameFragment_to_createCommunityFragment"
-                app:destination="@id/createCommunityFragment" />
+                android:id="@+id/action_usernameFragment_to_dashboardFragment"
+                app:destination="@id/dashboardFragment"
+                app:launchSingleTop="true"
+                app:popUpTo="@id/auth_nav_graph"
+                app:popUpToInclusive="true"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left"
+                app:popEnterAnim="@anim/slide_in_left"
+                app:popExitAnim="@anim/slide_out_right"/>
+    </fragment>
+
+    <!-- Dashboard becomes the primary post-auth screen -->
+    <fragment
+            android:id="@+id/dashboardFragment"
+            android:name="com.example.myapplication.ui.dashboard.DashboardFragment"
+            android:label="DashboardFragment"
+            tools:layout="@layout/fragment_dashboard">
+
+        <!-- Actions from dashboard (bottom navigation targets) -->
+        <action android:id="@+id/action_dashboardFragment_to_searchFragment" app:destination="@id/searchFragment"/>
+        <action android:id="@+id/action_dashboardFragment_to_createCommunityFragment" app:destination="@id/createCommunityFragment"/>
+        <action android:id="@+id/action_dashboardFragment_to_chatRoomFragment" app:destination="@id/chatRoomFragment"/>
+        <!-- Action to navigate to onboarding and clear the auth graph back stack (used for logout) -->
+        <action
+                android:id="@+id/action_dashboardFragment_to_onboardingFragment"
+                app:destination="@id/onboardingFragment"
+                app:popUpTo="@id/auth_nav_graph"
+                app:popUpToInclusive="true"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left"
+                app:popEnterAnim="@anim/slide_in_left"
+                app:popExitAnim="@anim/slide_out_right"/>
+    </fragment>
+
+    <fragment
+            android:id="@+id/searchFragment"
+            android:name="com.example.myapplication.ui.dashboard.SearchFragment"
+            android:label="SearchFragment"
+            tools:layout="@layout/fragment_search">
+        <action android:id="@+id/action_searchFragment_to_dashboardFragment" app:destination="@id/dashboardFragment"/>
     </fragment>
 
     <fragment
             android:id="@+id/createCommunityFragment"
-            android:name="com.example.myapplication.ui.CreateCommunityFragment"
+            android:name="com.example.myapplication.ui.dashboard.CreateCommunityFragment"
             android:label="CreateCommunityFragment"
-            tools:layout="@layout/fragment_create_community" />
-
-    <action
-            android:id="@+id/action_createCommunityFragment_to_communityNamePicFragment"
-            app:destination="@id/communityNamePicFragment" />
+            tools:layout="@layout/fragment_create_community">
+        <action android:id="@+id/action_createCommunityFragment_to_communityNamePicFragment" app:destination="@id/communityNamePicFragment"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left"
+                app:popEnterAnim="@anim/slide_in_left"
+                app:popExitAnim="@anim/slide_out_right" />
+        <action android:id="@+id/action_createCommunityFragment_to_joinCommunityFragment"
+                app:destination="@id/joinCommunityFragment"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left"
+                app:popEnterAnim="@anim/slide_in_left"
+                app:popExitAnim="@anim/slide_out_right"/>
+    </fragment>
 
     <fragment
+            android:id="@+id/chatRoomFragment"
+            android:name="com.example.myapplication.ui.dashboard.ChatRoomFragment"
+            android:label="ChatRoomFragment"
+            tools:layout="@layout/fragment_chat_room">
+        <action android:id="@+id/action_chatRoomFragment_to_dashboardFragment" app:destination="@id/dashboardFragment"/>
+    </fragment>
+
+    <fragment
+            android:id="@+id/profileFragment"
+            android:name="com.example.myapplication.ui.dashboard.ProfileFragment"
+            android:label="ProfileFragment"
+            tools:layout="@layout/fragment_profile" />
+
+    <!-- community name & picture fragment (destination after create community) -->
+    <fragment
             android:id="@+id/communityNamePicFragment"
-            android:name="com.example.myapplication.ui.CommunityNamePicFragment"
+            android:name="com.example.myapplication.ui.dashboard.CommunityNamePicFragment"
             android:label="CommunityNamePicFragment"
-            tools:layout="@layout/fragment_community_name_pic" />
+            tools:layout="@layout/fragment_community_name_pic">
+        <action android:id="@+id/action_communityNamePicFragment_to_communityDescriptionFragment"
+                app:destination="@id/communityDescriptionFragment"/>
+    </fragment>
+
+    <!-- Action used by CreateCommunityFragment (code references action_createCommunityFragment_to_communityNamePicFragment2) -->
+    <action
+            android:id="@+id/action_createCommunityFragment_to_communityNamePicFragment"
+            app:destination="@id/communityNamePicFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+    <fragment android:id="@+id/communityDescriptionFragment"
+              android:name="com.example.myapplication.ui.dashboard.CommunityDescriptionFragment"
+              android:label="fragment_comm_description" tools:layout="@layout/fragment_comm_description"/>
+    <fragment android:id="@+id/joinCommunityFragment"
+              android:name="com.example.myapplication.ui.dashboard.JoinCommunityFragment"
+              android:label="fragment_join_community" tools:layout="@layout/fragment_join_community"/>
 
 </navigation>

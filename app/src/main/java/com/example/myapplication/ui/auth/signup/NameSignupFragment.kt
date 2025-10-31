@@ -68,9 +68,7 @@ class NameSignupFragment : BaseFragment(R.layout.fragment_name_signup) {
         binding.etFirstName.filters = arrayOf(lengthFilter, lettersOnlyFilter)
         binding.etLastName.filters = arrayOf(lengthFilter, lettersOnlyFilter)
 
-        // Initialize character counters
-        updateFirstNameCounter(binding.etFirstName.text?.length ?: 0)
-        updateLastNameCounter(binding.etLastName.text?.length ?: 0)
+        // Character counters removed
     }
 
     private fun setupTextWatchers() {
@@ -79,40 +77,25 @@ class NameSignupFragment : BaseFragment(R.layout.fragment_name_signup) {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
-                val len = s?.length ?: 0
-                updateFirstNameCounter(len)
-                if (binding.tvFirstNameError.isVisible) {
-                    hideFirstNameError()
-                }
-            }
-        })
+                 if (binding.tvFirstNameError.isVisible) {
+                     hideFirstNameError()
+                 }
+             }
+         })
 
         // Last name field text watcher - clear errors when user starts typing
         binding.etLastName.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                val len = s?.length ?: 0
-                updateLastNameCounter(len)
-                if (binding.tvLastError.isVisible) {
-                    hideLastNameError()
-                }
-            }
-        })
+             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+             override fun afterTextChanged(s: Editable?) {
+                 if (binding.tvLastError.isVisible) {
+                     hideLastNameError()
+                 }
+             }
+         })
     }
 
-    // Helper to update the first name counter text and accessibility
-    private fun updateFirstNameCounter(currentLength: Int) {
-        binding.tvFirstNameCounter.text = getString(R.string.char_count_slash, currentLength, NAME_MAX)
-        // Use a dedicated char-count string for accessibility: "%1$d of %2$d characters"
-        binding.tvFirstNameCounter.contentDescription = getString(R.string.first_name) + ", " + getString(R.string.char_count_of_max, currentLength, NAME_MAX)
-    }
-
-    // Helper to update the last name counter text and accessibility
-    private fun updateLastNameCounter(currentLength: Int) {
-        binding.tvLastNameCounter.text = getString(R.string.char_count_slash, currentLength, NAME_MAX)
-        binding.tvLastNameCounter.contentDescription = getString(R.string.last_name) + ", " + getString(R.string.char_count_of_max, currentLength, NAME_MAX)
-    }
+    // First/Last name counters removed - no-op (previous counter helpers deleted)
 
     private fun setupClickListeners() {
         // Continue to email/password signup screen

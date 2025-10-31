@@ -288,12 +288,7 @@ class ChooseProfilePicFragment : BaseFragment(R.layout.fragment_choose_profile_p
                         val bitmap = BitmapFactory.decodeFile(file.absolutePath)
                         if (bitmap != null) {
                             val maxDim = 512 // Reduce to 512x512 for strict server limits
-                            val scaled = Bitmap.createScaledBitmap(
-                                bitmap,
-                                maxDim,
-                                maxDim,
-                                true
-                            )
+                            val scaled = bitmap.scale(maxDim, maxDim)
                             FileOutputStream(file, false).use { fos ->
                                 scaled.compress(Bitmap.CompressFormat.JPEG, 60, fos) // Lower quality to 60
                                 fos.flush()
@@ -698,7 +693,7 @@ class ChooseProfilePicFragment : BaseFragment(R.layout.fragment_choose_profile_p
                     null
                 }
                 val resp = api.uploadProfile(emailRb, imageUriRb, filePart)
-                var success = false // Declare and initialize at use
+                var success = false
                 val rawRespBodyString: String? = try {
                     try { resp.raw().peekBody(1024 * 1024).string() } catch (_: Exception) { null }
                 } catch (_: Exception) { null }

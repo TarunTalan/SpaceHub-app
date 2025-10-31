@@ -84,19 +84,41 @@ class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
         emailArg = arguments?.getString("email")
         tempTokenArg = arguments?.getString("tempToken")
 
-        // Prevent users from typing whitespace into password fields and enforce length limits
-        val noSpaceFilter = InputFilter { source, start, end, _, _, _ ->
-            val out = StringBuilder()
-            var removed = false
-            for (i in start until end) {
-                val c = source[i]
-                if (!Character.isWhitespace(c)) out.append(c) else removed = true
-            }
-            if (!removed) null else out.toString()
-        }
+        // Keep length limits but allow spaces/symbols/special characters in password input
         val passwordMax = 25
-        binding.etPassword.filters = arrayOf(InputFilter.LengthFilter(passwordMax), noSpaceFilter)
-        binding.etConfirmPassword.filters = arrayOf(InputFilter.LengthFilter(passwordMax), noSpaceFilter)
+        // Filter: disallow whitespace and emoji; allow letters, digits and punctuation/symbol characters
+        val noSpaceOrEmojiFilter = InputFilter { source, start, end, _, _, _ ->
+            val out = StringBuilder()
+            var i = start
+            val allowedTypes = setOf(
+                Character.CONNECTOR_PUNCTUATION.toInt(),
+                Character.DASH_PUNCTUATION.toInt(),
+                Character.START_PUNCTUATION.toInt(),
+                Character.END_PUNCTUATION.toInt(),
+                Character.OTHER_PUNCTUATION.toInt(),
+                Character.MATH_SYMBOL.toInt(),
+                Character.CURRENCY_SYMBOL.toInt(),
+                Character.MODIFIER_SYMBOL.toInt(),
+                Character.OTHER_SYMBOL.toInt()
+            )
+            while (i < end) {
+                val cp = Character.codePointAt(source, i)
+                val charCount = Character.charCount(cp)
+                val isSpace = Character.isWhitespace(cp)
+                val isEmoji = (cp in 0x1F600..0x1F64F) || (cp in 0x1F300..0x1F5FF) || (cp in 0x1F680..0x1F6FF) || (cp in 0x1F1E6..0x1F1FF) || (cp in 0x2600..0x26FF) || (cp in 0x2700..0x27BF) || (cp in 0x1F900..0x1F9FF) || (cp in 0x1FA70..0x1FAFF) || (cp in 0xFE00..0xFE0F)
+                val type = Character.getType(cp)
+                val isLetterOrDigit = Character.isLetterOrDigit(cp)
+                val isAllowedSymbol = allowedTypes.contains(type)
+                if (!isSpace && !isEmoji && (isLetterOrDigit || isAllowedSymbol)) {
+                    out.appendCodePoint(cp)
+                }
+                i += charCount
+            }
+            if (out.length == end - start) null else out.toString()
+        }
+
+        binding.etPassword.filters = arrayOf(InputFilter.LengthFilter(passwordMax), noSpaceOrEmojiFilter)
+        binding.etConfirmPassword.filters = arrayOf(InputFilter.LengthFilter(passwordMax), noSpaceOrEmojiFilter)
 
         setupPasswordFieldTextWatchers()
         setupClickListeners()
@@ -162,9 +184,16 @@ class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
                             // Show a concise user message only.
                             setLoaderVisible(false)
                             android.widget.Toast.makeText(requireContext(), "Password changed. Logging in", android.widget.Toast.LENGTH_SHORT).show()
-                            findNavController().navigate(R.id.action_newPasswordFragment_to_chooseProfilePicFragment)
-                            // Keep the ViewModel state reset so UI can return to idle.
-                            viewModel.reset()
+                            try {
+                                val navOptions = androidx.navigation.NavOptions.Builder()
+                                    .setPopUpTo(R.id.auth_nav_graph, true)
+                                    .build()
+                                findNavController().navigate(R.id.action_newPasswordFragment_to_chooseProfilePicFragment, null, navOptions)
+                            } catch (_: Exception) {
+                                try { findNavController().navigate(R.id.action_newPasswordFragment_to_chooseProfilePicFragment) } catch (_: Exception) { }
+                            }
+                             // Keep the ViewModel state reset so UI can return to idle.
+                             viewModel.reset()
                         }
 
                         is ResetPasswordViewModel.UiState.Error -> {
@@ -179,7 +208,6 @@ class NewPasswordFragment : BaseFragment(R.layout.fragment_new_password) {
                                 try { findNavController().navigate(R.id.resetPasswordFragment) } catch (_: Exception) { }
                             }
                         }
-
                         else -> {
                             // Ensure loader hidden for other states
                             setLoaderVisible(false)

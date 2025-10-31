@@ -6,5 +6,5 @@ sealed class AuthResult {
      * @param tempToken optional temporary token returned by backend (for reset-password flows)
      */
     data class Success(val requiresVerification: Boolean, val tempToken: String? = null) : AuthResult()
-    data class Error(val message: String) : AuthResult()
+    data class Error(val message: String, val statusCode: Int? = null) : AuthResult()
 }

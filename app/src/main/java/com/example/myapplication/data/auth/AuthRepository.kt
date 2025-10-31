@@ -21,11 +21,14 @@ class AuthRepository(context: Context) {
     ): AuthResult = withContext(Dispatchers.IO) {
         try {
             val resp = call()
+            if (!resp.isSuccessful && resp.code() in 500..599) {
+                return@withContext AuthResult.Error("Server error. Please try again later.", statusCode = resp.code())
+            }
             handle(resp)
         } catch (_: IOException) {
-            AuthResult.Error("Network error. Please check your internet connection.")
+            AuthResult.Error("Network error. Please check your internet connection.", null)
         } catch (_: Exception) {
-            AuthResult.Error("Unexpected error. Please try again.")
+            AuthResult.Error("Unexpected error. Please try again.", null)
         }
     }
 

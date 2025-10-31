@@ -1,166 +1,144 @@
 package com.example.myapplication
 
+import android.content.res.ColorStateList
 import android.graphics.Rect
 import android.os.Bundle
 import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.UnderlineSpan
+import android.text.style.ForegroundColorSpan
 import androidx.activity.addCallback
-import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.get
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
+import androidx.navigation.ui.NavigationUI
 import com.example.myapplication.data.network.SharedPrefsTokenStore
 import com.example.myapplication.databinding.ActivityMainBinding
+import androidx.core.view.size
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var navController: NavController
+    private var defaultToolbarColor: Int = 0
+    private var defaultStatusBarColor: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        // Ensure decor fits system windows so adjustResize works reliably
         try {
             WindowCompat.setDecorFitsSystemWindows(window, true)
-        } catch (_: Exception) {
-        }
+        } catch (_: Exception) {}
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        // Find the NavHostFragment and initialize navController early so it can be used by the action bar
+        defaultToolbarColor = ContextCompat.getColor(this, R.color.dashboard_toolbar)
+        defaultStatusBarColor = window.statusBarColor
+        binding.toolbar.setBackgroundColor(defaultToolbarColor)
         try {
-            val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
-            navController = navHostFragment.navController
-        } catch (_: Exception) { /* ignore for now */ }
-
-        // Set the MaterialToolbar as the support action bar so it shows titles and Up button
-        try {
-            setSupportActionBar(binding.toolbar)
-            // Configure the action bar to work with the NavController
-            val appBarConfiguration = androidx.navigation.ui.AppBarConfiguration(navController.graph)
-            // Use NavigationUI helper explicitly to avoid missing extension import
-            androidx.navigation.ui.NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration)
-
-            // Make the toolbar visually plain: hide title and remove navigation icon
-            try {
-                supportActionBar?.setDisplayShowTitleEnabled(false)
-            } catch (_: Exception) { }
-            try {
-                binding.toolbar.title = ""
-                binding.toolbar.navigationIcon = null
-            } catch (_: Exception) { }
-
-            // Ensure NavigationUI won't re-populate title/navigation icon: clear them on destination changes
-            try {
-                navController.addOnDestinationChangedListener { _, _, _ ->
-                    try { supportActionBar?.setDisplayShowTitleEnabled(false) } catch (_: Exception) {}
-                    try { binding.toolbar.title = "" } catch (_: Exception) {}
-                    try { binding.toolbar.navigationIcon = null } catch (_: Exception) {}
-                }
-            } catch (_: Exception) { }
-        } catch (_: Exception) { }
-
-        // Ensure window resizes when IME appears. Set at runtime to override any edge-to-edge side effects.
-        @Suppress("DEPRECATION")
-        try {
-            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        } catch (_: Exception) {
-        }
-
-        // Determine whether to show onboarding based on authentication token.
-        try {
-            // Read token using the app's token store so we use the same storage keys.
-            val token = SharedPrefsTokenStore(this).getAccessToken()
-
-            val navInflater = navController.navInflater
-            val graph = navInflater.inflate(R.navigation.auth_nav_graph)
-
-            // Always keep the graph with onboarding as the start destination so it remains available
-            navController.graph = graph
-
-            if (token.isNullOrEmpty()) {
-                // No token -> user not authenticated -> show onboarding (start destination)
-                // Do nothing: onboarding is the start destination and will be shown.
-            } else {
-                // User already has a token; show choose profile picture screen on open (authenticated state)
-                try {
-                    navController.navigate(R.id.chooseProfilePicFragment)
-                } catch (_: Exception) {
-                    // If navigation fails for any reason, fall back silently — the graph is still set.
-                }
+            binding.toolbar.backgroundTintList = ColorStateList.valueOf(defaultToolbarColor)
+        } catch (_: Exception) {}
+        // Set transparent dark status bar
+        window.statusBarColor = 0x80000000.toInt() // 50% black
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
+        val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as? NavHostFragment
+        navController = navHostFragment?.navController ?: return
+        setSupportActionBar(binding.toolbar)
+        val appBarConfiguration = androidx.navigation.ui.AppBarConfiguration(navController.graph)
+        NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration)
+        supportActionBar?.setDisplayShowTitleEnabled(false)
+        binding.toolbar.title = ""
+        binding.toolbar.navigationIcon = null
+        navController.addOnDestinationChangedListener { _, destination, _ ->
+            supportActionBar?.setDisplayShowTitleEnabled(false)
+            binding.toolbar.title = ""
+            binding.toolbar.navigationIcon = null
+            when (destination.id) {
+                R.id.dashboardFragment -> setToolbarColorRes(R.color.dashboard_toolbar)
+                else -> resetToolbarColor()
             }
-        } catch (_: Exception) {
-            // If anything fails, fall back to the XML-defined graph already linked to NavHostFragment
-        }
-
-        // Handle back press with OnBackPressedDispatcher (modern API)
-        onBackPressedDispatcher.addCallback(this) {
-            val currentId = try {
-                navController.currentDestination?.id
-            } catch (_: Exception) {
-                null
-            }
-
-            // If the user is on login, nameSignup, or logout, go to onboarding and clear other fragments
-            val goToOnboardingWhenBack = setOf(
-                R.id.loginFragment,
-                R.id.nameSignupFragment,
+            val bottomNavVisibleDestinations = setOf(
+                R.id.dashboardFragment, R.id.searchFragment, R.id.chatRoomFragment, R.id.profileFragment
             )
-
+            binding.bottomNavView.visibility =
+                if (destination.id in bottomNavVisibleDestinations) View.VISIBLE else View.GONE
+            updateBottomNavUnderline(destination.id)
+        }
+        @Suppress("DEPRECATION") window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        val token = SharedPrefsTokenStore(this).getAccessToken()
+        val navInflater = navController.navInflater
+        val graph = navInflater.inflate(R.navigation.auth_nav_graph)
+        if (!token.isNullOrEmpty()) {
+            graph.setStartDestination(R.id.dashboardFragment)
+        }
+        navController.graph = graph
+        val bottomNav = binding.bottomNavView
+        NavigationUI.setupWithNavController(bottomNav, navController)
+        updateBottomNavUnderline(navController.currentDestination?.id ?: R.id.dashboardFragment)
+        if (!token.isNullOrEmpty()) {
+            val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
+            val lastScreen = prefs.getString("last_screen", null)
+            when (lastScreen) {
+                "dashboard" -> { navController.navigate(R.id.dashboardFragment); return }
+                "choose_profile" -> { navController.navigate(R.id.chooseProfilePicFragment); return }
+                "username" -> { navController.navigate(R.id.usernameFragment); return }
+            }
+            val username = prefs.getString("username", null)
+            val uploadedProfileUrl = prefs.getString("uploaded_profile_url", null)
+            when {
+                username.isNullOrBlank() && !uploadedProfileUrl.isNullOrBlank() -> navController.navigate(R.id.usernameFragment)
+                username.isNullOrBlank() && uploadedProfileUrl.isNullOrBlank() -> navController.navigate(R.id.chooseProfilePicFragment)
+                !username.isNullOrBlank() && uploadedProfileUrl.isNullOrBlank() -> navController.navigate(R.id.chooseProfilePicFragment)
+                else -> navController.navigate(R.id.dashboardFragment)
+            }
+        }
+        onBackPressedDispatcher.addCallback(this) {
+            val currentId = navController.currentDestination?.id
+            val goToOnboardingWhenBack = setOf(R.id.loginFragment, R.id.nameSignupFragment)
             if (currentId != null && currentId in goToOnboardingWhenBack) {
-                try {
-                    val startDest = navController.graph.startDestinationId
-                    // Prefer popBackStack to remove all fragments above the start destination.
-                    val popped = try {
-                        navController.popBackStack(startDest, false)
-                    } catch (_: Exception) {
-                        false
-                    }
-                    if (!popped) {
-                        // If onboarding wasn't in the back stack, navigate to it (singleTop to avoid duplicates).
-                        navController.navigate(R.id.onboardingFragment) {
-                            launchSingleTop = true
-                        }
-                    }
-                } catch (_: Exception) {
-                    // If navigation fails, fallback to default behavior
-                    try {
-                        if (!navController.navigateUp()) showExitConfirmationDialog()
-                    } catch (_: Exception) {
-                        showExitConfirmationDialog()
-                    }
+                val startDest = navController.graph.startDestinationId
+                val popped = navController.popBackStack(startDest, false)
+                if (!popped) {
+                    navController.navigate(R.id.onboardingFragment) { launchSingleTop = true }
                 }
                 return@addCallback
             }
-
-            // Consider these as top-level destinations where back should prompt for exit.
-            val topLevelDestinations = setOf(
-                R.id.onboardingFragment, R.id.chooseProfilePicFragment
+            val bottomNavDestinations = setOf(
+                R.id.dashboardFragment, R.id.searchFragment, R.id.chatRoomFragment, R.id.profileFragment
             )
-
+            if (currentId != null && currentId in bottomNavDestinations) {
+                if (currentId != R.id.dashboardFragment) {
+                    navController.navigate(R.id.dashboardFragment)
+                    return@addCallback
+                } else {
+                    finish()
+                    return@addCallback
+                }
+            }
+            val topLevelDestinations = setOf(
+                R.id.onboardingFragment, R.id.chooseProfilePicFragment, R.id.usernameFragment, R.id.dashboardFragment
+            )
             if (currentId != null && currentId in topLevelDestinations) {
-                // On a top-level screen -> confirm exit
+                if (currentId == R.id.dashboardFragment) {
+                    finish()
+                    return@addCallback
+                }
                 showExitConfirmationDialog()
                 return@addCallback
             }
-
-            // Otherwise try normal navigation (go to previous fragment). If that's not possible, confirm exit.
-            try {
-                if (!navController.navigateUp()) {
-                    showExitConfirmationDialog()
-                }
-            } catch (_: Exception) {
+            if (!navController.navigateUp()) {
                 showExitConfirmationDialog()
             }
         }
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        // When user taps outside an EditText, clear focus and hide keyboard
         if (ev.action == MotionEvent.ACTION_DOWN) {
             val v = currentFocus
             if (v is EditText) {
@@ -178,11 +156,7 @@ class MainActivity : AppCompatActivity() {
         return super.dispatchTouchEvent(ev)
     }
 
-    /**
-     * Shows a confirmation dialog before exiting the app.
-     */
     private fun showExitConfirmationDialog() {
-        // Use centralized dialog helper with app resources so it respects Material theme overlay
         com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(
             this,
             R.string.exit_app_title,
@@ -194,7 +168,41 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    // Allow the NavController to handle the Up button.
+    fun setToolbarColorRes(colorResId: Int) {
+        val color = ContextCompat.getColor(this, colorResId)
+        binding.toolbar.setBackgroundColor(color)
+        try {
+            binding.toolbar.backgroundTintList = ColorStateList.valueOf(color)
+        } catch (_: Exception) {}
+        window.statusBarColor = color
+    }
+    fun resetToolbarColor() {
+        binding.toolbar.setBackgroundColor(defaultToolbarColor)
+        try {
+            binding.toolbar.backgroundTintList = ColorStateList.valueOf(defaultToolbarColor)
+        } catch (_: Exception) {}
+        window.statusBarColor = defaultStatusBarColor
+    }
+    private fun updateBottomNavUnderline(menuItemId: Int) {
+        val bottomNav = binding.bottomNavView
+        if (bottomNav.visibility != View.VISIBLE) return
+        bottomNav.post {
+            val colorState = bottomNav.itemTextColor ?: bottomNav.itemIconTintList
+            val selColor = colorState?.getColorForState(intArrayOf(android.R.attr.state_checked), ContextCompat.getColor(this, R.color.dashboard_toolbar))
+                ?: ContextCompat.getColor(this, R.color.dashboard_toolbar)
+            for (i in 0 until bottomNav.menu.size) {
+                val item = bottomNav.menu[i]
+                val rawTitle = item.title?.toString() ?: ""
+                val spannable = SpannableString(rawTitle)
+                if (item.itemId == menuItemId) {
+                    spannable.setSpan(UnderlineSpan(), 0, spannable.length, Spanned.SPAN_INCLUSIVE_EXCLUSIVE)
+                    spannable.setSpan(ForegroundColorSpan(selColor), 0, spannable.length, Spanned.SPAN_INCLUSIVE_EXCLUSIVE)
+                }
+                item.title = spannable
+            }
+        }
+    }
+
     override fun onSupportNavigateUp(): Boolean {
         return try {
             navController.navigateUp() || super.onSupportNavigateUp()

@@ -89,6 +89,7 @@
             android:layout_height="@dimen/onboarding_logo_size"
             android:clipToPadding="false"
             android:clipChildren="false"
+            android:background="@drawable/outline_circle_dashed_white"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintBottom_toTopOf="@+id/guideline3">
@@ -103,7 +104,6 @@
                 android:clipToOutline="true"
                 android:background="@drawable/circle_clip" />
 
-        <!-- Stroke overlay sits above the image but below the add icon -->
         <ImageView
                 android:id="@+id/img_logo_stroke"
                 android:layout_width="match_parent"

@@ -1,0 +1,380 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:id="@+id/root_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/background_gradient"
+        tools:context=".ui.dashboard.ProfileFragment">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            app:layout_constraintStart_toStartOf="@id/guideline_start"
+            app:layout_constraintEnd_toEndOf="@id/guideline_end"
+            app:layout_constraintBottom_toTopOf="@+id/guideline_top"
+            android:id="@+id/constraintLayout2">
+
+        <ImageView
+                android:id="@+id/back"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@drawable/back_icon"
+                android:gravity="center_vertical"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"/>
+
+        <TextView
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:paddingVertical="10dp"
+                android:id="@+id/tv_skip"
+                android:text="Save"
+                android:textSize="@dimen/onboarding_button_text_size"
+                android:textColor="#FFFFFF"
+                android:fontFamily="@font/roboto_regular"
+                android:gravity="end|center_vertical"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            app:layout_constraintStart_toStartOf="@+id/guideline_start"
+            app:layout_constraintEnd_toStartOf="@+id/guideline_end"
+            android:id="@+id/profile_layout"
+            app:layout_constraintTop_toTopOf="@+id/guideline_top">
+        <ImageView
+                android:id="@+id/profile"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:contentDescription=""
+                android:src="@drawable/default_profile"
+                android:scaleType="fitCenter"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"/>
+
+        <TextView
+                android:id="@+id/tv_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/roboto_regular"
+                android:text="Change profile picture"
+                android:textColor="#FFFFFF"
+                android:textSize="@dimen/input_text_size"
+                android:gravity="center"
+                android:layout_marginTop="4dp"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/profile"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="40dp"
+            app:layout_constraintStart_toStartOf="@id/guideline_start"
+            app:layout_constraintEnd_toEndOf="@id/guideline_end"
+            app:layout_constraintTop_toBottomOf="@id/profile_layout"
+    >
+
+        <!-- First Name-->
+        <TextView
+                android:id="@+id/tvFirstNameLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/roboto_semibold"
+                android:paddingBottom="5dp"
+                android:text="@string/first_name"
+                android:textSize="@dimen/label_text_size"
+                android:textColor="#FFFFFF"
+                app:layout_constraintStart_toStartOf="@+id/etFirstName"
+                app:layout_constraintTop_toTopOf="parent"/>
+        <EditText
+                android:id="@+id/etFirstName"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/input_height"
+                android:maxWidth="@dimen/input_max_width"
+                android:maxLength="25"
+                android:background="@drawable/edit_text_outline_selector"
+                android:fontFamily="@font/roboto_regular"
+                android:inputType="textPersonName"
+                android:paddingHorizontal="20dp"
+                android:textColor="#FFFFFF"
+                android:textSize="@dimen/input_text_size"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/tvFirstNameLabel"/>
+        <TextView
+                android:id="@+id/tvFirstNameError"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/error_margin_top"
+                android:fontFamily="@font/roboto_regular"
+                android:textColor="#F44336"
+                android:textSize="@dimen/error_text_size"
+                android:visibility="invisible"
+                app:layout_constraintStart_toStartOf="@+id/etFirstName"
+                app:layout_constraintTop_toBottomOf="@+id/etFirstName"
+                tools:text="First Name is required"/>
+
+        <!-- Last Name  -->
+        <TextView
+                android:id="@+id/tvLastNameLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/roboto_semibold"
+                android:paddingBottom="5dp"
+                android:text="@string/last_name"
+                android:textSize="@dimen/label_text_size"
+                android:textColor="#FFFFFF"
+                app:layout_constraintStart_toStartOf="@+id/etLastName"
+                app:layout_constraintBottom_toTopOf="@id/etLastName"/>
+        <EditText
+                android:id="@+id/etLastName"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/input_height"
+                android:maxWidth="@dimen/input_max_width"
+                android:maxLength="25"
+                android:background="@drawable/edit_text_outline_selector"
+                android:fontFamily="@font/roboto_regular"
+                android:inputType="textPersonName"
+                android:paddingHorizontal="20dp"
+                android:textColor="#FFFFFF"
+                android:textSize="@dimen/input_text_size"
+                android:layout_marginTop="40dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/etFirstName"/>
+        <TextView
+                android:id="@+id/tvLastError"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/error_margin_top"
+                android:fontFamily="@font/roboto_regular"
+                android:textColor="#F44336"
+                android:textSize="@dimen/error_text_size"
+                android:visibility="invisible"
+                app:layout_constraintStart_toStartOf="@+id/etLastName"
+                app:layout_constraintTop_toBottomOf="@+id/etLastName"
+                tools:text="Last Name is required"/>
+
+        <TextView
+                android:id="@+id/tvUsernameLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/roboto_semibold"
+                android:paddingBottom="5dp"
+                android:text="Username"
+                android:textSize="@dimen/label_text_size"
+                android:textColor="#FFFFFF"
+                app:layout_constraintStart_toStartOf="@+id/etUsername"
+                app:layout_constraintBottom_toTopOf="@id/etUsername"/>
+        <EditText
+                android:id="@+id/etUsername"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/input_height"
+                android:maxWidth="@dimen/input_max_width"
+                android:maxLength="25"
+                android:background="@drawable/edit_text_outline_selector"
+                android:fontFamily="@font/roboto_regular"
+                android:inputType="textPersonName"
+                android:paddingHorizontal="20dp"
+                android:textColor="#FFFFFF"
+                android:textSize="@dimen/input_text_size"
+                android:layout_marginTop="40dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/etLastName"/>
+        <TextView
+                android:id="@+id/tvUsernameError"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/error_margin_top"
+                android:fontFamily="@font/roboto_regular"
+                android:textColor="#F44336"
+                android:textSize="@dimen/error_text_size"
+                android:visibility="invisible"
+                app:layout_constraintStart_toStartOf="@+id/etUsername"
+                app:layout_constraintTop_toBottomOf="@+id/etUsername"
+                tools:text="Last Name is required"/>
+
+        <TextView
+                android:id="@+id/tvDOBLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/roboto_semibold"
+                android:paddingBottom="5dp"
+                android:text="@string/last_name"
+                android:textSize="@dimen/label_text_size"
+                android:textColor="#FFFFFF"
+                app:layout_constraintStart_toStartOf="@+id/etDOB"
+                app:layout_constraintBottom_toTopOf="@id/etDOB"/>
+        <EditText
+                android:id="@+id/etDOB"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/input_height"
+                android:maxWidth="@dimen/input_max_width"
+                android:maxLength="25"
+                android:background="@drawable/edit_text_outline_selector"
+                android:fontFamily="@font/roboto_regular"
+                android:inputType="textPersonName"
+                android:paddingHorizontal="20dp"
+                android:textColor="#FFFFFF"
+                android:textSize="@dimen/input_text_size"
+                android:layout_marginTop="40dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/etUsername"/>
+        <TextView
+                android:id="@+id/tvDOBerror"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/error_margin_top"
+                android:fontFamily="@font/roboto_regular"
+                android:textColor="#F44336"
+                android:textSize="@dimen/error_text_size"
+                android:visibility="invisible"
+                app:layout_constraintStart_toStartOf="@+id/etDOB"
+                app:layout_constraintTop_toBottomOf="@+id/etDOB"
+                tools:text="Last Name is required"/>
+
+        <TextView
+                android:id="@+id/tvBioLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/roboto_semibold"
+                android:paddingBottom="5dp"
+                android:text="@string/last_name"
+                android:textSize="@dimen/label_text_size"
+                android:textColor="#FFFFFF"
+                app:layout_constraintStart_toStartOf="@+id/etBio"
+                app:layout_constraintBottom_toTopOf="@id/etBio"/>
+        <EditText
+                android:id="@+id/etBio"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/input_height"
+                android:maxWidth="@dimen/input_max_width"
+                android:maxLength="25"
+                android:background="@drawable/edit_text_outline_selector"
+                android:fontFamily="@font/roboto_regular"
+                android:inputType="textPersonName"
+                android:paddingHorizontal="20dp"
+                android:textColor="#FFFFFF"
+                android:textSize="@dimen/input_text_size"
+                android:layout_marginTop="40dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/etDOB"/>
+        <TextView
+                android:id="@+id/tvBioerror"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/error_margin_top"
+                android:fontFamily="@font/roboto_regular"
+                android:textColor="#F44336"
+                android:textSize="@dimen/error_text_size"
+                android:visibility="invisible"
+                app:layout_constraintStart_toStartOf="@+id/etBio"
+                app:layout_constraintTop_toBottomOf="@+id/etBio"
+                tools:text="Last Name is required"/>
+
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+    <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/guideline_start"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.1"/>
+
+    <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/guideline_end"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.9"/>
+
+    <androidx.constraintlayout.widget.Guideline
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintGuide_percent="0.83"
+            android:orientation="horizontal"
+            android:id="@+id/guideline_bottom"/>
+
+
+    <!--    &lt;!&ndash; Decorative Ellipses &ndash;&gt;-->
+    <!--    <ImageView-->
+    <!--            android:id="@+id/ellipse1"-->
+    <!--            android:layout_width="0dp"-->
+    <!--            android:layout_height="wrap_content"-->
+    <!--            android:adjustViewBounds="true"-->
+    <!--            android:scaleType="fitCenter"-->
+    <!--            android:src="@drawable/ellipse_dull"-->
+    <!--            android:layout_marginBottom="75dp"-->
+    <!--            app:layout_constraintBottom_toBottomOf="@id/ellipse2"-->
+    <!--            app:layout_constraintEnd_toEndOf="parent"-->
+    <!--            app:layout_constraintStart_toStartOf="parent"-->
+    <!--            tools:ignore="ContentDescription"-->
+    <!--            android:elevation="0dp"-->
+    <!--            android:translationZ="0dp"/>-->
+
+    <!--    <ImageView-->
+    <!--            android:id="@+id/ellipse2"-->
+    <!--            android:layout_width="0dp"-->
+    <!--            android:layout_height="wrap_content"-->
+    <!--            android:adjustViewBounds="true"-->
+    <!--            android:scaleType="fitCenter"-->
+    <!--            android:src="@drawable/ellipse_dull"-->
+    <!--            android:layout_marginBottom="75dp"-->
+    <!--            app:layout_constraintBottom_toBottomOf="@+id/ellipse3"-->
+    <!--            app:layout_constraintEnd_toEndOf="parent"-->
+    <!--            app:layout_constraintStart_toStartOf="parent"-->
+    <!--            tools:ignore="ContentDescription"-->
+    <!--            android:elevation="0dp"-->
+    <!--            android:translationZ="0dp"/>-->
+
+    <!--    <ImageView-->
+    <!--            android:id="@+id/ellipse3"-->
+    <!--            android:layout_width="0dp"-->
+    <!--            android:layout_height="wrap_content"-->
+    <!--            android:adjustViewBounds="true"-->
+    <!--            android:scaleType="fitCenter"-->
+    <!--            android:src="@drawable/ellipse_dull"-->
+    <!--            android:layout_marginBottom="-38dp"-->
+    <!--            app:layout_constraintEnd_toEndOf="parent"-->
+    <!--            app:layout_constraintStart_toStartOf="parent"-->
+    <!--            app:layout_constraintBottom_toTopOf="@id/button_group"-->
+    <!--            tools:ignore="ContentDescription"-->
+    <!--            android:elevation="0dp"-->
+    <!--            android:translationZ="0dp"/>-->
+
+    <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/guideline_top"
+            android:orientation="horizontal"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintGuide_percent="0.08"/>
+
+    <!-- Centralized loader (hidden by default) -->
+    <ProgressBar
+            android:id="@+id/progress_loader"
+            style="?android:attr/progressBarStyleLarge"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:indeterminate="true"
+            android:visibility="gone"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

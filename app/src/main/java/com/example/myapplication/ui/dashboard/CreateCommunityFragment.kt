@@ -1,10 +1,12 @@
-package com.example.myapplication.ui
+package com.example.myapplication.ui.dashboard
 
+import android.content.Context
 import android.os.Bundle
 import android.view.View
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.widget.AppCompatButton
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.content.edit
 import androidx.navigation.fragment.findNavController
 import com.example.myapplication.R
 import com.example.myapplication.ui.common.BaseFragment
@@ -36,13 +38,11 @@ class CreateCommunityFragment : BaseFragment(R.layout.fragment_create_community)
             }
         }
 
-        // Also wire the main create button at bottom (if present)
         try {
-            val createBtn = view.findViewById<AppCompatButton?>(R.id.btn_create_comm)
-            createBtn?.setOnClickListener {
+            val joinBtn = view.findViewById<AppCompatButton?>(R.id.btn_join_community)
+            joinBtn?.setOnClickListener {
                 try {
-                    // if a selection exists, keep it; else, optionally mark nothing
-                    findNavController().navigate(R.id.action_createCommunityFragment_to_communityNamePicFragment)
+                    findNavController().navigate(R.id.action_createCommunityFragment_to_joinCommunityFragment)
                 } catch (_: Exception) { }
             }
         } catch (_: Exception) { }
