@@ -1,39 +1,29 @@
 package com.example.myapplication.data.user
 
 import android.content.Context
-import android.net.Uri
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.asLiveData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.io.File
 
 // DataStore delegate
 private val Context.dataStore by preferencesDataStore(name = "user_preferences")
 
 /**
  * Centralized manager for all user profile and community data.
- * Now uses Jetpack DataStore (Preferences) for modern, type-safe, async data persistence.
- * Provides both Flow (recommended) and LiveData for reactive UI updates.
- * Migration from SharedPreferences completed.
+ * Uses Jetpack DataStore (Preferences) and exposes minimal Flows for reactive UI updates.
  */
-class UserDataManager private constructor(private val context: Context) {
+class UserDataManager private constructor(context: Context) {
 
-    private val dataStore = context.applicationContext.dataStore
+    private val dataStore = context.dataStore
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     // DataStore Keys
     private object PrefsKeys {
         val PROFILE_IMAGE_URL = stringPreferencesKey("profile_image_url")
-        val PROFILE_IMAGE_PATH = stringPreferencesKey("profile_image_path")
-        val PROFILE_IMAGE_URI = stringPreferencesKey("profile_image_uri")
-        val PROFILE_IMAGE_RES = intPreferencesKey("profile_image_res")
-        val PROFILE_IMAGE_UPDATED_AT = longPreferencesKey("profile_image_updated_at")
 
         val USERNAME = stringPreferencesKey("username")
         val FIRST_NAME = stringPreferencesKey("first_name")
@@ -55,96 +45,47 @@ class UserDataManager private constructor(private val context: Context) {
         private var INSTANCE: UserDataManager? = null
 
         fun getInstance(context: Context): UserDataManager {
+            val appCtx = context.applicationContext
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: UserDataManager(context).also { INSTANCE = it }
+                INSTANCE ?: UserDataManager(appCtx).also { INSTANCE = it }
             }
         }
     }
 
-    // Flow-based reactive data streams (recommended - use these in new code)
+    // Minimal Flow-based reactive data streams used by UI
     val profileImageUrlFlow: Flow<String?> = dataStore.data.map { it[PrefsKeys.PROFILE_IMAGE_URL] }
-    val profileImagePathFlow: Flow<String?> = dataStore.data.map { it[PrefsKeys.PROFILE_IMAGE_PATH] }
-    val profileImageUriFlow: Flow<String?> = dataStore.data.map { it[PrefsKeys.PROFILE_IMAGE_URI] }
-    val profileImageResFlow: Flow<Int?> = dataStore.data.map { it[PrefsKeys.PROFILE_IMAGE_RES]?.takeIf { res -> res != 0 } }
 
     val usernameFlow: Flow<String?> = dataStore.data.map { it[PrefsKeys.USERNAME] }
     val firstNameFlow: Flow<String?> = dataStore.data.map { it[PrefsKeys.FIRST_NAME] }
     val lastNameFlow: Flow<String?> = dataStore.data.map { it[PrefsKeys.LAST_NAME] }
-    val emailFlow: Flow<String?> = dataStore.data.map { it[PrefsKeys.EMAIL] }
-    val bioFlow: Flow<String?> = dataStore.data.map { it[PrefsKeys.BIO] }
     val dateOfBirthFlow: Flow<String?> = dataStore.data.map { it[PrefsKeys.DOB] }
-    val locationFlow: Flow<String?> = dataStore.data.map { it[PrefsKeys.LOCATION] }
-    val websiteFlow: Flow<String?> = dataStore.data.map { it[PrefsKeys.WEBSITE] }
+    val bioFlow: Flow<String?> = dataStore.data.map { it[PrefsKeys.BIO] }
 
-    val followersCountFlow: Flow<Int> = dataStore.data.map { it[PrefsKeys.FOLLOWERS_COUNT] ?: 0 }
-    val followingCountFlow: Flow<Int> = dataStore.data.map { it[PrefsKeys.FOLLOWING_COUNT] ?: 0 }
-    val isPrivateFlow: Flow<Boolean> = dataStore.data.map { it[PrefsKeys.IS_PRIVATE] ?: false }
+    /** Persist primary email in DataStore (source of truth). */
+    fun setEmail(email: String?) {
+        scope.launch {
+            dataStore.edit { prefs ->
+                if (!email.isNullOrBlank()) prefs[PrefsKeys.EMAIL] = email else prefs.remove(PrefsKeys.EMAIL)
+            }
+        }
+    }
 
-    // LiveData for backward compatibility (auto-converts from Flow)
-    val profileImageUrl: LiveData<String?> = profileImageUrlFlow.asLiveData()
-    val profileImagePath: LiveData<String?> = profileImagePathFlow.asLiveData()
-    val profileImageUri: LiveData<String?> = profileImageUriFlow.asLiveData()
-    val profileImageRes: LiveData<Int?> = profileImageResFlow.asLiveData()
-
-    val username: LiveData<String?> = usernameFlow.asLiveData()
-    val firstName: LiveData<String?> = firstNameFlow.asLiveData()
-    val lastName: LiveData<String?> = lastNameFlow.asLiveData()
-    val email: LiveData<String?> = emailFlow.asLiveData()
-    val bio: LiveData<String?> = bioFlow.asLiveData()
-    val dateOfBirth: LiveData<String?> = dateOfBirthFlow.asLiveData()
-    val location: LiveData<String?> = locationFlow.asLiveData()
-    val website: LiveData<String?> = websiteFlow.asLiveData()
-
-    val followersCount: LiveData<Int> = followersCountFlow.asLiveData()
-    val followingCount: LiveData<Int> = followingCountFlow.asLiveData()
-    val isPrivate: LiveData<Boolean> = isPrivateFlow.asLiveData()
+    /** Read primary email from DataStore (nullable). */
+    suspend fun getEmail(): String? {
+        return dataStore.data.first()[PrefsKeys.EMAIL]
+    }
 
     /**
      * Update profile image from server response.
-     * Handles URL, local file path, content URI, or drawable resource.
-     * Automatically deletes old cached files.
+     * Only persists remote URL; no local file/uri/resource caching.
      */
-    fun updateProfileImage(
-        url: String? = null,
-        localPath: String? = null,
-        contentUri: Uri? = null,
-        drawableRes: Int? = null
-    ) {
+    fun updateProfileImage(url: String?) {
         scope.launch {
-            // Delete old cached file if being replaced
-            val oldPath = dataStore.data.first()[PrefsKeys.PROFILE_IMAGE_PATH]
-            if (!oldPath.isNullOrBlank() && oldPath != localPath) {
-                try {
-                    File(oldPath).takeIf { it.exists() }?.delete()
-                } catch (_: Exception) {}
-            }
-
             dataStore.edit { prefs ->
-                // Update URL and timestamp for cache busting
-                if (url != null) {
+                if (!url.isNullOrBlank()) {
                     prefs[PrefsKeys.PROFILE_IMAGE_URL] = url
-                    prefs[PrefsKeys.PROFILE_IMAGE_UPDATED_AT] = System.currentTimeMillis()
                 } else {
                     prefs.remove(PrefsKeys.PROFILE_IMAGE_URL)
-                }
-
-                // Update local path (mutually exclusive)
-                when {
-                    localPath != null -> {
-                        prefs[PrefsKeys.PROFILE_IMAGE_PATH] = localPath
-                        prefs.remove(PrefsKeys.PROFILE_IMAGE_RES)
-                        prefs.remove(PrefsKeys.PROFILE_IMAGE_URI)
-                    }
-                    contentUri != null -> {
-                        prefs[PrefsKeys.PROFILE_IMAGE_URI] = contentUri.toString()
-                        prefs.remove(PrefsKeys.PROFILE_IMAGE_PATH)
-                        prefs.remove(PrefsKeys.PROFILE_IMAGE_RES)
-                    }
-                    drawableRes != null && drawableRes != 0 -> {
-                        prefs[PrefsKeys.PROFILE_IMAGE_RES] = drawableRes
-                        prefs.remove(PrefsKeys.PROFILE_IMAGE_PATH)
-                        prefs.remove(PrefsKeys.PROFILE_IMAGE_URI)
-                    }
                 }
             }
         }
@@ -179,10 +120,7 @@ class UserDataManager private constructor(private val context: Context) {
                 location?.let { prefs[PrefsKeys.LOCATION] = it }
                 website?.let { prefs[PrefsKeys.WEBSITE] = it }
 
-                avatarUrl?.let {
-                    prefs[PrefsKeys.PROFILE_IMAGE_URL] = it
-                    prefs[PrefsKeys.PROFILE_IMAGE_UPDATED_AT] = System.currentTimeMillis()
-                }
+                avatarUrl?.let { prefs[PrefsKeys.PROFILE_IMAGE_URL] = it }
                 coverPhotoUrl?.let { prefs[PrefsKeys.COVER_PHOTO_URL] = it }
 
                 followersCount?.let { prefs[PrefsKeys.FOLLOWERS_COUNT] = it }
@@ -193,17 +131,11 @@ class UserDataManager private constructor(private val context: Context) {
     }
 
     /**
-     * Get the best available profile image source in priority order
-     * Suspending function for Flow/coroutine usage
+     * Get the profile image URL if present; otherwise null.
      */
     suspend fun getBestProfileImageSource(): Any? {
         val prefs = dataStore.data.first()
         return prefs[PrefsKeys.PROFILE_IMAGE_URL]?.takeIf { it.isNotBlank() }
-            ?: prefs[PrefsKeys.PROFILE_IMAGE_PATH]?.takeIf { it.isNotBlank() }?.let {
-                File(it).takeIf { f -> f.exists() }
-            }
-            ?: prefs[PrefsKeys.PROFILE_IMAGE_URI]?.takeIf { it.isNotBlank() }?.let { Uri.parse(it) }
-            ?: prefs[PrefsKeys.PROFILE_IMAGE_RES]?.takeIf { it != 0 }
     }
 
     /**
@@ -211,23 +143,7 @@ class UserDataManager private constructor(private val context: Context) {
      */
     fun clear() {
         scope.launch {
-            // Delete cached files
-            val path = dataStore.data.first()[PrefsKeys.PROFILE_IMAGE_PATH]
-            path?.let {
-                try { File(it).takeIf { f -> f.exists() }?.delete() } catch (_: Exception) {}
-            }
-
             dataStore.edit { it.clear() }
         }
     }
-
-    /**
-     * Convenience getters for immediate (non-observed) sync values
-     * Note: These are blocking calls - prefer Flow in coroutines when possible
-     */
-    suspend fun getUsernameSync(): String? = dataStore.data.first()[PrefsKeys.USERNAME]
-    suspend fun getEmailSync(): String? = dataStore.data.first()[PrefsKeys.EMAIL]
-    suspend fun getFirstNameSync(): String? = dataStore.data.first()[PrefsKeys.FIRST_NAME]
-    suspend fun getLastNameSync(): String? = dataStore.data.first()[PrefsKeys.LAST_NAME]
 }
-

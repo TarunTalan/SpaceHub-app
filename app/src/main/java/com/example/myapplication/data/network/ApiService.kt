@@ -17,6 +17,7 @@ import com.example.myapplication.data.auth.model.ValidateForgotOtpResponce
 import com.example.myapplication.data.auth.model.ResetPasswordRequest
 import com.example.myapplication.data.auth.model.ResetPasswordResponce
 import com.example.myapplication.data.dashboard.model.CreateCommunityResponse
+import com.example.myapplication.data.dashboard.model.GetProfileResponse
 import com.example.myapplication.data.dashboard.model.UpdateProfilePicResponse
 import com.example.myapplication.data.dashboard.model.UpdateProfileRequest
 import com.example.myapplication.data.dashboard.model.UpdateProfileResponse
@@ -101,4 +102,10 @@ interface ApiService {
         @Query("email") email: String,
         @Part file: MultipartBody.Part? = null
     ): Response<UpdateProfilePicResponse>
+
+    // Get user profile data
+    @retrofit2.http.GET("profile/getProfile")
+    suspend fun getProfile(
+        @Query("email") email: String
+    ): Response<GetProfileResponse>
 }

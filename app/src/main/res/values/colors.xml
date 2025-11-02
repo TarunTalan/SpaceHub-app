@@ -15,4 +15,5 @@
     <!-- Dashboard Screen Colors -->
     <color name="dashboard_toolbar">#20262F</color>
     <color name="color_tab_focus">#008000</color>
+    <color name="bnv_indicator">#FFFFFFFF</color>
 </resources>

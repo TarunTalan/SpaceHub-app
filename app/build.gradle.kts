@@ -1,7 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    id("com.google.devtools.ksp") version "2.0.21-1.0.25"
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -82,10 +82,10 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     implementation(libs.androidx.ui.test)
-    coreLibraryDesugaring(libs.desugar.jdk.libs)
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
 
-    implementation(libs.glide.v4142)
+    implementation("com.github.bumptech.glide:glide:4.14.2")
 }

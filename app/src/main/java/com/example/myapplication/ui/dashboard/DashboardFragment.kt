@@ -8,16 +8,20 @@ import android.widget.TextView
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
+import com.example.myapplication.data.dashboard.DashboardRepository
 import com.example.myapplication.R
 import com.example.myapplication.data.network.SharedPrefsTokenStore
 import com.example.myapplication.data.session.SessionManager
 import com.example.myapplication.ui.common.BaseFragment
 import com.example.myapplication.ui.common.ProfileImageLoader
 import com.example.myapplication.ui.common.ProfileSharedViewModel
+import kotlinx.coroutines.launch
 import com.google.android.material.navigation.NavigationView
 import androidx.core.content.edit
+import androidx.lifecycle.asLiveData
 
 class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
 
@@ -28,6 +32,16 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
 
         // Show loader while initial UI setup runs (use BaseFragment helper)
         try { showLoader() } catch (_: Exception) { }
+
+        // Fetch user profile from server
+        lifecycleScope.launch {
+            try {
+                val repo = DashboardRepository(requireContext())
+                repo.getProfile()
+            } catch (_: Exception) {
+                // Continue even if profile fetch fails
+            }
+        }
 
         val drawerLayout = view.findViewById<DrawerLayout>(R.id.drawer_layout)
         val navView = view.findViewById<NavigationView>(R.id.navigation_view)
@@ -52,10 +66,10 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         // Use UserDataManager for centralized, reactive data access
         val userDataManager = com.example.myapplication.data.user.UserDataManager.getInstance(requireContext())
 
-        // Observe username changes
-        userDataManager.username.observe(viewLifecycleOwner) { username ->
+        // Observe username changes (Flow -> LiveData)
+        userDataManager.usernameFlow.asLiveData().observe(viewLifecycleOwner) { uname: String? ->
             try {
-                val name = username?.takeIf { it.isNotBlank() } ?: getString(R.string.username_fallback)
+                val name = if (!uname.isNullOrBlank()) uname else getString(R.string.username_fallback)
                 navHeaderTitle?.text = "Hello, $name"
                 view.findViewById<TextView>(R.id.tv_username)?.text = name
             } catch (_: Exception) {}

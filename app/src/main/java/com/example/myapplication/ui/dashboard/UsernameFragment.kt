@@ -206,10 +206,16 @@ class UsernameFragment : BaseFragment(R.layout.fragment_username) {
 
                     when (result) {
                         is DashboardResult.Success -> {
+                            // Save to UserDataManager for centralized data persistence
+                            val userDataManager = com.example.myapplication.data.user.UserDataManager.getInstance(requireContext())
+                            userDataManager.updateProfile(username = result.username)
+
+                            // Also save to SharedPreferences for backward compatibility
                             try {
                                 val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
                                 prefs.edit { putString("username", result.username) }
                             } catch (_: Exception) {}
+
                             try { sharedVm.setDrawableRes(null) } catch (_: Exception) {}
                             try {
                                 val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)

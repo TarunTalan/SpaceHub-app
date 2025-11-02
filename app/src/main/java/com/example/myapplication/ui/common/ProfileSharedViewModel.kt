@@ -26,9 +26,8 @@ class ProfileSharedViewModel(app: Application) : AndroidViewModel(app) {
     // Store community name and description for create community flow
     private val _communityName = MutableLiveData<String?>()
     val communityName: LiveData<String?> = _communityName
-
-    private val _communityDescription = MutableLiveData<String?>()
-    val communityDescription: LiveData<String?> = _communityDescription
+    private val _commDescription = MutableLiveData<String?>()
+    val communityDescription: LiveData<String?> = _commDescription
 
     fun setImagePath(path: String?) {
         _selectedImagePath.value = path
@@ -65,7 +64,7 @@ class ProfileSharedViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setCommunityDescription(description: String?) {
-        _communityDescription.value = description
+        _commDescription.value = description
     }
 
     fun clear() {
@@ -74,6 +73,6 @@ class ProfileSharedViewModel(app: Application) : AndroidViewModel(app) {
         _uploadedProfileUrl.value = null
         _selectedContentUri.value = null
         _communityName.value = null
-        _communityDescription.value = null
+        _commDescription.value = null
     }
 }

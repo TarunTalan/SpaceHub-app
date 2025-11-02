@@ -9,10 +9,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.Response
 import java.io.IOException
+import com.example.myapplication.data.user.UserDataManager
 
 class AuthRepository(context: Context) {
     private val api = NetworkModule.createApiService(context)
     private val tokens = SharedPrefsTokenStore(context)
+    private val userDataManager = UserDataManager.getInstance(context)
 
     // Small helper to run network calls and centralize exception handling
     private suspend inline fun <T> safeApiCall(
@@ -194,7 +196,11 @@ class AuthRepository(context: Context) {
                     refresh?.let { tokens.setRefreshToken(it) }
 
                     val ok = !access.isNullOrBlank() && !refresh.isNullOrBlank()
-                    if (ok) AuthResult.Success(requiresVerification = false)
+                    if (ok) {
+                        // Persist email as source of truth in DataStore
+                        try { userDataManager.setEmail(email) } catch (_: Exception) {}
+                        AuthResult.Success(requiresVerification = false)
+                    }
                     else AuthResult.Error(body?.message ?: "Login succeeded but tokens missing.")
                 } else {
                     AuthResult.Error(ResponseParser.parseError(resp.errorBody()))

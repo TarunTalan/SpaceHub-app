@@ -7,5 +7,6 @@ data class UpdateProfileRequest(
     val location: String,
     val website: String,
     val  isPrivate: Boolean,
-    val username: String
+    val username: String,
+    val dateOfBirth: String = ""
 )

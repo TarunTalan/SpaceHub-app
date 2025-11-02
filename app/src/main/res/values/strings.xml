@@ -158,4 +158,8 @@
     <string name="upload_failed">Upload failed</string>
     <string name="retry">Retry</string>
     <string name="dms_with_superpowers">DMs with superpowers</string>
+    <string name="hello_name">Hello, %1$s</string>
+    <string name="bio_max_length">Bio must be at most 160 characters</string>
+    <string name="update_failed">Update failed</string>
+    <string name="invalid_dob_format">Invalid date format. Use DD/MM/YYYY</string>
 </resources>

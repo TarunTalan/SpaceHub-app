@@ -6,33 +6,26 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
-import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.asLiveData
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
-import com.bumptech.glide.Glide
-import com.bumptech.glide.signature.ObjectKey
 import com.example.myapplication.R
 import com.example.myapplication.ui.common.BaseFragment
-import com.example.myapplication.ui.common.ProfileSharedViewModel
+import com.example.myapplication.ui.common.InputValidator
 import com.example.myapplication.ui.common.ProfileImageHelper
 import com.google.android.material.datepicker.CalendarConstraints
 import com.google.android.material.datepicker.MaterialDatePicker
-import com.example.myapplication.data.dashboard.DashboardRepository
-import com.example.myapplication.data.dashboard.model.UpdateProfileRequest
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.io.File
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
+import android.text.InputFilter
+import androidx.core.widget.addTextChangedListener
 
 class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
     private val dobFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
-    private val sharedVm: ProfileSharedViewModel by activityViewModels()
-    private var hasTemporarySelection = false
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -44,179 +37,182 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
         val etBio = view.findViewById<EditText>(R.id.etBio)
         val imgView = view.findViewById<ImageView>(R.id.profile)
 
-        // Use UserDataManager for centralized, reactive data access
+        // Apply input filters: no spaces + only letters for names + max length
+        val noSpacesFilter = InputFilter { source, _, _, _, _, _ ->
+            if (source != null && source.any { it.isWhitespace() }) "" else null
+        }
+        val lettersOnlyFilter = InputFilter { source, _, _, _, _, _ ->
+            if (source == null) null else {
+                val filtered = source.filter { it.isLetter() }
+                if (filtered.length == source.length) null else filtered
+            }
+        }
+        etFirst.filters = arrayOf(InputFilter.LengthFilter(25), noSpacesFilter, lettersOnlyFilter)
+        etLast.filters = arrayOf(InputFilter.LengthFilter(25), noSpacesFilter, lettersOnlyFilter)
+        etUser.filters = arrayOf(InputFilter.LengthFilter(25), noSpacesFilter)
+        etBio.filters = arrayOf(InputFilter.LengthFilter(150))
+
+        val tvFirstNameError = view.findViewById<TextView>(R.id.tvFirstNameError)
+        val tvLastNameError = view.findViewById<TextView>(R.id.tvLastError)
+        val tvUsernameError = view.findViewById<TextView>(R.id.tvUsernameError)
+        val tvBioError = view.findViewById<TextView>(R.id.tvBioerror)
+
+        fun clearErrors() {
+            tvFirstNameError?.visibility = View.GONE
+            tvLastNameError?.visibility = View.GONE
+            tvUsernameError?.visibility = View.GONE
+            tvBioError?.visibility = View.GONE
+            etDob.error = null
+        }
+
+        fun showError(tv: TextView?, msg: String) { tv?.apply { text = msg; visibility = View.VISIBLE } }
+
+        // Clear inline errors as user types
+        etFirst.addTextChangedListener { text ->
+            if (!text.isNullOrBlank() && text.length <= 25) tvFirstNameError?.visibility = View.GONE
+        }
+        etLast.addTextChangedListener { text ->
+            if (!text.isNullOrBlank() && text.length <= 25) tvLastNameError?.visibility = View.GONE
+        }
+        etUser.addTextChangedListener { text ->
+            val value = text?.toString().orEmpty()
+            val res = InputValidator.validateUsername(value)
+            if (res == InputValidator.UsernameResult.VALID || value.isBlank()) tvUsernameError?.visibility = View.GONE
+        }
+        etBio.addTextChangedListener { text ->
+            val len = text?.length ?: 0
+            if (len <= 150) tvBioError?.visibility = View.GONE
+        }
+        etDob.addTextChangedListener { _ -> etDob.error = null }
+
         val userDataManager = com.example.myapplication.data.user.UserDataManager.getInstance(requireContext())
 
-        // Observe and populate fields from UserDataManager
-        userDataManager.firstName.observe(viewLifecycleOwner) { first ->
-            if (etFirst?.text.isNullOrBlank()) {
-                first?.takeIf { it.isNotBlank() }?.let { etFirst.setText(it) }
-            }
+        // Observe Flows as LiveData to populate fields once if empty
+        userDataManager.firstNameFlow.asLiveData().observe(viewLifecycleOwner) { first ->
+            if (etFirst.text.isNullOrBlank()) first?.takeIf { it.isNotBlank() }?.let { etFirst.setText(it) }
+        }
+        userDataManager.lastNameFlow.asLiveData().observe(viewLifecycleOwner) { last ->
+            if (etLast.text.isNullOrBlank()) last?.takeIf { it.isNotBlank() }?.let { etLast.setText(it) }
+        }
+        userDataManager.usernameFlow.asLiveData().observe(viewLifecycleOwner) { username ->
+            if (etUser.text.isNullOrBlank()) username?.takeIf { it.isNotBlank() }?.let { etUser.setText(it) }
+        }
+        userDataManager.dateOfBirthFlow.asLiveData().observe(viewLifecycleOwner) { dob ->
+            if (etDob.text.isNullOrBlank()) dob?.takeIf { it.isNotBlank() }?.let { etDob.setText(it) }
+        }
+        userDataManager.bioFlow.asLiveData().observe(viewLifecycleOwner) { bio ->
+            if (etBio.text.isNullOrBlank()) bio?.takeIf { it.isNotBlank() }?.let { etBio.setText(it) }
         }
 
-        userDataManager.lastName.observe(viewLifecycleOwner) { last ->
-            if (etLast?.text.isNullOrBlank()) {
-                last?.takeIf { it.isNotBlank() }?.let { etLast.setText(it) }
-            }
-        }
-
-        userDataManager.username.observe(viewLifecycleOwner) { username ->
-            if (etUser?.text.isNullOrBlank()) {
-                username?.takeIf { it.isNotBlank() }?.let { etUser.setText(it) }
-            }
-        }
-
-        userDataManager.dateOfBirth.observe(viewLifecycleOwner) { dob ->
-            if (etDob?.text.isNullOrBlank()) {
-                dob?.takeIf { it.isNotBlank() }?.let { etDob.setText(it) }
-            }
-        }
-
-        userDataManager.bio.observe(viewLifecycleOwner) { bio ->
-            if (etBio?.text.isNullOrBlank()) {
-                bio?.takeIf { it.isNotBlank() }?.let { etBio.setText(it) }
-            }
-        }
-
-        // Profile image loading strategy:
-        // Priority 1: Temporary selections from SharedViewModel (before upload)
-        // Priority 2: Persisted data from UserDataManager/DataStore (after upload)
-
-
-        // Observe SharedViewModel for temporary selections (gallery/camera/drawable picks)
-        sharedVm.selectedImagePath.observe(viewLifecycleOwner) { path ->
-            if (!path.isNullOrBlank()) {
-                try {
-                    val f = File(path)
-                    if (f.exists()) {
-                        hasTemporarySelection = true
-                        Glide.with(this)
-                            .load(f)
-                            .signature(ObjectKey(f.absolutePath + "-" + f.lastModified()))
-                            .placeholder(R.drawable.default_profile)
-                            .error(R.drawable.default_profile)
-                            .circleCrop()
-                            .into(imgView)
-                    } else {
-                        hasTemporarySelection = false
-                    }
-                } catch (_: Exception) {
-                    hasTemporarySelection = false
-                }
-            } else {
-                hasTemporarySelection = false
-            }
-        }
-
-        sharedVm.selectedDrawableRes.observe(viewLifecycleOwner) { resId ->
-            if (resId != null && resId != 0) {
-                try {
-                    hasTemporarySelection = true
-                    Glide.with(this)
-                        .load(resId)
-                        .placeholder(R.drawable.default_profile)
-                        .error(R.drawable.default_profile)
-                        .circleCrop()
-                        .into(imgView)
-                } catch (_: Exception) {
-                    hasTemporarySelection = false
-                }
-            } else {
-                hasTemporarySelection = false
-            }
-        }
-
-        // Load from UserDataManager (persisted) only if no temporary selection
-        // This ensures temporary selections take priority
-        userDataManager.profileImagePathFlow.asLiveData().observe(viewLifecycleOwner) {
-            // Trigger re-evaluation when persisted data changes
-            if (!hasTemporarySelection) {
-                loadPersistedProfileImage(imgView)
-            }
-        }
-
-        userDataManager.profileImageUrlFlow.asLiveData().observe(viewLifecycleOwner) {
-            if (!hasTemporarySelection) {
-                loadPersistedProfileImage(imgView)
-            }
-        }
-
-        // Initial load
+        // Load profile image from URL only (no local caching)
         loadPersistedProfileImage(imgView)
+        userDataManager.profileImageUrlFlow.asLiveData().observe(viewLifecycleOwner) {
+            loadPersistedProfileImage(imgView)
+        }
 
-        etDob?.apply {
+        etDob.apply {
             isFocusable = false
             isClickable = true
             isCursorVisible = false
             setOnClickListener { showMaterialDatePicker(this) }
         }
 
-        // Wire navigation
-        try {
-            val backBtn = view.findViewById<ImageView>(R.id.back)
-            backBtn?.setOnClickListener { try { findNavController().popBackStack() } catch (_: Exception) {} }
-        } catch (_: Exception) {}
+        view.findViewById<ImageView>(R.id.back)?.setOnClickListener {
+            runCatching { findNavController().popBackStack() }
+        }
+        view.findViewById<TextView>(R.id.tvChangeProfilePicture)?.setOnClickListener {
+            runCatching { findNavController().navigate(R.id.action_profileFragment_to_changeProfilePicFragment) }
+        }
+        imgView.setOnClickListener {
+            runCatching { findNavController().navigate(R.id.action_profileFragment_to_changeProfilePicFragment) }
+        }
 
-        try {
-            view.findViewById<TextView>(R.id.tvChangeProfilePicture)?.setOnClickListener {
-                try { findNavController().navigate(R.id.action_profileFragment_to_changeProfilePicFragment) } catch (_: Exception) {}
+        // Save button - validate inputs then update profile via API
+        view.findViewById<TextView>(R.id.tv_save)?.setOnClickListener {
+            clearErrors()
+
+            val firstVal = etFirst.text?.toString()?.trim().orEmpty()
+            val lastVal = etLast.text?.toString()?.trim().orEmpty()
+            val usernameVal = etUser.text?.toString()?.trim().orEmpty()
+            val bioVal = etBio.text?.toString()?.trim().orEmpty()
+            val dobUi = etDob.text?.toString()?.trim().orEmpty()
+
+            var valid = true
+
+            if (firstVal.isBlank()) {
+                valid = false
+                showError(tvFirstNameError, getString(R.string.first_name_required))
+            } else if (firstVal.length > 25) {
+                valid = false
+                showError(tvFirstNameError, getString(R.string.first_name_max_length))
             }
-        } catch (_: Exception) {}
 
-        try {
-            imgView?.setOnClickListener {
-                try { findNavController().navigate(R.id.action_profileFragment_to_changeProfilePicFragment) } catch (_: Exception) {}
+            if (lastVal.isBlank()) {
+                valid = false
+                showError(tvLastNameError, getString(R.string.last_name_required))
+            } else if (lastVal.length > 25) {
+                valid = false
+                showError(tvLastNameError, getString(R.string.last_name_max_length))
             }
-        } catch (_: Exception) {}
 
-        // Save button (top right) - update profile via API
-        val tvSave = view.findViewById<TextView>(R.id.tv_save)
-        tvSave?.setOnClickListener {
-            try {
-                val firstVal = etFirst?.text?.toString()?.trim().orEmpty()
-                val lastVal = etLast?.text?.toString()?.trim().orEmpty()
-                val usernameVal = etUser?.text?.toString()?.trim().orEmpty()
-                val bioVal = etBio?.text?.toString()?.trim().orEmpty()
+            when (InputValidator.validateUsername(usernameVal)) {
+                InputValidator.UsernameResult.VALID -> { /* ok */ }
+                InputValidator.UsernameResult.EMPTY -> { valid = false; showError(tvUsernameError, getString(R.string.username_required)) }
+                InputValidator.UsernameResult.HAS_SPACE -> { valid = false; showError(tvUsernameError, getString(R.string.username_no_spaces)) }
+                InputValidator.UsernameResult.HAS_DIGIT -> { valid = false; showError(tvUsernameError, getString(R.string.username_invalid_chars)) }
+                InputValidator.UsernameResult.INVALID_CHAR -> { valid = false; showError(tvUsernameError, getString(R.string.username_invalid_chars)) }
+            }
 
-                val req = UpdateProfileRequest(
-                    firstName = firstVal,
-                    lastName = lastVal,
-                    bio = bioVal,
-                    location = "",
-                    website = "",
-                    isPrivate = false,
-                    username = usernameVal
-                )
-
-                setLoaderVisible(true)
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        val repo = DashboardRepository(requireContext())
-                        val success = repo.updateProfile(req)
-
-                        CoroutineScope(Dispatchers.Main).launch {
-                            setLoaderVisible(false)
-                            if (success) {
-                                Toast.makeText(requireContext(), getString(R.string.saved), Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(requireContext(), "Update failed", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    } catch (_: Exception) {
-                        CoroutineScope(Dispatchers.Main).launch {
-                            setLoaderVisible(false)
-                            Toast.makeText(requireContext(), "Update failed", Toast.LENGTH_SHORT).show()
-                        }
-                    }
+            if (dobUi.isNotEmpty()) {
+                try {
+                    val local = java.time.LocalDate.parse(dobUi, dobFormat)
+                    // ok
+                } catch (e: DateTimeParseException) {
+                    valid = false
+                    etDob.error = getString(R.string.invalid_dob_format)
                 }
-            } catch (_: Exception) {}
+            }
+
+            if (bioVal.length > 150) {
+                valid = false
+                showError(tvBioError, getString(R.string.bio_max_length))
+            }
+
+            if (!valid) return@setOnClickListener
+
+            // Convert DOB to API format yyyy-MM-dd if present
+            val apiDob: String = if (dobUi.isNotEmpty()) {
+                val local = java.time.LocalDate.parse(dobUi, dobFormat)
+                DateTimeFormatter.ISO_LOCAL_DATE.format(local)
+            } else ""
+
+            val req = com.example.myapplication.data.dashboard.model.UpdateProfileRequest(
+                firstName = firstVal,
+                lastName = lastVal,
+                bio = bioVal,
+                location = "",
+                website = "",
+                isPrivate = false,
+                username = usernameVal,
+                dateOfBirth = apiDob
+            )
+
+            setLoaderVisible(true)
+            viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+                val repo = com.example.myapplication.data.dashboard.DashboardRepository(requireContext())
+                val success = runCatching { repo.updateProfile(req) }.getOrDefault(false)
+                launch(Dispatchers.Main) {
+                    setLoaderVisible(false)
+                    Toast.makeText(requireContext(), if (success) getString(R.string.saved) else getString(R.string.update_failed), Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 
     private fun showMaterialDatePicker(target: EditText) {
         val selection: Long = runCatching {
             val text = target.text.toString().trim()
-            val local = LocalDate.parse(text, dobFormat)
+            val local = java.time.LocalDate.parse(text, dobFormat)
             local.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         }.getOrElse { MaterialDatePicker.todayInUtcMilliseconds() }
 
@@ -239,20 +235,12 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
         picker.show(parentFragmentManager, "DOB_PICKER")
     }
 
-    /**
-     * Load persisted profile image from UserDataManager.
-     * This is only called when there are no temporary selections from SharedViewModel.
-     */
+    /** Load persisted profile image from UserDataManager (URL only). */
     private fun loadPersistedProfileImage(imageView: ImageView) {
         lifecycleScope.launch {
             val userDataManager = com.example.myapplication.data.user.UserDataManager.getInstance(requireContext())
             val bestSource = userDataManager.getBestProfileImageSource()
-
-            ProfileImageHelper.loadProfileImageIntoView(
-                requireContext(),
-                imageView,
-                bestSource
-            )
+            ProfileImageHelper.loadProfileImageIntoView(requireContext(), imageView, bestSource)
         }
     }
 }

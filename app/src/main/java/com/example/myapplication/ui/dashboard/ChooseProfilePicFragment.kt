@@ -10,6 +10,7 @@ import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
+import android.webkit.MimeTypeMap
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.activity.result.ActivityResultLauncher
@@ -17,16 +18,15 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.widget.AppCompatButton
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import androidx.core.content.edit
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
+import androidx.core.os.bundleOf
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
-import com.bumptech.glide.load.DataSource
-import com.bumptech.glide.load.engine.GlideException
-import com.bumptech.glide.request.RequestListener
-import com.bumptech.glide.request.target.Target
 import com.bumptech.glide.signature.ObjectKey
 import com.example.myapplication.R
 import com.example.myapplication.data.network.NetworkModule
@@ -42,738 +42,477 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import java.io.FileOutputStream
-import java.io.IOException
 import kotlin.math.min
-import android.webkit.MimeTypeMap
-import androidx.core.content.FileProvider
-import androidx.core.os.bundleOf
-import androidx.core.content.edit
 
 class ChooseProfilePicFragment : BaseFragment(R.layout.fragment_choose_profile_pic) {
-    private val sharedVm: ProfileSharedViewModel by activityViewModels()
 
-    // Email passed from signup flow (if available)
+    private val sharedVm: ProfileSharedViewModel by activityViewModels()
     private var signupEmailArg: String? = null
+
+    private lateinit var cameraLauncher: ActivityResultLauncher<Uri>
+    private lateinit var galleryLauncher: ActivityResultLauncher<String>
+    private var lastSelectedAvatar: ImageView? = null
+
+    companion object {
+        private const val CACHE_FILENAME = "profile_pic.png"
+        private const val MAX_IMAGE_DIM = 512
+        private const val IMAGE_QUALITY = 60
+        private const val PREFS_NAME = "app_prefs"
+
+        private val AVATAR_MAP = mapOf(
+            R.id.avatar_1 to R.drawable.avatar_1,
+            R.id.avatar_2 to R.drawable.avatar_2,
+            R.id.avatar_3 to R.drawable.avatar_3,
+            R.id.avatar_4 to R.drawable.avatar_4,
+            R.id.avatar_5 to R.drawable.avatar_5,
+            R.id.avatar_6 to R.drawable.avatar_6,
+            R.id.avatar_7 to R.drawable.avatar_7,
+            R.id.avatar_8 to R.drawable.avatar_8
+        )
+    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Read signup email argument
-        signupEmailArg = try {
-            arguments?.getString("email")
-        } catch (_: Exception) {
-            null
-        }
+        signupEmailArg = arguments?.getString("email")
+        sharedVm.setUploadedProfileUrl(null)
 
-        // Clear any stale uploaded profile URL from previous flows
-        try {
-            sharedVm.setUploadedProfileUrl(null)
-        } catch (_: Exception) {
-        }
-
-        // find main image and add icon
         val imgLogo = view.findViewById<ImageView>(R.id.img_logo)
         val addIcon = view.findViewById<ImageView>(R.id.add_icon)
         val outlineBase = ContextCompat.getDrawable(requireContext(), R.drawable.outline_circle_white)
-
-        // target pixel size for final avatar (use dims resource)
         val logoSize = resources.getDimensionPixelSize(R.dimen.onboarding_logo_size)
 
-        // helper: center-crop a bitmap to square and scale to target size
-        fun centerCropBitmap(src: Bitmap, targetSize: Int): Bitmap {
-            val side = min(src.width, src.height)
-            val x = (src.width - side) / 2
-            val y = (src.height - side) / 2
-            val cropped = Bitmap.createBitmap(src, x, y, side, side)
-            return cropped.scale(targetSize, targetSize)
-        }
+        setupCameraLauncher(imgLogo)
+        setupGalleryLauncher(imgLogo, logoSize)
+        setupAvatarSelection(view, imgLogo, outlineBase, logoSize)
+        setupAddIconClick(addIcon)
+        setupNavigationButtons(view)
+    }
 
-        // Write a bitmap to cache and return the absolute path. Overwrites previous profile cache.
-        fun writeBitmapToCache(bitmap: Bitmap): String? {
-            val cacheDir = requireContext().cacheDir
-            val filename = "profile_pic.png"
-            val outFile = File(cacheDir, filename)
-            try {
-                // Delete any previously stored path (if different) to avoid orphan files
-                try {
-                    sharedVm.selectedImagePath.value?.let { oldPath ->
-                        try {
-                            if (oldPath != outFile.absolutePath) {
-                                File(oldPath).takeIf { it.exists() }?.delete()
-                            }
-                        } catch (_: Exception) {
-                        }
-                    }
-                } catch (_: Exception) {
+    // ==================== Bitmap Utils ====================
+
+    private fun centerCropBitmap(src: Bitmap, targetSize: Int): Bitmap {
+        val side = min(src.width, src.height)
+        val x = (src.width - side) / 2
+        val y = (src.height - side) / 2
+        val cropped = Bitmap.createBitmap(src, x, y, side, side)
+        return cropped.scale(targetSize, targetSize)
+    }
+
+    private fun writeBitmapToCache(bitmap: Bitmap): String? {
+        return try {
+            val outFile = File(requireContext().cacheDir, CACHE_FILENAME)
+
+            // Delete old file
+            sharedVm.selectedImagePath.value?.let { oldPath ->
+                if (oldPath != outFile.absolutePath) {
+                    File(oldPath).takeIf { it.exists() }?.delete()
                 }
-
-                // If the fixed file exists, delete it so we overwrite cleanly
-                try {
-                    if (outFile.exists()) outFile.delete()
-                } catch (_: Exception) {
-                }
-
-                // Write the bitmap to the fixed cache file
-                FileOutputStream(outFile).use { fos ->
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
-                    fos.flush()
-                }
-
-                // Ensure lastModified is updated to invalidate Glide signatures based on timestamp
-                try {
-                    outFile.setLastModified(System.currentTimeMillis())
-                } catch (_: Exception) {
-                }
-
-                return outFile.absolutePath
-            } catch (_: IOException) {
-                // ignore write errors
             }
-            return null
-        }
+            outFile.delete()
 
-        // show a simple crop preview dialog (center square) and let user Use or Retake
-        fun showCropDialog(original: Bitmap, onUse: (Bitmap) -> Unit, onRetake: () -> Unit) {
-            val preview = centerCropBitmap(original, logoSize)
-            val previewIv = ImageView(requireContext()).apply {
-                setImageBitmap(preview)
-                adjustViewBounds = true
-                scaleType = ImageView.ScaleType.FIT_CENTER
-                val pad = (8 * resources.displayMetrics.density).toInt()
-                setPadding(pad, pad, pad, pad)
+            FileOutputStream(outFile).use { fos ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
             }
-
-            AlertDialog.Builder(requireContext())
-                .setTitle(R.string.choose_profile_pic)
-                .setView(previewIv)
-                .setPositiveButton(android.R.string.ok) { _, _ -> onUse(preview) }
-                .setNegativeButton(R.string.skip) { _, _ -> onRetake() }
-                .setCancelable(true)
-                .show()
+            outFile.setLastModified(System.currentTimeMillis())
+            outFile.absolutePath
+        } catch (e: Exception) {
+            null
         }
+    }
 
-        // apply cropped bitmap to the main logo
-        fun applyCroppedBitmap(bm: Bitmap) {
-            // Persist the cropped bitmap to cache and store its path in shared ViewModel
-            try {
-                val path = writeBitmapToCache(bm)
-                if (path != null) {
-                    sharedVm.setImagePath(path)
-                    // Load via Glide with circleCrop to ensure consistent circular display
-                    try {
-                        val file = File(path)
-                        Glide.with(this).clear(imgLogo)
-                        imgLogo.setImageDrawable(null)
-                        Glide.with(this)
-                            .load(file)
-                            .signature(ObjectKey(file.absolutePath + "-" + file.lastModified()))
-                            .circleCrop()
-                            .listener(object : RequestListener<Drawable?> {
-                                override fun onLoadFailed(
-                                    e: GlideException?,
-                                    model: Any?,
-                                    target: Target<Drawable?>?,
-                                    isFirstResource: Boolean
-                                ): Boolean {
-                                    try {
-                                        // try forcing a fresh load
-                                        Glide.with(this@ChooseProfilePicFragment).clear(imgLogo)
-                                        Glide.with(this@ChooseProfilePicFragment)
-                                            .load(file)
-                                            .skipMemoryCache(true)
-                                            .signature(ObjectKey(file.absolutePath + "-" + file.lastModified()))
-                                            .circleCrop()
-                                            .into(imgLogo)
-                                    } catch (_: Exception) {
-                                    }
-                                    return false
-                                }
+    private fun writeUriToCache(uri: Uri): String? {
+        return try {
+            val outFile = File(requireContext().cacheDir, CACHE_FILENAME)
+            outFile.delete()
 
-                                override fun onResourceReady(
-                                    resource: Drawable?,
-                                    model: Any?,
-                                    target: Target<Drawable?>?,
-                                    dataSource: DataSource?,
-                                    isFirstResource: Boolean
-                                ): Boolean {
-                                    return false
-                                }
-                            })
-                            .into(imgLogo)
-
-                    } catch (_: Exception) {
-                        // fallback: set bitmap directly
-                        imgLogo.setImageBitmap(bm)
-                    }
-                } else {
-                    imgLogo.setImageBitmap(bm)
+            requireContext().contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(outFile).use { output ->
+                    input.copyTo(output)
                 }
-                // outline is now rendered by the circle_mask stroke background
-            } catch (_: Exception) {
             }
+            if (outFile.exists()) outFile.absolutePath else null
+        } catch (e: Exception) {
+            null
         }
+    }
 
-        // Helper: copy a content Uri to the app cache and return the path (overwrites fixed filename)
-        fun writeUriToCache(uri: Uri): String? {
-            val cacheDir = requireContext().cacheDir
-            val filename = "profile_pic.png"
-            val outFile = File(cacheDir, filename)
-            try {
-                // Remove previous file if it exists
-                try {
-                    if (outFile.exists()) outFile.delete()
-                } catch (_: Exception) {
-                }
-
-                requireContext().contentResolver.openInputStream(uri)?.use { input ->
-                    FileOutputStream(outFile).use { output ->
-                        input.copyTo(output)
-                        output.flush()
-                    }
-                }
-
-                // verify file written
-                if (outFile.exists()) {
-                    return outFile.absolutePath
-                }
-            } catch (_: Exception) {
-                // ignore
+    private fun compressImage(file: File) {
+        try {
+            val bitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return
+            val scaled = bitmap.scale(MAX_IMAGE_DIM, MAX_IMAGE_DIM)
+            FileOutputStream(file).use { fos ->
+                scaled.compress(Bitmap.CompressFormat.JPEG, IMAGE_QUALITY, fos)
             }
-            return null
+        } catch (e: Exception) {
+            // Ignore compression errors
         }
+    }
 
-        // ActivityResult launchers: TakePicture (writes to provided Uri) and GetContent (returns a Uri)
-        lateinit var cameraLauncher: ActivityResultLauncher<Uri>
-        lateinit var galleryLauncher: ActivityResultLauncher<String>
-
-        // Create a content Uri for the camera to write into. We'll reuse a fixed cache filename.
-        fun createImageContentUri(): Uri? {
-            return try {
-                val cacheDir = requireContext().cacheDir
-                val filename = "profile_pic.png"
-                val file = File(cacheDir, filename)
-                // Ensure parent exists
-                file.parentFile?.mkdirs()
-                // Delete previous file to avoid reusing stale content
-                try {
-                    if (file.exists()) file.delete()
-                } catch (_: Exception) {
+    private fun drawableToBitmap(drawable: Drawable?, logoSize: Int): Bitmap? {
+        return when {
+            drawable == null -> null
+            drawable is BitmapDrawable -> drawable.bitmap
+            else -> try {
+                val w = if (drawable.intrinsicWidth > 0) drawable.intrinsicWidth else logoSize
+                val h = if (drawable.intrinsicHeight > 0) drawable.intrinsicHeight else logoSize
+                createBitmap(w, h).also { bmp ->
+                    val canvas = Canvas(bmp)
+                    drawable.setBounds(0, 0, canvas.width, canvas.height)
+                    drawable.draw(canvas)
                 }
-
-                // Use FileProvider to get content Uri
-                val authority = requireContext().packageName + ".provider"
-                FileProvider.getUriForFile(requireContext(), authority, file).also { uri ->
-                    // grant temporary write permission for camera app
-                    try {
-                        requireContext().grantUriPermission(
-                            requireContext().packageName,
-                            uri,
-                            android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                        )
-                    } catch (_: Exception) {
-                    }
-                }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 null
             }
         }
+    }
 
-        cameraLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success: Boolean ->
+    // ==================== Glide Loading ====================
+
+    private fun loadImageWithGlide(imgLogo: ImageView, file: File) {
+        Glide.with(this).clear(imgLogo)
+        Glide.with(this)
+            .load(file)
+            .signature(ObjectKey("${file.absolutePath}-${file.lastModified()}"))
+            .circleCrop()
+            .into(imgLogo)
+    }
+
+    private fun loadImageFromResource(imgLogo: ImageView, resId: Int) {
+        Glide.with(this).clear(imgLogo)
+        Glide.with(this)
+            .load(resId)
+            .circleCrop()
+            .into(imgLogo)
+    }
+
+    // ==================== Dialogs ====================
+
+    private fun showCropDialog(original: Bitmap, logoSize: Int, onUse: (Bitmap) -> Unit, onRetake: () -> Unit) {
+        val preview = centerCropBitmap(original, logoSize)
+        val previewIv = ImageView(requireContext()).apply {
+            setImageBitmap(preview)
+            adjustViewBounds = true
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            val pad = (8 * resources.displayMetrics.density).toInt()
+            setPadding(pad, pad, pad, pad)
+        }
+
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.choose_profile_pic)
+            .setView(previewIv)
+            .setPositiveButton(android.R.string.ok) { _, _ -> onUse(preview) }
+            .setNegativeButton(R.string.skip) { _, _ -> onRetake() }
+            .setCancelable(true)
+            .show()
+    }
+
+    private fun showImageSourceDialog() {
+        val items = arrayOf("Take Photo", "Choose from Gallery")
+        AlertDialog.Builder(requireContext())
+            .setTitle("Select image")
+            .setItems(items) { _, which ->
+                when (which) {
+                    0 -> createImageContentUri()?.let { cameraLauncher.launch(it) }
+                    1 -> galleryLauncher.launch("image/*")
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    // ==================== Apply Image ====================
+
+    private fun applyCroppedBitmap(imgLogo: ImageView, bitmap: Bitmap) {
+        val path = writeBitmapToCache(bitmap) ?: return
+        sharedVm.setImagePath(path)
+        loadImageWithGlide(imgLogo, File(path))
+    }
+
+    private fun applyAvatarDrawable(imgLogo: ImageView, logoSize: Int, drawable: Drawable? = null, resId: Int? = null) {
+        val sourceDrawable = resId?.let { ContextCompat.getDrawable(requireContext(), it) } ?: drawable
+        val bmp = drawableToBitmap(sourceDrawable, logoSize)
+        val cropped = bmp?.let { centerCropBitmap(it, logoSize) }
+
+        if (cropped != null) {
+            val path = writeBitmapToCache(cropped)
+            if (path != null) {
+                sharedVm.setImagePath(path)
+                loadImageWithGlide(imgLogo, File(path))
+                return
+            }
+        }
+
+        // Fallback
+        if (resId != null) {
+            loadImageFromResource(imgLogo, resId)
+            sharedVm.setDrawableRes(resId)
+        } else if (drawable != null) {
+            imgLogo.setImageDrawable(drawable)
+        }
+    }
+
+    // ==================== Setup Functions ====================
+
+    private fun createImageContentUri(): Uri? {
+        return try {
+            val file = File(requireContext().cacheDir, CACHE_FILENAME)
+            file.parentFile?.mkdirs()
+            file.delete()
+
+            val authority = "${requireContext().packageName}.provider"
+            FileProvider.getUriForFile(requireContext(), authority, file)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun setupCameraLauncher(imgLogo: ImageView) {
+        cameraLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
             if (success) {
-                val cacheDir = requireContext().cacheDir
-                val file = File(cacheDir, "profile_pic.png")
+                val file = File(requireContext().cacheDir, CACHE_FILENAME)
                 if (file.exists()) {
-                    // Resize/compress the image before saving and uploading
-                    try {
-                        val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-                        if (bitmap != null) {
-                            val maxDim = 512 // Reduce to 512x512 for strict server limits
-                            val scaled = bitmap.scale(maxDim, maxDim)
-                            FileOutputStream(file, false).use { fos ->
-                                scaled.compress(Bitmap.CompressFormat.JPEG, 60, fos) // Lower quality to 60
-                                fos.flush()
-                            }
-                        }
-                    } catch (_: Exception) {}
-                    val contentUri = try {
-                        val authority = requireContext().packageName + ".provider"
-                        FileProvider.getUriForFile(requireContext(), authority, file)
-                    } catch (_: Exception) {
-                        null
-                    }
-                    if (contentUri != null) {
-                        sharedVm.setSelectedContentUri(contentUri)
-                        sharedVm.setImagePath(file.absolutePath)
-                        try {
-                            Glide.with(this).clear(imgLogo)
-                            Glide.with(this)
-                                .load(file)
-                                .signature(ObjectKey(file.absolutePath + "-" + file.lastModified()))
-                                .circleCrop()
-                                .into(imgLogo)
-                        } catch (_: Exception) {}
-                    }
+                    compressImage(file)
+                    sharedVm.setImagePath(file.absolutePath)
+                    loadImageWithGlide(imgLogo, file)
                 }
             }
         }
+    }
 
+    private fun setupGalleryLauncher(imgLogo: ImageView, logoSize: Int) {
         galleryLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-            if (uri != null) {
-                sharedVm.setSelectedContentUri(uri)
-                try {
-                    val stream = requireContext().contentResolver.openInputStream(uri)
-                    var decoded: Bitmap? = null
-                    stream?.use {
-                        decoded = BitmapFactory.decodeStream(it)
-                    }
-                    if (decoded != null) {
-                        showCropDialog(
-                            decoded,
-                            onUse = { cropped -> applyCroppedBitmap(cropped) },
-                            onRetake = { galleryLauncher.launch("image/*") })
-                        return@registerForActivityResult
-                    }
-                    val cachedPath = writeUriToCache(uri)
-                    if (cachedPath != null) {
-                        try {
-                            sharedVm.setImagePath(cachedPath)
-                            Glide.with(this).clear(imgLogo)
-                            imgLogo.setImageDrawable(null)
-                            Glide.with(this)
-                                .load(File(cachedPath))
-                                .signature(ObjectKey(File(cachedPath).absolutePath + "-" + File(cachedPath).lastModified()))
-                                .circleCrop()
-                                .listener(object : RequestListener<Drawable?> {
-                                    override fun onLoadFailed(
-                                        e: GlideException?,
-                                        model: Any?,
-                                        target: Target<Drawable?>?,
-                                        isFirstResource: Boolean
-                                    ): Boolean {
-                                        try {
-                                            Glide.with(this@ChooseProfilePicFragment).clear(imgLogo)
-                                            Glide.with(this@ChooseProfilePicFragment)
-                                                .load(File(cachedPath))
-                                                .skipMemoryCache(true)
-                                                .signature(
-                                                    ObjectKey(
-                                                        File(cachedPath).absolutePath + "-" + File(
-                                                            cachedPath
-                                                        ).lastModified()
-                                                    )
-                                                )
-                                                .circleCrop()
-                                                .into(imgLogo)
-                                        } catch (_: Exception) {
-                                        }
-                                        return false
-                                    }
-                                    override fun onResourceReady(
-                                        resource: Drawable?,
-                                        model: Any?,
-                                        target: Target<Drawable?>?,
-                                        dataSource: DataSource?,
-                                        isFirstResource: Boolean
-                                    ): Boolean {
-                                        return false
-                                    }
-                                })
-                                .into(imgLogo)
-                        } catch (_: Exception) {
-                            try {
-                                Glide.with(this).clear(imgLogo); imgLogo.setImageDrawable(null); Glide.with(this)
-                                    .load(uri).circleCrop().into(imgLogo)
-                            } catch (_: Exception) {
-                            }
-                        }
-                    } else {
-                        try {
-                            Glide.with(this).clear(imgLogo); imgLogo.setImageDrawable(null); Glide.with(this).load(uri)
-                                .circleCrop().into(imgLogo)
-                        } catch (_: Exception) {
-                        }
-                    }
-                } catch (_: Exception) {
-                    try {
-                        Glide.with(this).clear(imgLogo); imgLogo.setImageDrawable(null); Glide.with(this).load(uri)
-                            .circleCrop().into(imgLogo)
-                    } catch (_: Exception) {
-                    }
-                }
-            }
-        }
+            uri ?: return@registerForActivityResult
 
-        // helper to convert Drawable to Bitmap
-        fun drawableToBitmap(drawable: Drawable?): Bitmap? {
-            if (drawable == null) return null
-            if (drawable is BitmapDrawable) return drawable.bitmap
-            val w = if (drawable.intrinsicWidth > 0) drawable.intrinsicWidth else logoSize
-            val h = if (drawable.intrinsicHeight > 0) drawable.intrinsicHeight else logoSize
-            return try {
-                val bmp = createBitmap(w, h)
-                val canvas = Canvas(bmp)
-                drawable.setBounds(0, 0, canvas.width, canvas.height)
-                drawable.draw(canvas)
-                bmp
-            } catch (_: Exception) {
+            sharedVm.setSelectedContentUri(uri)
+
+            // Try to decode bitmap for crop dialog
+            val decoded = try {
+                requireContext().contentResolver.openInputStream(uri)?.use {
+                    BitmapFactory.decodeStream(it)
+                }
+            } catch (e: Exception) {
                 null
             }
-        }
 
-        // helper to apply selection: copy drawable and keep add icon visible
-        fun applyAvatarDrawable(drawable: Drawable?, resId: Int? = null) {
-            try {
-                // convert source (resource or drawable instance) to a center-cropped bitmap sized to logoSize
-                val sourceDrawable = if (resId != null) ContextCompat.getDrawable(requireContext(), resId) else drawable
-                val bmp = drawableToBitmap(sourceDrawable)
-                val cropped = bmp?.let { centerCropBitmap(it, logoSize) }
+            if (decoded != null) {
+                showCropDialog(decoded, logoSize,
+                    onUse = { cropped -> applyCroppedBitmap(imgLogo, cropped) },
+                    onRetake = { galleryLauncher.launch("image/*") }
+                )
+                return@registerForActivityResult
+            }
 
-                if (cropped != null) {
-                    // Persist cropped bitmap to cache and update shared ViewModel
-                    val path = writeBitmapToCache(cropped)
-                    if (path != null) {
-                        sharedVm.setImagePath(path)
-
-                        // Load the cached file via Glide with signature to avoid stale cache
-                        try {
-                            val f = File(path)
-                            Glide.with(this).clear(imgLogo)
-                            imgLogo.setImageDrawable(null)
-                            Glide.with(this)
-                                .load(f)
-                                .signature(ObjectKey(f.absolutePath + "-" + f.lastModified()))
-                                .circleCrop()
-                                .into(imgLogo)
-                            return
-                        } catch (_: Exception) {
-                        }
-                    }
-                }
-
-                // Fallback: if conversion/writing failed, still try to display the drawable/resId via Glide
-                if (resId != null) {
-                    try {
-                        Glide.with(this).load(resId).circleCrop().into(imgLogo)
-                        sharedVm.setDrawableRes(resId)
-                        return
-                    } catch (_: Exception) {
-                    }
-                }
-
-                if (drawable != null) {
-                    try {
-                        Glide.with(this).load(drawable).circleCrop().into(imgLogo)
-                    } catch (_: Exception) {
-                        imgLogo.setImageDrawable(drawable)
-                    }
-                }
-            } catch (_: Exception) {
+            // Fallback: copy URI to cache
+            val cachedPath = writeUriToCache(uri)
+            if (cachedPath != null) {
+                sharedVm.setImagePath(cachedPath)
+                loadImageWithGlide(imgLogo, File(cachedPath))
+            } else {
+                // Last resort: load URI directly
+                Glide.with(this).load(uri).circleCrop().into(imgLogo)
             }
         }
+    }
 
-        // list of avatar ids to wire up
-        val avatarIds = listOf(
-            R.id.avatar_1, R.id.avatar_2, R.id.avatar_3, R.id.avatar_4,
-            R.id.avatar_5, R.id.avatar_6, R.id.avatar_7, R.id.avatar_8
-        )
-
-        var lastSelected: ImageView? = null
-
-        for (id in avatarIds) {
-            val av = view.findViewById<ImageView?>(id)
-            av?.setOnClickListener { v ->
-                // cast the clicked view to ImageView so we can safely access `.drawable`
+    private fun setupAvatarSelection(view: View, imgLogo: ImageView, outlineBase: Drawable?, logoSize: Int) {
+        AVATAR_MAP.keys.forEach { avatarId ->
+            view.findViewById<ImageView>(avatarId)?.setOnClickListener { v ->
                 val imageView = v as? ImageView
-                val drawable = imageView?.background ?: imageView?.drawable
 
-                // clear previous selection outline
-                lastSelected?.foreground = null
-                // no overlay outline to clear; avatar foreground outline remains
+                // Clear previous selection
+                lastSelectedAvatar?.foreground = null
 
-                // apply outline to tapped avatar (use a fresh drawable instance)
-                val outlineForAvatar = outlineBase?.constantState?.newDrawable()?.mutate()
-                imageView?.foreground = outlineForAvatar
-                lastSelected = imageView
+                // Apply outline to selected avatar
+                val outline = outlineBase?.constantState?.newDrawable()?.mutate()
+                imageView?.foreground = outline
+                lastSelectedAvatar = imageView
 
-                // determine resource id mapping for the tapped avatar
-                val resId = when (v.id) {
-                    R.id.avatar_1 -> R.drawable.avatar_1
-                    R.id.avatar_2 -> R.drawable.avatar_2
-                    R.id.avatar_3 -> R.drawable.avatar_3
-                    R.id.avatar_4 -> R.drawable.avatar_4
-                    R.id.avatar_5 -> R.drawable.avatar_5
-                    R.id.avatar_6 -> R.drawable.avatar_6
-                    R.id.avatar_7 -> R.drawable.avatar_7
-                    R.id.avatar_8 -> R.drawable.avatar_8
-                    else -> 0
-                }
-
+                // Apply avatar drawable
+                val resId = AVATAR_MAP[v.id] ?: 0
                 if (resId != 0) {
-                    // apply via resource id path (more reliable for caching)
-                    applyAvatarDrawable(null, resId)
-                } else {
-                    // if no resource mapping, fallback to drawable instance
-                    if (drawable != null) applyAvatarDrawable(drawable)
+                    applyAvatarDrawable(imgLogo, logoSize, resId = resId)
                 }
             }
         }
+    }
 
-        // open a chooser dialog to pick from Camera or Gallery
+    private fun setupAddIconClick(addIcon: ImageView?) {
         addIcon?.setOnClickListener {
-            val items = arrayOf("Take Photo", "Choose from Gallery")
-            AlertDialog.Builder(requireContext())
-                .setTitle("Select image")
-                .setItems(items) { _, which ->
-                    when (which) {
-                        0 -> {
-                            // Camera intent (write to file via FileProvider)
-                            val uri = createImageContentUri()
-                            if (uri != null) {
-                                // launch camera with the content uri where image should be saved
-                                cameraLauncher.launch(uri)
-                            } else {
-                                // fallback to old preview flow if content uri couldn't be created
-                                try {
-                                    // fallback: use TakePicturePreview
-                                    val legacy =
-                                        registerForActivityResult(ActivityResultContracts.TakePicturePreview()) { bmp: Bitmap? ->
-                                            if (bmp != null) showCropDialog(
-                                                bmp,
-                                                onUse = { cropped -> applyCroppedBitmap(cropped) },
-                                                onRetake = { /* no-op */ })
-                                        }
-                                    legacy.launch(null)
-                                } catch (_: Exception) {
-                                }
-                            }
-                        }
-
-                        1 -> {
-                            // Gallery pick
-                            galleryLauncher.launch("image/*")
-                        }
-                    }
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
+            showImageSourceDialog()
         }
+    }
 
-        // Wire Skip and Next buttons to hide the add icon only when the user explicitly proceeds.
+    private fun setupNavigationButtons(view: View) {
         val skipTv = view.findViewById<TextView>(R.id.tv_skip)
         val nextBtn = view.findViewById<AppCompatButton>(R.id.btn_next)
 
-        // Helper to enable/disable Next button and swap background (dull-blue when disabled)
-        fun setNextEnabled(enabled: Boolean) {
-            try {
-                nextBtn?.isEnabled = enabled
-                val bgRes = if (enabled) R.drawable.rounded_button_bg else R.drawable.rounded_button_bg_dull_blue
-                nextBtn?.background = AppCompatResources.getDrawable(requireContext(), bgRes)
-                // Ensure opacity remains full (user requested opacity 1)
-                nextBtn?.alpha = 1.0f
-            } catch (_: Exception) {
-            }
+        // Update Next button state based on image selection
+        val updateNextButton = {
+            val hasImage = !sharedVm.selectedImagePath.value.isNullOrBlank() ||
+                          sharedVm.selectedDrawableRes.value != null
+            setNextButtonEnabled(nextBtn, hasImage)
         }
 
-        // Update Next based on current ViewModel selection state
-        val updateNext = {
-            val hasImage =
-                !sharedVm.selectedImagePath.value.isNullOrBlank() || (sharedVm.selectedDrawableRes.value != null)
-            setNextEnabled(hasImage)
-        }
-
-        // Observe changes to selection
-        sharedVm.selectedImagePath.observe(viewLifecycleOwner) { updateNext() }
-        sharedVm.selectedDrawableRes.observe(viewLifecycleOwner) { updateNext() }
-        // initialize button state
-        updateNext()
+        sharedVm.selectedImagePath.observe(viewLifecycleOwner) { updateNextButton() }
+        sharedVm.selectedDrawableRes.observe(viewLifecycleOwner) { updateNextButton() }
+        updateNextButton()
 
         skipTv?.setOnClickListener {
-            // Always use the default profile drawable when Skip is tapped (Option A)
-            try {
-                applyAvatarDrawable(null, R.drawable.default_profile)
-            } catch (_: Exception) {
-            }
-            // Navigate to UsernameFragment after selection
-            try {
-                val emailToSend = signupEmailArg ?: (arguments?.getString("email") ?: "")
-                val bundle = bundleOf("email" to emailToSend)
-                // Persist that we completed choose_profile so app can resume to username later
-                try {
-                    val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-                    prefs.edit { putString("last_screen", "choose_profile") }
-                } catch (_: Exception) { }
-                // Pop chooseProfilePicFragment so user cannot navigate back to it
-                val navOptions = androidx.navigation.NavOptions.Builder()
-                    .setPopUpTo(R.id.chooseProfilePicFragment, true)
-                    .build()
-                findNavController().navigate(R.id.action_chooseProfilePicFragment_to_usernameFragment, bundle, navOptions)
-            } catch (_: Exception) {
-            }
-            // keep existing behavior for Skip (if navigation is handled elsewhere, do not interfere)
+            val logoSize = resources.getDimensionPixelSize(R.dimen.onboarding_logo_size)
+            val imgLogo = view.findViewById<ImageView>(R.id.img_logo)
+            applyAvatarDrawable(imgLogo, logoSize, resId = R.drawable.default_profile)
+            navigateToUsername()
         }
 
         nextBtn?.setOnClickListener {
-            val emailToSend = try {
-                signupEmailArg ?: (arguments?.getString("email") ?: "")
-            } catch (_: Exception) {
-                ""
-            }
             val imagePath = sharedVm.selectedImagePath.value
-            val fileValid = imagePath?.let { path ->
-                val f = File(path)
-                f.exists() && f.length() > 0
-            } ?: false
+            val fileValid = imagePath?.let { File(it).run { exists() && length() > 0 } } ?: false
+
             if (!fileValid) {
-                setNextEnabled(false)
+                setNextButtonEnabled(nextBtn, false)
                 return@setOnClickListener
             }
+
             lifecycleScope.launch {
                 setLoaderVisible(true)
                 try {
-                    uploadProfile(emailToSend)
+                    val email = signupEmailArg ?: arguments?.getString("email").orEmpty()
+                    uploadProfile(email)
+
+                    // Save uploaded URL
+                    sharedVm.uploadedProfileUrl.value?.let { url ->
+                        requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+                            putString("profile_image_url", url)
+                        }
+                    }
                 } finally {
                     setLoaderVisible(false)
                 }
-                val uploadedUrl = try { sharedVm.uploadedProfileUrl.value } catch (_: Exception) { null }
-                if (!uploadedUrl.isNullOrBlank()) {
-                    val prefs = requireActivity().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-                    prefs.edit { putString("profile_image_url", uploadedUrl) }
-                }
-                try {
-                    val bundle = bundleOf("email" to emailToSend)
-                    val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-                    prefs.edit { putString("last_screen", "choose_profile") }
-                    val navOptions = androidx.navigation.NavOptions.Builder()
-                        .setPopUpTo(R.id.chooseProfilePicFragment, true)
-                        .build()
-                    findNavController().navigate(R.id.action_chooseProfilePicFragment_to_usernameFragment, bundle, navOptions)
-                } catch (_: Exception) {}
+                navigateToUsername()
             }
         }
     }
 
-    // Upload helper: sends multipart/form-data containing two text fields (email, image_uri)
-    // and an optional file part named "image" when a cached file exists.
-    private suspend fun uploadProfile(email: String): Boolean {
-        return withContext(Dispatchers.IO) {
-            try {
-                val api = NetworkModule.createApiService(requireContext())
-                val emailRb = (email).toRequestBody("text/plain".toMediaTypeOrNull())
-                val imgPath = try {
-                    sharedVm.selectedImagePath.value
-                } catch (_: Exception) {
-                    null
-                }
-                val imageUriRb = (imgPath ?: "").toRequestBody("text/plain".toMediaTypeOrNull())
-                val filePart = try {
-                    if (!imgPath.isNullOrBlank()) {
-                        val f = File(imgPath)
-                        if (f.exists()) {
-                            val contentUri = sharedVm.selectedContentUri.value
-                            val mimeFromResolver = try {
-                                contentUri?.let { requireContext().contentResolver.getType(it) }
-                            } catch (_: Exception) {
-                                null
-                            }
-                            val ext = f.extension.takeIf { it.isNotBlank() }
-                                ?: MimeTypeMap.getFileExtensionFromUrl(f.absolutePath)
-                            val mimeFromExt =
-                                ext?.lowercase()?.let { MimeTypeMap.getSingleton().getMimeTypeFromExtension(it) }
-                            val mime = mimeFromResolver ?: mimeFromExt ?: "application/octet-stream"
-                            val rejectNonImage = true
-                            if (rejectNonImage && !mime.startsWith("image/")) {
-                                null
-                            } else {
-                                val req = f.asRequestBody(mime.toMediaTypeOrNull())
-                                MultipartBody.Part.createFormData("image", f.name, req)
-                            }
-                        } else null
-                    } else null
-                } catch (_: Exception) {
-                    null
-                }
-                val resp = api.uploadProfile(emailRb, imageUriRb, filePart)
-                var success = false
-                val rawRespBodyString: String? = try {
-                    try { resp.raw().peekBody(1024 * 1024).string() } catch (_: Exception) { null }
-                } catch (_: Exception) { null }
-                if (resp.isSuccessful) {
-                    try {
-                        val body = resp.body()
-                        var downloadUrl = body?.data
-                        if ((downloadUrl == null || downloadUrl.isBlank()) && !rawRespBodyString.isNullOrBlank()) {
-                            try {
-                                val parsed = Gson().fromJson(rawRespBodyString, Map::class.java)
-                                fun extractFromAny(x: Any?): String? {
-                                    try {
-                                        when (x) {
-                                            is String -> return x.takeIf { it.isNotBlank() }
-                                            is Map<*, *> -> {
-                                                val keys = listOf("url", "data", "downloadUrl", "download_url", "profile", "file", "path")
-                                                for (k in keys) {
-                                                    val v = x[k]
-                                                    val cand = extractFromAny(v)
-                                                    if (!cand.isNullOrBlank()) return cand
-                                                }
-                                                for (v in x.values) {
-                                                    val cand = extractFromAny(v)
-                                                    if (!cand.isNullOrBlank()) return cand
-                                                }
-                                            }
-                                            is Collection<*> -> {
-                                                for (v in x) {
-                                                    val cand = extractFromAny(v)
-                                                    if (!cand.isNullOrBlank()) return cand
-                                                }
-                                            }
-                                        }
-                                    } catch (_: Exception) { }
-                                    return null
-                                }
-                                val candidate = parsed["data"] ?: parsed["url"] ?: parsed["result"] ?: parsed
-                                val got = extractFromAny(candidate)
-                                if (!got.isNullOrBlank()) downloadUrl = got
-                                if (downloadUrl.isNullOrBlank()) {
-                                    val regex = "https?://[\\w\\-./?=&%:;#@+~]+".toRegex()
-                                    val m = regex.find(rawRespBodyString)
-                                    if (m != null) downloadUrl = m.value
-                                }
-                            } catch (_: Exception) {
-                                try {
-                                    val regex = "https?://[\\w\\-./?=&%:;#@+~]+".toRegex()
-                                    val m = regex.find(rawRespBodyString)
-                                    if (m != null) downloadUrl = m.value
-                                } catch (_: Exception) { }
-                            }
-                        }
-                        if (!downloadUrl.isNullOrBlank()) {
-                            try {
-                                withContext(Dispatchers.Main) {
-                                    try { sharedVm.setUploadedProfileUrl(downloadUrl) } catch (_: Exception) { }
-                                    try {
-                                        val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-                                        prefs.edit { putString("uploaded_profile_url", downloadUrl) }
-                                    } catch (_: Exception) { }
-                                }
-                            } catch (_: Exception) {
-                                try { sharedVm.setUploadedProfileUrl(downloadUrl) } catch (_: Exception) { }
-                                try {
-                                    val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-                                    prefs.edit { putString("uploaded_profile_url", downloadUrl) }
-                                } catch (_: Exception) { }
-                            }
-                        }
-                        success = true
-                    } catch (_: Exception) {
-                        success = false
-                    }
-                } else {
-                    success = false
-                }
-                return@withContext success
-            } catch (_: Exception) {
-                return@withContext false
-            }
+    private fun setNextButtonEnabled(nextBtn: AppCompatButton?, enabled: Boolean) {
+        nextBtn?.apply {
+            isEnabled = enabled
+            val bgRes = if (enabled) R.drawable.rounded_button_bg else R.drawable.rounded_button_bg_dull_blue
+            background = AppCompatResources.getDrawable(requireContext(), bgRes)
+            alpha = 1.0f
         }
     }
+
+    private fun navigateToUsername() {
+        val email = signupEmailArg ?: arguments?.getString("email").orEmpty()
+        val bundle = bundleOf("email" to email)
+
+        requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+            putString("last_screen", "choose_profile")
+        }
+
+        val navOptions = androidx.navigation.NavOptions.Builder()
+            .setPopUpTo(R.id.chooseProfilePicFragment, true)
+            .build()
+
+        findNavController().navigate(
+            R.id.action_chooseProfilePicFragment_to_usernameFragment,
+            bundle,
+            navOptions
+        )
+    }
+
+    // ==================== Upload ====================
+
+    private suspend fun uploadProfile(email: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val api = NetworkModule.createApiService(requireContext())
+            val imgPath = sharedVm.selectedImagePath.value
+
+            val emailRb = email.toRequestBody("text/plain".toMediaTypeOrNull())
+            val imageUriRb = (imgPath ?: "").toRequestBody("text/plain".toMediaTypeOrNull())
+
+            val filePart = createFilePart(imgPath)
+            val resp = api.uploadProfile(emailRb, imageUriRb, filePart)
+
+            if (resp.isSuccessful) {
+                val downloadUrl = extractDownloadUrl(resp.body()?.data, resp.raw().peekBody(1024 * 1024).string())
+                if (!downloadUrl.isNullOrBlank()) {
+                    withContext(Dispatchers.Main) {
+                        sharedVm.setUploadedProfileUrl(downloadUrl)
+                        requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+                            putString("uploaded_profile_url", downloadUrl)
+                        }
+                    }
+                    return@withContext true
+                }
+            }
+            false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun createFilePart(imgPath: String?): MultipartBody.Part? {
+        if (imgPath.isNullOrBlank()) return null
+
+        val file = File(imgPath)
+        if (!file.exists()) return null
+
+        val contentUri = sharedVm.selectedContentUri.value
+        val mimeFromResolver = contentUri?.let {
+            try {
+                requireContext().contentResolver.getType(it)
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        val ext = file.extension.takeIf { it.isNotBlank() }
+                  ?: MimeTypeMap.getFileExtensionFromUrl(file.absolutePath)
+        val mimeFromExt = ext?.lowercase()?.let {
+            MimeTypeMap.getSingleton().getMimeTypeFromExtension(it)
+        }
+
+        val mime = mimeFromResolver ?: mimeFromExt ?: "application/octet-stream"
+
+        // Reject non-image files
+        if (!mime.startsWith("image/")) return null
+
+        val requestBody = file.asRequestBody(mime.toMediaTypeOrNull())
+        return MultipartBody.Part.createFormData("image", file.name, requestBody)
+    }
+
+    private fun extractDownloadUrl(bodyData: String?, rawResponse: String?): String? {
+        bodyData?.takeIf { it.isNotBlank() }?.let { return it }
+
+        if (rawResponse.isNullOrBlank()) return null
+
+        return try {
+            val parsed = Gson().fromJson(rawResponse, Map::class.java)
+            extractUrlFromMap(parsed) ?: extractUrlWithRegex(rawResponse)
+        } catch (e: Exception) {
+            extractUrlWithRegex(rawResponse)
+        }
+    }
+
+    private fun extractUrlFromMap(map: Map<*, *>?): String? {
+        if (map == null) return null
+
+        val keys = listOf("url", "data", "downloadUrl", "download_url", "profile", "file", "path")
+        for (key in keys) {
+            val value = map[key]
+            when (value) {
+                is String -> if (value.isNotBlank()) return value
+                is Map<*, *> -> extractUrlFromMap(value)?.let { return it }
+            }
+        }
+        return null
+    }
+
+    private fun extractUrlWithRegex(text: String): String? {
+        val regex = "https?://[\\w\\-./?=&%:;#@+~]+".toRegex()
+        return regex.find(text)?.value
+    }
 }
+
