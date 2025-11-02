@@ -8,21 +8,15 @@ import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.style.UnderlineSpan
-import android.text.style.ForegroundColorSpan
 import androidx.activity.addCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
-import androidx.core.view.get
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.NavigationUI
 import com.example.myapplication.data.network.SharedPrefsTokenStore
 import com.example.myapplication.databinding.ActivityMainBinding
-import androidx.core.view.size
 
 class MainActivity : AppCompatActivity() {
 
@@ -66,11 +60,11 @@ class MainActivity : AppCompatActivity() {
             val bottomNavVisibleDestinations = setOf(
                 R.id.dashboardFragment, R.id.searchFragment, R.id.chatRoomFragment, R.id.profileFragment
             )
-            binding.bottomNavView.visibility =
-                if (destination.id in bottomNavVisibleDestinations) View.VISIBLE else View.GONE
-            updateBottomNavUnderline(destination.id)
+            val isVisible = destination.id in bottomNavVisibleDestinations
+            binding.bottomNavView.visibility = if (isVisible) View.VISIBLE else View.GONE
+            binding.bottomNavIndicator.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
-        @Suppress("DEPRECATION") window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         val token = SharedPrefsTokenStore(this).getAccessToken()
         val navInflater = navController.navInflater
         val graph = navInflater.inflate(R.navigation.auth_nav_graph)
@@ -80,7 +74,9 @@ class MainActivity : AppCompatActivity() {
         navController.graph = graph
         val bottomNav = binding.bottomNavView
         NavigationUI.setupWithNavController(bottomNav, navController)
-        updateBottomNavUnderline(navController.currentDestination?.id ?: R.id.dashboardFragment)
+
+        // Setup animated indicator bar
+        setupBottomNavIndicator()
         if (!token.isNullOrEmpty()) {
             val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
             val lastScreen = prefs.getString("last_screen", null)
@@ -183,31 +179,60 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {}
         window.statusBarColor = defaultStatusBarColor
     }
-    private fun updateBottomNavUnderline(menuItemId: Int) {
-        val bottomNav = binding.bottomNavView
-        if (bottomNav.visibility != View.VISIBLE) return
-        bottomNav.post {
-            val colorState = bottomNav.itemTextColor ?: bottomNav.itemIconTintList
-            val selColor = colorState?.getColorForState(intArrayOf(android.R.attr.state_checked), ContextCompat.getColor(this, R.color.dashboard_toolbar))
-                ?: ContextCompat.getColor(this, R.color.dashboard_toolbar)
-            for (i in 0 until bottomNav.menu.size) {
-                val item = bottomNav.menu[i]
-                val rawTitle = item.title?.toString() ?: ""
-                val spannable = SpannableString(rawTitle)
-                if (item.itemId == menuItemId) {
-                    spannable.setSpan(UnderlineSpan(), 0, spannable.length, Spanned.SPAN_INCLUSIVE_EXCLUSIVE)
-                    spannable.setSpan(ForegroundColorSpan(selColor), 0, spannable.length, Spanned.SPAN_INCLUSIVE_EXCLUSIVE)
-                }
-                item.title = spannable
-            }
-        }
-    }
 
     override fun onSupportNavigateUp(): Boolean {
         return try {
             navController.navigateUp() || super.onSupportNavigateUp()
         } catch (_: Exception) {
             super.onSupportNavigateUp()
+        }
+    }
+
+    private fun setupBottomNavIndicator() {
+        // Wait for layout to be ready
+        binding.bottomNavView.post {
+            val menuItemCount = binding.bottomNavView.menu.size()
+            if (menuItemCount == 0) return@post
+
+            // Calculate width of each menu item
+            val bottomNavWidth = binding.bottomNavView.width
+            val itemWidth = bottomNavWidth / menuItemCount
+
+            // Set initial position based on selected item
+            updateIndicatorPosition(binding.bottomNavView.selectedItemId, itemWidth, false)
+
+            // Listen for item selections
+            binding.bottomNavView.setOnItemSelectedListener { menuItem ->
+                updateIndicatorPosition(menuItem.itemId, itemWidth, true)
+                NavigationUI.onNavDestinationSelected(menuItem, navController)
+                true
+            }
+
+            // Also update when navigation changes
+            navController.addOnDestinationChangedListener { _, destination, _ ->
+                updateIndicatorPosition(destination.id, itemWidth, true)
+            }
+        }
+    }
+
+    private fun updateIndicatorPosition(menuItemId: Int, itemWidth: Int, animate: Boolean) {
+        val position = when (menuItemId) {
+            R.id.dashboardFragment -> 0
+            R.id.searchFragment -> 1
+            R.id.chatRoomFragment -> 2
+            R.id.profileFragment -> 3
+            else -> 0
+        }
+
+        val targetX = (position * itemWidth) + (itemWidth / 2) - (binding.bottomNavIndicator.width / 2)
+
+        if (animate) {
+            binding.bottomNavIndicator.animate()
+                .translationX(targetX.toFloat())
+                .setDuration(300)
+                .start()
+        } else {
+            binding.bottomNavIndicator.translationX = targetX.toFloat()
         }
     }
 

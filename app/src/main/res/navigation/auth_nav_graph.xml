@@ -192,7 +192,7 @@
                 app:enterAnim="@anim/slide_in_right"
                 app:exitAnim="@anim/slide_out_left"
                 app:popEnterAnim="@anim/slide_in_left"
-                app:popExitAnim="@anim/slide_out_right" />
+                app:popExitAnim="@anim/slide_out_right"/>
     </fragment>
     <action
             android:id="@+id/action_chooseProfilePicFragment_to_onboardingFragment"
@@ -230,8 +230,8 @@
 
         <!-- Actions from dashboard (bottom navigation targets) -->
         <action android:id="@+id/action_dashboardFragment_to_searchFragment" app:destination="@id/searchFragment"/>
-        <action android:id="@+id/action_dashboardFragment_to_createCommunityFragment" app:destination="@id/createCommunityFragment"/>
-        <action android:id="@+id/action_dashboardFragment_to_chatRoomFragment" app:destination="@id/chatRoomFragment"/>
+        <action android:id="@+id/action_dashboardFragment_to_createCommunityFragment"
+                app:destination="@id/createCommunityFragment"/>
         <!-- Action to navigate to onboarding and clear the auth graph back stack (used for logout) -->
         <action
                 android:id="@+id/action_dashboardFragment_to_onboardingFragment"
@@ -242,6 +242,8 @@
                 app:exitAnim="@anim/slide_out_left"
                 app:popEnterAnim="@anim/slide_in_left"
                 app:popExitAnim="@anim/slide_out_right"/>
+        <action android:id="@+id/action_dashboardFragment_to_searchFriendForChatFragment"
+                app:destination="@id/searchFriendForChatFragment"/>
     </fragment>
 
     <fragment
@@ -257,11 +259,12 @@
             android:name="com.example.myapplication.ui.dashboard.CreateCommunityFragment"
             android:label="CreateCommunityFragment"
             tools:layout="@layout/fragment_create_community">
-        <action android:id="@+id/action_createCommunityFragment_to_communityNamePicFragment" app:destination="@id/communityNamePicFragment"
+        <action android:id="@+id/action_createCommunityFragment_to_communityNamePicFragment"
+                app:destination="@id/communityNamePicFragment"
                 app:enterAnim="@anim/slide_in_right"
                 app:exitAnim="@anim/slide_out_left"
                 app:popEnterAnim="@anim/slide_in_left"
-                app:popExitAnim="@anim/slide_out_right" />
+                app:popExitAnim="@anim/slide_out_right"/>
         <action android:id="@+id/action_createCommunityFragment_to_joinCommunityFragment"
                 app:destination="@id/joinCommunityFragment"
                 app:enterAnim="@anim/slide_in_right"
@@ -282,7 +285,10 @@
             android:id="@+id/profileFragment"
             android:name="com.example.myapplication.ui.dashboard.ProfileFragment"
             android:label="ProfileFragment"
-            tools:layout="@layout/fragment_profile" />
+            tools:layout="@layout/fragment_profile">
+        <action android:id="@+id/action_profileFragment_to_changeProfilePicFragment"
+                app:destination="@id/changeProfilePicFragment"/>
+    </fragment>
 
     <!-- community name & picture fragment (destination after create community) -->
     <fragment
@@ -301,12 +307,24 @@
             app:enterAnim="@anim/slide_in_right"
             app:exitAnim="@anim/slide_out_left"
             app:popEnterAnim="@anim/slide_in_left"
-            app:popExitAnim="@anim/slide_out_right" />
+            app:popExitAnim="@anim/slide_out_right"/>
     <fragment android:id="@+id/communityDescriptionFragment"
               android:name="com.example.myapplication.ui.dashboard.CommunityDescriptionFragment"
               android:label="fragment_comm_description" tools:layout="@layout/fragment_comm_description"/>
     <fragment android:id="@+id/joinCommunityFragment"
               android:name="com.example.myapplication.ui.dashboard.JoinCommunityFragment"
               android:label="fragment_join_community" tools:layout="@layout/fragment_join_community"/>
+    <fragment android:id="@+id/directChatFragment"
+              android:name="com.example.myapplication.ui.dashboard.DirectChatFragment"
+              android:label="fragment_direct_chat" tools:layout="@layout/fragment_direct_chat"/>
+    <fragment android:id="@+id/searchFriendForChatFragment"
+              android:name="com.example.myapplication.ui.dashboard.SearchFriendForChatFragment"
+              android:label="SearchFriendForChatFragment">
+        <action android:id="@+id/action_searchFriendForChatFragment_to_directChatFragment"
+                app:destination="@id/directChatFragment"/>
+    </fragment>
+    <fragment android:id="@+id/changeProfilePicFragment"
+              android:name="com.example.myapplication.ui.dashboard.ChangeProfilePicFragment"
+              android:label="fragment_change_profile_pic" tools:layout="@layout/fragment_change_profile_pic"/>
 
 </navigation>

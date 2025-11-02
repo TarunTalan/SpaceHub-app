@@ -1,6 +1,7 @@
 package com.example.myapplication.ui.auth.onboarding
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.view.View
@@ -8,14 +9,13 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.core.content.edit
+import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.example.myapplication.R
 
-/**
- * Onboarding screen that displays the app logo with orbital rings
- * and animates content reveal after a brief delay.
- */
+
 @SuppressLint("SourceLockedOrientationActivity")
 class OnboardingFragment : Fragment(R.layout.fragment_onboarding) {
 
@@ -32,6 +32,9 @@ class OnboardingFragment : Fragment(R.layout.fragment_onboarding) {
     }
 
     private var previousOrientation: Int? = null
+
+    // If onboarding receives an email (deep link / arg), persist and forward it to signup
+    private var incomingEmail: String? = null
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -53,6 +56,16 @@ class OnboardingFragment : Fragment(R.layout.fragment_onboarding) {
         // Hide content initially - will be revealed with animation
         hideViews(tvTitle, tvSubtitle, btnLogin, btnSignUp)
 
+        // If an email was passed to this onboarding fragment (e.g., deep link), persist it and keep for forwarding
+        try {
+            incomingEmail = arguments?.getString("email")?.takeIf { it.isNotBlank() }
+            incomingEmail?.let { email ->
+                requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                    .edit { putString("email", email) }
+            }
+        } catch (_: Exception) {
+        }
+
         // Setup navigation
         btnLogin.setOnClickListener { navigateToLogin() }
         btnSignUp.setOnClickListener { navigateToSignup() }
@@ -73,17 +86,12 @@ class OnboardingFragment : Fragment(R.layout.fragment_onboarding) {
         }
     }
 
-    /**
-     * Hides the provided views initially.
-     */
+
     private fun hideViews(vararg views: View) {
         views.forEach { it.visibility = View.INVISIBLE }
     }
 
-    /**
-     * Animates the logo and content upward by a percentage of screen height.
-     * Orbits remain fixed at their original position (45% from top).
-     */
+
     private fun animateOnboarding(
         rootView: View,
         logo: ImageView,
@@ -115,9 +123,7 @@ class OnboardingFragment : Fragment(R.layout.fragment_onboarding) {
         }
     }
 
-    /**
-     * Animates a view to fade in and move upward.
-     */
+
     private fun animateViewReveal(
         view: View,
         moveUpDistance: Float,
@@ -139,24 +145,23 @@ class OnboardingFragment : Fragment(R.layout.fragment_onboarding) {
         }
     }
 
-    /**
-     * Shows views immediately without animation (fallback).
-     */
+
     private fun showViewsImmediately(vararg views: View) {
         views.forEach { it.visibility = View.VISIBLE }
     }
 
-    /**
-     * Navigates to the login screen.
-     */
+
     private fun navigateToLogin() {
         findNavController().navigate(R.id.action_onboardingFragment_to_loginFragment)
     }
 
-    /**
-     * Navigates to the signup screen.
-     */
+
     private fun navigateToSignup() {
-        findNavController().navigate(R.id.action_onboardingFragment_to_signupFragment)
+        try {
+            val bundle = incomingEmail?.let { bundleOf("email" to it) }
+            findNavController().navigate(R.id.action_onboardingFragment_to_signupFragment, bundle)
+        } catch (_: Exception) {
+            findNavController().navigate(R.id.action_onboardingFragment_to_signupFragment)
+        }
     }
 }

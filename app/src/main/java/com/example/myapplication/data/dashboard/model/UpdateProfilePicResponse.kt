@@ -1,0 +1,32 @@
+package com.example.myapplication.data.dashboard.model
+
+data class UpdateProfilePicResponse(
+    val id : String,
+    val firstName: String,
+    val lastName : String,
+    val email : String,
+    val password : String,
+    val userRoles : String,
+    val locked : Boolean,
+    val enabled : Boolean,
+    val isVerifiedRegistration : Boolean,
+    val isVerifiedLogin : Boolean,
+    val isVerifiedForgot : Boolean,
+    val passwordVersion : Int,
+    val avatarUrl : String,
+    val coverPhotoUrl : String,
+    val bio : String,
+    val location : String,
+    val website : String,
+    val dateOfBirth : String,
+    val followersCount : Int,
+    val followingCount : Int,
+    val isPrivate : Boolean,
+    val createdAt : String,
+    val updatedAt : String,
+    val accountNonLocked : Boolean,
+    val authorities: List<Authority>,
+    val accountNonExpired : Boolean,
+    val credentialsNonExpired : Boolean,
+    val username : String
+)

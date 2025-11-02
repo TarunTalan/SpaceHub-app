@@ -39,4 +39,11 @@
     <style name="BottomNavLabel.Inactive" parent="BottomNavLabel.Base">
         <item name="android:textColor">@color/white</item>
     </style>
+
+    <!-- Circle Shape for community avatar -->
+    <style name="ShapeAppearance.App.Circle" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <!-- large cornerSize to ensure a circle for 95dp container -->
+        <item name="cornerSize">48dp</item>
+    </style>
 </resources>

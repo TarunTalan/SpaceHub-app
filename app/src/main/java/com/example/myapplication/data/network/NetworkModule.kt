@@ -26,7 +26,7 @@ object NetworkModule {
             try {
                 logging.redactHeader("Authorization")
                 logging.redactHeader("Cookie")
-            } catch (_: Exception) { /* ignore if method unavailable */ }
+            } catch (_: Exception) {  }
         }
 
         val builder = OkHttpClient.Builder()
@@ -35,7 +35,6 @@ object NetworkModule {
             .writeTimeout(30, TimeUnit.SECONDS)
             .addInterceptor(TokenInterceptor(tokenStore))
 
-        // Always add the logging interceptor; its level controls output based on BuildConfig.DEBUG
         builder.addInterceptor(logging)
 
         return builder.build()

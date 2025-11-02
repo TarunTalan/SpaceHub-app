@@ -3,8 +3,6 @@ package com.example.myapplication.ui.dashboard
 import android.app.AlertDialog
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Canvas
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
@@ -12,11 +10,8 @@ import android.view.View
 import android.widget.ImageView
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
-import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
 import androidx.fragment.app.activityViewModels
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DataSource
@@ -25,21 +20,12 @@ import com.bumptech.glide.request.RequestListener
 import com.bumptech.glide.request.target.Target
 import com.bumptech.glide.signature.ObjectKey
 import com.example.myapplication.R
-import com.example.myapplication.data.network.NetworkModule
 import com.example.myapplication.ui.common.BaseFragment
 import com.example.myapplication.ui.common.ProfileSharedViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.asRequestBody
-import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import kotlin.math.min
-import android.webkit.MimeTypeMap
 import androidx.core.content.FileProvider
 
 class CommunityNamePicFragment : BaseFragment(R.layout.fragment_community_name_pic) {
@@ -56,8 +42,23 @@ class CommunityNamePicFragment : BaseFragment(R.layout.fragment_community_name_p
 
         // UI elements for image picking
         val commPic = view.findViewById<ImageView>(R.id.comm_pic)
+        val commPicIcon = view.findViewById<ImageView>(R.id.comm_pic_icon)
         val addIcon = view.findViewById<ImageView>(R.id.add_icon)
         val commPicFrame = view.findViewById<View>(R.id.comm_pic_frame)
+
+        // If image already selected in sharedVm, hide the center icon
+        try {
+            val initialUri = sharedVm.selectedContentUri.value
+            val initialPath = sharedVm.selectedImagePath.value
+            if (initialUri != null) {
+                try { Glide.with(this).load(initialUri).circleCrop().into(commPic); commPicIcon?.visibility = View.GONE } catch (_: Exception) {}
+            } else if (!initialPath.isNullOrBlank()) {
+                val f = File(initialPath)
+                if (f.exists()) {
+                    try { Glide.with(this).load(f).circleCrop().into(commPic); commPicIcon?.visibility = View.GONE } catch (_: Exception) {}
+                }
+            }
+        } catch (_: Exception) {}
 
         // Target pixel size for final image (reuse a reasonable size)
         val targetSize = resources.getDimensionPixelSize(R.dimen.onboarding_logo_size)
@@ -121,11 +122,14 @@ class CommunityNamePicFragment : BaseFragment(R.layout.fragment_community_name_p
                             .signature(ObjectKey(file.absolutePath + "-" + file.lastModified()))
                             .circleCrop()
                             .into(commPic)
+                        commPicIcon?.visibility = View.GONE
                     } catch (_: Exception) {
                         commPic.setImageBitmap(bm)
+                        commPicIcon?.visibility = View.GONE
                     }
                 } else {
                     commPic.setImageBitmap(bm)
+                    commPicIcon?.visibility = View.GONE
                 }
             } catch (_: Exception) {}
         }
@@ -181,6 +185,7 @@ class CommunityNamePicFragment : BaseFragment(R.layout.fragment_community_name_p
                         try {
                             Glide.with(this).clear(commPic)
                             Glide.with(this).load(file).signature(ObjectKey(file.absolutePath + "-" + file.lastModified())).circleCrop().into(commPic)
+                            commPicIcon?.visibility = View.GONE
                         } catch (_: Exception) {}
                     }
                 }
@@ -219,6 +224,7 @@ class CommunityNamePicFragment : BaseFragment(R.layout.fragment_community_name_p
                                             Glide.with(this@CommunityNamePicFragment).clear(commPic)
                                             Glide.with(this@CommunityNamePicFragment).load(File(cachedPath)).skipMemoryCache(true)
                                                 .signature(ObjectKey(File(cachedPath).absolutePath + "-" + File(cachedPath).lastModified())).circleCrop().into(commPic)
+                                            commPicIcon?.visibility = View.GONE
                                         } catch (_: Exception) {}
                                         return false
                                     }
@@ -232,14 +238,15 @@ class CommunityNamePicFragment : BaseFragment(R.layout.fragment_community_name_p
                                     ): Boolean { return false }
                                 })
                                 .into(commPic)
+                            commPicIcon?.visibility = View.GONE
                         } catch (_: Exception) {
-                            try { Glide.with(this).clear(commPic); commPic.setImageDrawable(null); Glide.with(this).load(uri).circleCrop().into(commPic) } catch (_: Exception) {}
+                            try { Glide.with(this).clear(commPic); commPic.setImageDrawable(null); Glide.with(this).load(uri).circleCrop().into(commPic); commPicIcon?.visibility = View.GONE } catch (_: Exception) {}
                         }
                     } else {
-                        try { Glide.with(this).clear(commPic); commPic.setImageDrawable(null); Glide.with(this).load(uri).circleCrop().into(commPic) } catch (_: Exception) {}
+                        try { Glide.with(this).clear(commPic); commPic.setImageDrawable(null); Glide.with(this).load(uri).circleCrop().into(commPic); commPicIcon?.visibility = View.GONE } catch (_: Exception) {}
                     }
                 } catch (_: Exception) {
-                    try { Glide.with(this).clear(commPic); commPic.setImageDrawable(null); Glide.with(this).load(uri).circleCrop().into(commPic) } catch (_: Exception) {}
+                    try { Glide.with(this).clear(commPic); commPic.setImageDrawable(null); Glide.with(this).load(uri).circleCrop().into(commPic); commPicIcon?.visibility = View.GONE } catch (_: Exception) {}
                 }
             }
         }
@@ -272,81 +279,21 @@ class CommunityNamePicFragment : BaseFragment(R.layout.fragment_community_name_p
         commPicFrame?.setOnClickListener { openPicker() }
         addIcon?.setOnClickListener { openPicker() }
 
-        // Next button: upload and navigate
+        // Next button: just store data and navigate (no API call)
         try {
             val createBtn = view.findViewById<View>(R.id.btn_create_comm)
+            val etCommName = view.findViewById<android.widget.EditText>(R.id.etCommName)
             createBtn.setOnClickListener {
-                lifecycleScope.launch {
-                    // show loader if BaseFragment supports it
-                    try { setLoaderVisible(true) } catch (_: Exception) {}
-                    try {
-                        uploadCommunityImage()
-                    } finally {
-                        try { setLoaderVisible(false) } catch (_: Exception) {}
-                    }
-                    try { findNavController().navigate(R.id.action_communityNamePicFragment_to_communityDescriptionFragment) } catch (_: Exception) {}
-                }
+                // Store community name in SharedViewModel
+                val commName = etCommName?.text?.toString()?.trim() ?: ""
+                sharedVm.setCommunityName(commName)
+
+                // Image is already stored in sharedVm.selectedImagePath from picker
+                // Just navigate to description fragment
+                try {
+                    findNavController().navigate(R.id.action_communityNamePicFragment_to_communityDescriptionFragment)
+                } catch (_: Exception) {}
             }
         } catch (_: Exception) {}
-    }
-
-    // Upload helper: reuse same multipart upload logic as ChooseProfilePicFragment (stores uploaded url in sharedVm.uploadedProfileUrl)
-    private suspend fun uploadCommunityImage(): Boolean {
-        return withContext(Dispatchers.IO) {
-            try {
-                val api = NetworkModule.createApiService(requireContext())
-                // For community we don't have an email; send empty text parts to match server expectations
-                val emptyRb = "".toRequestBody("text/plain".toMediaTypeOrNull())
-                val imgPath = try { sharedVm.selectedImagePath.value } catch (_: Exception) { null }
-                val filePart = try {
-                    if (!imgPath.isNullOrBlank()) {
-                        val f = File(imgPath)
-                        if (f.exists()) {
-                            val contentUri = try { sharedVm.selectedContentUri.value } catch (_: Exception) { null }
-                            val mimeFromResolver = try { contentUri?.let { requireContext().contentResolver.getType(it) } } catch (_: Exception) { null }
-                            val ext = f.extension.takeIf { it.isNotBlank() } ?: MimeTypeMap.getFileExtensionFromUrl(f.absolutePath)
-                            val mimeFromExt = ext?.lowercase()?.let { MimeTypeMap.getSingleton().getMimeTypeFromExtension(it) }
-                            val mime = mimeFromResolver ?: mimeFromExt ?: "application/octet-stream"
-                            val rejectNonImage = true
-                            if (rejectNonImage && !mime.startsWith("image/")) {
-                                null
-                            } else {
-                                val req = f.asRequestBody(mime.toMediaTypeOrNull())
-                                MultipartBody.Part.createFormData("image", f.name, req)
-                            }
-                        } else null
-                    } else null
-                } catch (_: Exception) { null }
-
-                // NOTE: reusing uploadProfile endpoint because it accepts multipart image upload. If your backend has a dedicated endpoint for community images, replace this call accordingly.
-                val resp = api.uploadProfile(emptyRb, emptyRb, filePart)
-                var success = false
-                val rawRespBodyString: String? = try { try { resp.raw().peekBody(1024 * 1024).string() } catch (_: Exception) { null } } catch (_: Exception) { null }
-                if (resp.isSuccessful) {
-                    try {
-                        val body = resp.body()
-                        var downloadUrl = body?.data
-                        if ((downloadUrl == null || downloadUrl.isBlank()) && !rawRespBodyString.isNullOrBlank()) {
-                            try {
-                                // crude extraction of any URL from response
-                                val regex = "https?://[\\w\\-./?=&%:;#@+~]+".toRegex()
-                                val m = regex.find(rawRespBodyString)
-                                if (m != null) downloadUrl = m.value
-                            } catch (_: Exception) {}
-                        }
-                        if (!downloadUrl.isNullOrBlank()) {
-                            try {
-                                withContext(Dispatchers.Main) { sharedVm.setUploadedProfileUrl(downloadUrl) }
-                                try { val prefs = requireContext().getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE); prefs.edit().putString("uploaded_profile_url", downloadUrl).apply() } catch (_: Exception) {}
-                            } catch (_: Exception) { try { sharedVm.setUploadedProfileUrl(downloadUrl) } catch (_: Exception) {} }
-                        }
-                        success = true
-                    } catch (_: Exception) { success = false }
-                } else {
-                    success = false
-                }
-                return@withContext success
-            } catch (_: Exception) { return@withContext false }
-        }
     }
 }

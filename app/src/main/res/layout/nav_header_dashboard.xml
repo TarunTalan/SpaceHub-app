@@ -2,12 +2,12 @@
 <androidx.constraintlayout.widget.ConstraintLayout
         xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:app="http://schemas.android.com/apk/res-auto"
-        xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
+        android:layout_width="match_parent"
         android:layout_height="160dp"
         android:orientation="vertical"
         android:gravity="bottom"
         android:padding="20dp"
-        android:background="@color/dashboard_toolbar">
+        android:background="#475569">
 
     <ImageView android:layout_width="80dp"
                android:layout_height="80dp"
@@ -19,7 +19,9 @@
                app:layout_constraintBottom_toBottomOf="parent"/>
     <TextView
             android:id="@+id/nav_header_title"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
+            android:paddingHorizontal="10dp"
+            android:gravity="center"
             android:layout_height="wrap_content"
             android:text="Hello, User"
             android:textColor="@android:color/white"

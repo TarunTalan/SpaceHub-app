@@ -30,8 +30,8 @@ import kotlinx.coroutines.launch
 import kotlin.math.ceil
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams as CLP
 
-/**
- * Signup screen - SECOND STEP where users enter email and password.
+/*
+  Signup screen - SECOND STEP where users enter email and password.
  */
 class SignupFragment : BaseFragment(R.layout.fragment_signup) {
 
@@ -631,9 +631,8 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
     }
 
     private fun setupClickListeners() {
-        // Complete signup - navigate to OTP verification
         binding.btnSignup.setOnClickListener {
-            // Defensive: block signup if OTP lockout is active
+            // block signup if OTP lockout is active
             try {
                 val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
                 val until = prefs.getLong("signup_otp_lockout_until", 0L)
@@ -647,7 +646,7 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                     startSignupLockoutTimer(until)
                     return@setOnClickListener
                 }
-            } catch (_: Exception) { /* ignore and continue */
+            } catch (_: Exception) {
             }
 
             if (validateInput()) {
@@ -655,6 +654,12 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                 val password = binding.etPassword.text.toString()
                 val firstName = arguments?.getString("firstName").orEmpty()
                 val lastName = arguments?.getString("lastName").orEmpty()
+
+                // Persist email
+                try {
+                    val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                    prefs.edit { putString("email", email) }
+                } catch (_: Exception) {}
                 viewModel.signUp(firstName, lastName, email, password)
             }
         }

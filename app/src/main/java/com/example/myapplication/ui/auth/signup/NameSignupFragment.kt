@@ -12,12 +12,11 @@ import androidx.core.os.bundleOf
 import androidx.core.view.ViewCompat
 import androidx.core.view.isVisible
 import androidx.navigation.fragment.findNavController
+import android.content.Context
+import androidx.core.content.edit
 import com.example.myapplication.R
 import com.example.myapplication.databinding.FragmentNameSignupBinding
 
-/**
- * Name signup screen - FIRST STEP where users enter their name.
- */
 class NameSignupFragment : BaseFragment(R.layout.fragment_name_signup) {
 
     private var _binding: FragmentNameSignupBinding? = null
@@ -103,6 +102,11 @@ class NameSignupFragment : BaseFragment(R.layout.fragment_name_signup) {
             if (validateInput()) {
                 val firstName = binding.etFirstName.text.toString().trim()
                 val lastName = binding.etLastName.text.toString().trim()
+                // Persist names so Profile can use them
+                try {
+                    val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                    prefs.edit { putString("first_name", firstName); putString("last_name", lastName) }
+                } catch (_: Exception) {}
                 findNavController().navigate(
                     R.id.action_nameSignupFragment_to_signupFragment,
                     bundleOf(
@@ -122,10 +126,6 @@ class NameSignupFragment : BaseFragment(R.layout.fragment_name_signup) {
         }
     }
 
-    /**
-     * Validates name inputs.
-     * @return true if all inputs are valid, false otherwise
-     */
     private fun validateInput(): Boolean {
         val rawFirst = binding.etFirstName.text.toString()
         val firstName = rawFirst.trim()

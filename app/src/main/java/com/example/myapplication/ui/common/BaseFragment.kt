@@ -14,11 +14,6 @@ import androidx.annotation.LayoutRes
 import androidx.core.graphics.toColorInt
 import androidx.fragment.app.Fragment
 
-/**
- * Base fragment that provides common utilities used across multiple fragments.
- * Inherit from this instead of Fragment(...) to reuse helpers like keyboard dismissal
- * and a reusable fullscreen loader overlay.
- */
 open class BaseFragment(@LayoutRes contentLayoutId: Int) : Fragment(contentLayoutId) {
 
     // Tag used for the loader overlay view so we can find/remove it later
@@ -30,9 +25,6 @@ open class BaseFragment(@LayoutRes contentLayoutId: Int) : Fragment(contentLayou
         hideLoader()
     }
 
-    /**
-     * Hides the soft keyboard.
-     */
     protected fun hideKeyboard() {
         try {
             val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
@@ -43,19 +35,10 @@ open class BaseFragment(@LayoutRes contentLayoutId: Int) : Fragment(contentLayou
         }
     }
 
-    /**
-     * Sets a click listener on the provided root view to hide the keyboard when tapping outside inputs.
-     */
     protected fun setupKeyboardDismiss(root: View) {
         root.setOnClickListener { hideKeyboard() }
     }
 
-    // ------------------ Fullscreen loader helpers ------------------
-
-    /**
-     * Show a fullscreen, clickable semi-transparent overlay with a centered ProgressBar.
-     * Multiple calls are idempotent: only one overlay will exist.
-     */
     protected fun showLoader() {
         val root = view ?: return
         try {
@@ -103,13 +86,9 @@ open class BaseFragment(@LayoutRes contentLayoutId: Int) : Fragment(contentLayou
                 )
             )
         } catch (_: Exception) {
-            // best-effort: if we fail to create loader, silently ignore so we don't break flow
         }
     }
 
-    /**
-     * Remove loader overlay if present.
-     */
     protected fun hideLoader() {
         val root = view ?: return
         try {
@@ -120,9 +99,6 @@ open class BaseFragment(@LayoutRes contentLayoutId: Int) : Fragment(contentLayou
         }
     }
 
-    /**
-     * Convenience: show or hide loader based on boolean.
-     */
     protected fun setLoaderVisible(visible: Boolean) {
         if (visible) showLoader() else hideLoader()
     }

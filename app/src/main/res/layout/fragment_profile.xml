@@ -23,6 +23,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:src="@drawable/back_icon"
+                android:contentDescription="@string/back"
                 android:gravity="center_vertical"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
@@ -32,14 +33,15 @@
                 android:layout_width="50dp"
                 android:layout_height="50dp"
                 android:paddingVertical="10dp"
-                android:id="@+id/tv_skip"
-                android:text="Save"
+                android:id="@+id/tv_save"
+                android:text="@string/save"
                 android:textSize="@dimen/onboarding_button_text_size"
                 android:textColor="#FFFFFF"
                 android:fontFamily="@font/roboto_regular"
                 android:gravity="end|center_vertical"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent"/>
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"/>
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -53,7 +55,7 @@
                 android:id="@+id/profile"
                 android:layout_width="60dp"
                 android:layout_height="60dp"
-                android:contentDescription=""
+                android:contentDescription="@string/change_profile_picture"
                 android:src="@drawable/default_profile"
                 android:scaleType="fitCenter"
                 app:layout_constraintTop_toTopOf="parent"
@@ -61,11 +63,11 @@
                 app:layout_constraintEnd_toEndOf="parent"/>
 
         <TextView
-                android:id="@+id/tv_title"
+                android:id="@+id/tvChangeProfilePicture"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/roboto_regular"
-                android:text="Change profile picture"
+                android:text="@string/change_profile_picture"
                 android:textColor="#FFFFFF"
                 android:textSize="@dimen/input_text_size"
                 android:gravity="center"
@@ -82,7 +84,7 @@
             app:layout_constraintStart_toStartOf="@id/guideline_start"
             app:layout_constraintEnd_toEndOf="@id/guideline_end"
             app:layout_constraintTop_toBottomOf="@id/profile_layout"
-    >
+            android:id="@+id/constraintLayout3">
 
         <!-- First Name-->
         <TextView
@@ -93,15 +95,19 @@
                 android:paddingBottom="5dp"
                 android:text="@string/first_name"
                 android:textSize="@dimen/label_text_size"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/white"
                 app:layout_constraintStart_toStartOf="@+id/etFirstName"
-                app:layout_constraintTop_toTopOf="parent"/>
+                app:layout_constraintBottom_toTopOf="@id/etFirstName"
+                app:layout_constraintTop_toTopOf="parent"
+                android:labelFor="@id/etFirstName"/>
+
         <EditText
                 android:id="@+id/etFirstName"
                 android:layout_width="0dp"
                 android:layout_height="@dimen/input_height"
                 android:maxWidth="@dimen/input_max_width"
                 android:maxLength="25"
+                android:layout_marginTop="40dp"
                 android:background="@drawable/edit_text_outline_selector"
                 android:fontFamily="@font/roboto_regular"
                 android:inputType="textPersonName"
@@ -110,7 +116,7 @@
                 android:textSize="@dimen/input_text_size"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/tvFirstNameLabel"/>
+                app:layout_constraintTop_toTopOf="parent"/>
         <TextView
                 android:id="@+id/tvFirstNameError"
                 android:layout_width="wrap_content"
@@ -135,7 +141,8 @@
                 android:textSize="@dimen/label_text_size"
                 android:textColor="#FFFFFF"
                 app:layout_constraintStart_toStartOf="@+id/etLastName"
-                app:layout_constraintBottom_toTopOf="@id/etLastName"/>
+                app:layout_constraintBottom_toTopOf="@id/etLastName"
+                android:labelFor="@id/etLastName"/>
         <EditText
                 android:id="@+id/etLastName"
                 android:layout_width="0dp"
@@ -149,9 +156,10 @@
                 android:textColor="#FFFFFF"
                 android:textSize="@dimen/input_text_size"
                 android:layout_marginTop="40dp"
+                android:autofillHints="familyName"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/etFirstName"/>
+                app:layout_constraintTop_toBottomOf="@id/etFirstName" app:layout_constraintHorizontal_bias="1.0"/>
         <TextView
                 android:id="@+id/tvLastError"
                 android:layout_width="wrap_content"
@@ -171,11 +179,12 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/roboto_semibold"
                 android:paddingBottom="5dp"
-                android:text="Username"
+                android:text="@string/username"
                 android:textSize="@dimen/label_text_size"
                 android:textColor="#FFFFFF"
                 app:layout_constraintStart_toStartOf="@+id/etUsername"
-                app:layout_constraintBottom_toTopOf="@id/etUsername"/>
+                app:layout_constraintBottom_toTopOf="@id/etUsername"
+                android:labelFor="@id/etUsername"/>
         <EditText
                 android:id="@+id/etUsername"
                 android:layout_width="0dp"
@@ -184,14 +193,15 @@
                 android:maxLength="25"
                 android:background="@drawable/edit_text_outline_selector"
                 android:fontFamily="@font/roboto_regular"
-                android:inputType="textPersonName"
+                android:inputType="text"
                 android:paddingHorizontal="20dp"
                 android:textColor="#FFFFFF"
                 android:textSize="@dimen/input_text_size"
                 android:layout_marginTop="40dp"
+                android:autofillHints="username"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/etLastName"/>
+                app:layout_constraintTop_toBottomOf="@id/etLastName" app:layout_constraintHorizontal_bias="0.0"/>
         <TextView
                 android:id="@+id/tvUsernameError"
                 android:layout_width="wrap_content"
@@ -205,45 +215,40 @@
                 app:layout_constraintTop_toBottomOf="@+id/etUsername"
                 tools:text="Last Name is required"/>
 
+        <!-- Simple DOB label + EditText (styled like other inputs) -->
         <TextView
                 android:id="@+id/tvDOBLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/roboto_semibold"
                 android:paddingBottom="5dp"
-                android:text="@string/last_name"
+                android:text="@string/date_of_birth"
                 android:textSize="@dimen/label_text_size"
                 android:textColor="#FFFFFF"
                 app:layout_constraintStart_toStartOf="@+id/etDOB"
-                app:layout_constraintBottom_toTopOf="@id/etDOB"/>
+                app:layout_constraintBottom_toTopOf="@id/etDOB"
+                android:labelFor="@id/etDOB"/>
+
         <EditText
                 android:id="@+id/etDOB"
                 android:layout_width="0dp"
                 android:layout_height="@dimen/input_height"
-                android:maxWidth="@dimen/input_max_width"
-                android:maxLength="25"
                 android:background="@drawable/edit_text_outline_selector"
-                android:fontFamily="@font/roboto_regular"
-                android:inputType="textPersonName"
                 android:paddingHorizontal="20dp"
-                android:textColor="#FFFFFF"
+                android:drawableEnd="@drawable/ic_calendar"
+                android:drawablePadding="12dp"
+                android:focusable="false"
+                android:cursorVisible="false"
+                android:inputType="none"
+                android:hint="@string/dob_hint"
+                android:textColor="@color/white"
+                android:textColorHint="@color/white"
                 android:textSize="@dimen/input_text_size"
                 android:layout_marginTop="40dp"
+                android:autofillHints="birthDate"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/etUsername"/>
-        <TextView
-                android:id="@+id/tvDOBerror"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/error_margin_top"
-                android:fontFamily="@font/roboto_regular"
-                android:textColor="#F44336"
-                android:textSize="@dimen/error_text_size"
-                android:visibility="invisible"
-                app:layout_constraintStart_toStartOf="@+id/etDOB"
-                app:layout_constraintTop_toBottomOf="@+id/etDOB"
-                tools:text="Last Name is required"/>
 
         <TextView
                 android:id="@+id/tvBioLabel"
@@ -251,27 +256,32 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/roboto_semibold"
                 android:paddingBottom="5dp"
-                android:text="@string/last_name"
+                android:text="@string/bio"
                 android:textSize="@dimen/label_text_size"
                 android:textColor="#FFFFFF"
                 app:layout_constraintStart_toStartOf="@+id/etBio"
-                app:layout_constraintBottom_toTopOf="@id/etBio"/>
+                app:layout_constraintBottom_toTopOf="@id/etBio"
+                android:labelFor="@id/etBio"/>
         <EditText
                 android:id="@+id/etBio"
                 android:layout_width="0dp"
-                android:layout_height="@dimen/input_height"
+                android:layout_height="wrap_content"
                 android:maxWidth="@dimen/input_max_width"
-                android:maxLength="25"
+                android:maxLength="150"
+                android:lines="3"
+                android:paddingVertical="10dp"
                 android:background="@drawable/edit_text_outline_selector"
                 android:fontFamily="@font/roboto_regular"
-                android:inputType="textPersonName"
+                android:gravity="top|start"
+                android:inputType="textMultiLine"
                 android:paddingHorizontal="20dp"
+                android:layout_marginTop="40dp"
                 android:textColor="#FFFFFF"
                 android:textSize="@dimen/input_text_size"
-                android:layout_marginTop="40dp"
+                android:autofillHints="postalAddress"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/etDOB"/>
+                app:layout_constraintTop_toBottomOf="@id/etDOB"
+                app:layout_constraintStart_toStartOf="parent"/>
         <TextView
                 android:id="@+id/tvBioerror"
                 android:layout_width="wrap_content"
@@ -376,5 +386,6 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

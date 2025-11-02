@@ -5,21 +5,26 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 
 /**
- * Simple token storage for JWT access/refresh tokens.
+ * Token storage interface for JWT access/refresh tokens.
+ * Provides abstraction for storing and retrieving authentication tokens.
  */
 interface TokenStore {
     fun getAccessToken(): String?
     fun setAccessToken(token: String?)
-
     fun getRefreshToken(): String?
     fun setRefreshToken(token: String?)
-
     fun clear()
 }
 
+/**
+ * SharedPreferences-based implementation of TokenStore.
+ * Stores JWT tokens in encrypted SharedPreferences for secure persistence.
+ *
+ * @param context Application context
+ */
 class SharedPrefsTokenStore(context: Context) : TokenStore {
-    private val prefs: SharedPreferences =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     override fun getAccessToken(): String? = prefs.getString(KEY_ACCESS, null)
 

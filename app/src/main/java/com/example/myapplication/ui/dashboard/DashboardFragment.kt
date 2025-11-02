@@ -14,7 +14,7 @@ import com.example.myapplication.R
 import com.example.myapplication.data.network.SharedPrefsTokenStore
 import com.example.myapplication.data.session.SessionManager
 import com.example.myapplication.ui.common.BaseFragment
-import com.example.myapplication.ui.common.ProfileImageHelper
+import com.example.myapplication.ui.common.ProfileImageLoader
 import com.example.myapplication.ui.common.ProfileSharedViewModel
 import com.google.android.material.navigation.NavigationView
 import androidx.core.content.edit
@@ -43,37 +43,35 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
             }
         }
 
-        // Show saved username (from signup) in the toolbar TextView
-        try {
-            val tvUsername = view.findViewById<TextView>(R.id.tv_username)
-            val prefs = requireActivity().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-            val username = prefs.getString("username", null)?.takeIf { it.isNotBlank() } ?: getString(R.string.username_fallback)
-            tvUsername?.text = username
-        } catch (_: Exception) {
-        }
 
         // Update drawer header with chosen user profile
         val headerView = navView.getHeaderView(0)
         val navHeaderTitle = headerView.findViewById<TextView>(R.id.nav_header_title)
-        val prefs = requireActivity().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-        val username = prefs.getString("username", null)?.takeIf { it.isNotBlank() } ?: getString(R.string.username_fallback)
-        navHeaderTitle?.text = "Hello, $username"
         val profileImgView = headerView.findViewById<ImageView>(R.id.nav_header_profile_iv)
-        val profileUrl = prefs.getString("profile_image_url", null)
-        // Use any non-blank value for profile image URL
-        ProfileImageHelper.loadProfileImageIntoView(
-            requireContext(),
-            profileImgView,
-            profileUrl?.takeIf { it.isNotBlank() }
+
+        // Use UserDataManager for centralized, reactive data access
+        val userDataManager = com.example.myapplication.data.user.UserDataManager.getInstance(requireContext())
+
+        // Observe username changes
+        userDataManager.username.observe(viewLifecycleOwner) { username ->
+            try {
+                val name = username?.takeIf { it.isNotBlank() } ?: getString(R.string.username_fallback)
+                navHeaderTitle?.text = "Hello, $name"
+                view.findViewById<TextView>(R.id.tv_username)?.text = name
+            } catch (_: Exception) {}
+        }
+
+        // Load profile image with automatic updates
+        ProfileImageLoader.loadProfileImage(
+            imageView = profileImgView,
+            context = requireContext(),
+            lifecycleOwner = viewLifecycleOwner,
+            circular = true
         )
-        // If only default is loading, check the value of profile_image_url in SharedPreferences
-        // Example: Log.d("DashboardFragment", "profile_image_url: $profileUrl")
 
         // Handle navigation view item clicks
         navView.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
-                R.id.nav_home -> {}
-                R.id.nav_profile -> {}
                 R.id.nav_settings -> {}
                 R.id.nav_logout -> {
                     // Ask for confirmation before logging out
@@ -137,14 +135,6 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         super.onResume()
         try {
             (activity as? com.example.myapplication.MainActivity)?.setToolbarColorRes(R.color.dashboard_toolbar)
-        } catch (_: Exception) {
-        }
-        // Refresh username in case it changed while in another fragment
-        try {
-            val tv = view?.findViewById<TextView>(R.id.tv_username)
-            val prefs = requireActivity().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-            val username = prefs.getString("username", null)?.takeIf { it.isNotBlank() } ?: getString(R.string.username_fallback)
-            tv?.text = username
         } catch (_: Exception) {
         }
     }

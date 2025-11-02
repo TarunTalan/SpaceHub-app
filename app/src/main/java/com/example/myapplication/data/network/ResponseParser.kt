@@ -3,9 +3,9 @@ package com.example.myapplication.data.network
 import okhttp3.ResponseBody
 import org.json.JSONObject
 
-/**
- * Small utility to parse common error bodies returned by the backend.
- * Keeps parsing behavior consistent across repositories and reduces duplication.
+/*
+  Small utility to parse common error bodies returned by the backend.
+  Keeps parsing behavior consistent across repositories and reduces duplication.
  */
 object ResponseParser {
 

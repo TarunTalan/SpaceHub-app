@@ -7,11 +7,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 
-/**
- * Shared ViewModel used to hold profile picture selection across fragments.
- * Stores a cached image file path (in app cache dir) or a drawable resource id.
- * Avoids keeping large Bitmaps in memory.
- */
 class ProfileSharedViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _selectedImagePath = MutableLiveData<String?>()
@@ -28,11 +23,18 @@ class ProfileSharedViewModel(app: Application) : AndroidViewModel(app) {
     private val _uploadedProfileUrl = MutableLiveData<String?>()
     val uploadedProfileUrl: LiveData<String?> = _uploadedProfileUrl
 
+    // Store community name and description for create community flow
+    private val _communityName = MutableLiveData<String?>()
+    val communityName: LiveData<String?> = _communityName
+
+    private val _communityDescription = MutableLiveData<String?>()
+    val communityDescription: LiveData<String?> = _communityDescription
+
     fun setImagePath(path: String?) {
         _selectedImagePath.value = path
         // clear drawable selection when an image file path is chosen
         if (path != null) _selectedDrawableRes.value = null
-        // when we have a freshly written cached file (from camera/crop), clear original content Uri
+        // when we have a freshly written cached file from camera, clear original content Uri
         if (path != null) _selectedContentUri.value = null
     }
 
@@ -50,7 +52,7 @@ class ProfileSharedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setUploadedProfileUrl(url: String?) {
         // If we're on the main thread, set value immediately so callers can observe synchronously.
-        // Otherwise postValue schedules the update on the main thread.
+        // Otherwise, postValue schedules the update on the main thread.
         if (Looper.myLooper() == Looper.getMainLooper()) {
             _uploadedProfileUrl.value = url
         } else {
@@ -58,10 +60,20 @@ class ProfileSharedViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun setCommunityName(name: String?) {
+        _communityName.value = name
+    }
+
+    fun setCommunityDescription(description: String?) {
+        _communityDescription.value = description
+    }
+
     fun clear() {
         _selectedImagePath.value = null
         _selectedDrawableRes.value = null
         _uploadedProfileUrl.value = null
         _selectedContentUri.value = null
+        _communityName.value = null
+        _communityDescription.value = null
     }
 }

@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:layout_width="match_parent"
+        android:background="@drawable/background_gradient"
+        android:layout_height="match_parent"
+        tools:context=".ui.dashboard.SearchFriendForChatFragment">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/top_toolbar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:background="#20262F"
+            android:paddingVertical="20dp"
+            app:layout_constraintVertical_bias="0"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="@id/guideline_top">
+
+        <ImageView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@drawable/search_icon"
+                android:layout_marginHorizontal="20dp"
+                app:layout_constraintStart_toStartOf="@id/etSearch"
+                app:layout_constraintBottom_toBottomOf="@id/etSearch"
+                app:layout_constraintTop_toTopOf="@id/etSearch"/>
+
+        <EditText
+                android:id="@+id/etSearch"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:inputType="text"
+                android:textSize="@dimen/input_text_size"
+                android:paddingStart="50dp"
+                android:paddingEnd="25dp"
+                android:textColor="@color/white"
+                android:fontFamily="@font/roboto_regular"
+                android:hint="Search"
+                android:textColorHint="@color/white"
+                android:background="@drawable/edit_text_outline"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="@+id/guideline_start_top"
+                app:layout_constraintEnd_toStartOf="@+id/guideline_end_top"/>
+
+        <androidx.constraintlayout.widget.Guideline
+                android:id="@+id/guideline_start_top"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                app:layout_constraintGuide_percent="0.08"/>
+
+        <androidx.constraintlayout.widget.Guideline
+                android:id="@+id/guideline_end_top"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                app:layout_constraintGuide_percent="0.92"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/illustration"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintBottom_toBottomOf="@id/guideline_center"
+            app:layout_constraintTop_toTopOf="@id/guideline_top"
+            app:layout_constraintEnd_toEndOf="@id/guideline_end"
+            app:layout_constraintStart_toStartOf="@id/guideline_start">
+
+        <ImageView
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:padding="30dp"
+                android:src="@drawable/search_frnds_chat_illustr"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="@id/guideline_top_2"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintBottom_toTopOf="@id/textView"
+                android:id="@+id/imageView5"/>
+
+        <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="26sp"
+                android:fontFamily="@font/roboto_medium"
+                android:text="@string/dms_with_superpowers"
+                android:id="@+id/textView"
+                android:gravity="center"
+                android:textColor="@color/white"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintBottom_toTopOf="@+id/textView2"/>
+
+        <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:textSize="@dimen/input_text_size"
+                android:fontFamily="@font/roboto_regular"
+                android:textColor="@color/white"
+                android:gravity="center"
+                android:paddingHorizontal="4dp"
+                android:text="Invite your friends to chat together"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="@+id/textView"
+                app:layout_constraintEnd_toEndOf="@id/textView"
+                android:id="@+id/textView2"/>
+
+        <androidx.constraintlayout.widget.Guideline
+                android:id="@+id/guideline_top_2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:layout_constraintGuide_percent="0.1"
+                android:orientation="horizontal"/>
+
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+    <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/guideline_top"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            app:layout_constraintGuide_percent="0.14"/>
+
+    <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/guideline_start"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.08"/>
+
+    <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/guideline_end"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.92"/>
+
+    <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/guideline_center"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintGuide_percent="0.71"
+            android:orientation="horizontal"/>
+
+
+    <!-- Decorative Ellipses -->
+    <ImageView
+            android:id="@+id/ellipse1"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ellipse_dull_2"
+            android:layout_marginBottom="75dp"
+            app:layout_constraintBottom_toBottomOf="@id/ellipse2"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            tools:ignore="ContentDescription"
+            android:elevation="-10dp"
+            android:translationZ="-10dp" />
+
+    <ImageView
+            android:id="@+id/ellipse2"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ellipse_dull_2"
+            android:layout_marginBottom="75dp"
+            app:layout_constraintBottom_toBottomOf="@+id/ellipse3"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            tools:ignore="ContentDescription"
+            android:elevation="-10dp"
+            android:translationZ="-10dp" />
+
+    <ImageView
+            android:id="@+id/ellipse3"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ellipse_dull_2"
+            android:layout_marginBottom="30dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            android:elevation="-10dp"
+            android:translationZ="-10dp" />
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>
