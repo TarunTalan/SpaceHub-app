@@ -252,7 +252,21 @@
             android:label="SearchFragment"
             tools:layout="@layout/fragment_search">
         <action android:id="@+id/action_searchFragment_to_dashboardFragment" app:destination="@id/dashboardFragment"/>
+        <action android:id="@+id/action_searchFragment_to_communityDetailFragment" app:destination="@id/communityDetailFragment"/>
+        <action android:id="@+id/action_searchFragment_to_localGroupDetailFragment" app:destination="@id/localGroupDetailFragment"/>
     </fragment>
+
+    <fragment
+        android:id="@+id/communityDetailFragment"
+        android:name="com.example.myapplication.ui.dashboard.CommunityDetailFragment"
+        android:label="CommunityDetailFragment"
+        tools:layout="@layout/fragment_community_detail" />
+
+    <fragment
+        android:id="@+id/localGroupDetailFragment"
+        android:name="com.example.myapplication.ui.dashboard.LocalGroupDetailFragment"
+        android:label="LocalGroupDetailFragment"
+        tools:layout="@layout/fragment_local_group_detail" />
 
     <fragment
             android:id="@+id/createCommunityFragment"
@@ -272,7 +286,6 @@
                 app:popEnterAnim="@anim/slide_in_left"
                 app:popExitAnim="@anim/slide_out_right"/>
     </fragment>
-
     <fragment
             android:id="@+id/chatRoomFragment"
             android:name="com.example.myapplication.ui.dashboard.ChatRoomFragment"
@@ -280,7 +293,6 @@
             tools:layout="@layout/fragment_chat_room">
         <action android:id="@+id/action_chatRoomFragment_to_dashboardFragment" app:destination="@id/dashboardFragment"/>
     </fragment>
-
     <fragment
             android:id="@+id/profileFragment"
             android:name="com.example.myapplication.ui.dashboard.ProfileFragment"

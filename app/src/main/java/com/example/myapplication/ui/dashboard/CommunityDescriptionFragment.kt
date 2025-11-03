@@ -25,6 +25,8 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
+import android.util.Log
+import com.example.myapplication.data.dashboard.model.CreateCommunityResponse
 
 class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_description) {
     private val sharedVm: ProfileSharedViewModel by activityViewModels()
@@ -133,10 +135,23 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
                         imageUri = imageUriBody,
                         imageFile = imageFilePart
                     )
-                } catch (_: Exception) { null }
+                } catch (e: Exception) {
+                    Log.w("CreateCommunity", "API call threw: ${e.message}")
+                    null
+                }
 
-                return@withContext (response != null && response.isSuccessful)
-            } catch (_: Exception) {
+                val code = response?.code() ?: -1
+                val body: CreateCommunityResponse? = response?.body()
+                val bodyStatus = body?.status
+                Log.d("CreateCommunity", "HTTP code=$code, isSuccessful=${response?.isSuccessful}, body.status=${bodyStatus}, body.msg=${body?.message}")
+
+                val success = (response?.isSuccessful == true) || (code in 200..299) || ((bodyStatus ?: -1) in 200..299)
+                if (!success) {
+                    Log.w("CreateCommunity", "Treating as failure. errorBody=${response?.errorBody()?.string()} ")
+                }
+                return@withContext success
+            } catch (e: Exception) {
+                Log.e("CreateCommunity", "Unexpected error: ${e.message}")
                 return@withContext false
             }
         }
