@@ -10,16 +10,18 @@ import kotlinx.coroutines.withContext
 import retrofit2.Response
 import java.io.IOException
 import com.example.myapplication.data.user.UserDataManager
+import com.example.myapplication.data.community.repository.CommunityRepository
 
 class AuthRepository(context: Context) {
     private val api = NetworkModule.createApiService(context)
     private val tokens = SharedPrefsTokenStore(context)
     private val userDataManager = UserDataManager.getInstance(context)
+    private val communityRepo = CommunityRepository.getInstance(context)
 
     // Small helper to run network calls and centralize exception handling
     private suspend inline fun <T> safeApiCall(
         crossinline call: suspend () -> Response<T>,
-        crossinline handle: (Response<T>) -> AuthResult
+        crossinline handle: suspend (Response<T>) -> AuthResult
     ): AuthResult = withContext(Dispatchers.IO) {
         try {
             val resp = call()
@@ -199,6 +201,41 @@ class AuthRepository(context: Context) {
                     if (ok) {
                         // Persist email as source of truth in DataStore
                         try { userDataManager.setEmail(email) } catch (_: Exception) {}
+
+                        // Prefetch "My communities" into local DB. Pass explicit email to avoid a race
+                        // where DataStore write may not be visible to Background network calls immediately.
+                        try {
+                            communityRepo.fetchMyCommunitiesRemote(requesterEmail = email)
+                        } catch (_: Exception) { /* ignore fetch failure */ }
+
+                        // Fetch full profile immediately and persist into DataStore so UI shows updated profile data.
+                        try {
+                            val profileResp = api.getProfile(email)
+                            if (profileResp.isSuccessful) {
+                                val profileBody = profileResp.body()
+                                profileBody?.let { p ->
+                                    try {
+                                        userDataManager.updateProfile(
+                                            username = p.username.takeIf { it.isNotBlank() },
+                                            firstName = p.firstName.takeIf { it.isNotBlank() },
+                                            lastName = p.lastName.takeIf { it.isNotBlank() },
+                                            email = p.email,
+                                            bio = p.bio,
+                                            dateOfBirth = p.dateOfBirth,
+                                            location = p.location,
+                                            website = p.website,
+                                            avatarUrl = p.avatarPreviewUrl,
+                                            coverPhotoUrl = p.coverPreviewUrl,
+                                            isPrivate = p.isPrivate
+                                        )
+
+                                        // Also set profile image explicitly (convenience)
+                                        userDataManager.updateProfileImage(p.avatarPreviewUrl)
+                                    } catch (_: Exception) { /* ignore persistence errors */ }
+                                }
+                            }
+                        } catch (_: Exception) { /* ignore profile fetch failure */ }
+
                         AuthResult.Success(requiresVerification = false)
                     }
                     else AuthResult.Error(body?.message ?: "Login succeeded but tokens missing.")

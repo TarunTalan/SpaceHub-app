@@ -244,6 +244,8 @@
                 app:popExitAnim="@anim/slide_out_right"/>
         <action android:id="@+id/action_dashboardFragment_to_searchFriendForChatFragment"
                 app:destination="@id/searchFriendForChatFragment"/>
+        <action android:id="@+id/action_dashboardFragment_to_communityDetailFragment"
+                app:destination="@id/communityDetailFragment"/>
     </fragment>
 
     <fragment
@@ -338,5 +340,32 @@
     <fragment android:id="@+id/changeProfilePicFragment"
               android:name="com.example.myapplication.ui.dashboard.ChangeProfilePicFragment"
               android:label="fragment_change_profile_pic" tools:layout="@layout/fragment_change_profile_pic"/>
+    <fragment
+        android:id="@+id/communityDetailFragment"
+        android:name="com.example.myapplication.ui.community.CommunityDetailFragment"
+        android:label="CommunityDetail"
+        tools:layout="@layout/fragment_community_detail">
+        <argument
+            android:name="communityId"
+            app:argType="string"/>
+    </fragment>
 
+    <fragment
+        android:id="@+id/localGroupDetailFragment"
+        android:name="com.example.myapplication.ui.dashboard.JoinCommunityFragment"
+        android:label="LocalGroupDetail"
+        tools:layout="@layout/fragment_join_community"/>
+
+    <fragment
+        android:id="@+id/editCommunityFragment"
+        android:name="com.example.myapplication.ui.community.EditCommunityFragment"
+        android:label="Edit Community">
+        <argument
+            android:name="communityId"
+            app:argType="string" />
+    </fragment>
+
+    <action
+        android:id="@+id/action_communityDetail_to_editCommunity"
+        app:destination="@id/editCommunityFragment" />
 </navigation>

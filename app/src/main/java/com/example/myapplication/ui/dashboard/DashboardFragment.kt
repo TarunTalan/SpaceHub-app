@@ -1,5 +1,6 @@
 package com.example.myapplication.ui.dashboard
 
+import android.animation.ObjectAnimator
 import android.content.Context
 import android.os.Bundle
 import android.view.View
@@ -8,24 +9,29 @@ import android.widget.TextView
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
-import com.example.myapplication.data.dashboard.DashboardRepository
 import com.example.myapplication.R
 import com.example.myapplication.data.network.SharedPrefsTokenStore
 import com.example.myapplication.data.session.SessionManager
 import com.example.myapplication.ui.common.BaseFragment
-import com.example.myapplication.ui.common.ProfileImageLoader
-import com.example.myapplication.ui.common.ProfileSharedViewModel
+import com.example.myapplication.ui.community.adapter.YourCommunityAdapter
+import com.example.myapplication.ui.community.viewmodel.CommunityViewModel
 import kotlinx.coroutines.launch
 import com.google.android.material.navigation.NavigationView
 import androidx.core.content.edit
-import androidx.lifecycle.asLiveData
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.example.myapplication.ui.common.ProfileSharedViewModel
 
 class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
 
     private val sharedVm: ProfileSharedViewModel by activityViewModels()
+    private val communityVm: CommunityViewModel by viewModels()
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -33,15 +39,6 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         // Show loader while initial UI setup runs (use BaseFragment helper)
         try { showLoader() } catch (_: Exception) { }
 
-        // Fetch user profile from server
-        lifecycleScope.launch {
-            try {
-                val repo = DashboardRepository(requireContext())
-                repo.getProfile()
-            } catch (_: Exception) {
-                // Continue even if profile fetch fails
-            }
-        }
 
         val drawerLayout = view.findViewById<DrawerLayout>(R.id.drawer_layout)
         val navView = view.findViewById<NavigationView>(R.id.navigation_view)
@@ -66,22 +63,31 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         // Use UserDataManager for centralized, reactive data access
         val userDataManager = com.example.myapplication.data.user.UserDataManager.getInstance(requireContext())
 
-        // Observe username changes (Flow -> LiveData)
-        userDataManager.usernameFlow.asLiveData().observe(viewLifecycleOwner) { uname: String? ->
-            try {
-                val name = if (!uname.isNullOrBlank()) uname else getString(R.string.username_fallback)
-                navHeaderTitle?.text = "Hello, $name"
-                view.findViewById<TextView>(R.id.tv_username)?.text = name
-            } catch (_: Exception) {}
-        }
+        // Observe username and profile image via UserDataManager flows so nav header updates immediately.
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                // username -> update nav header title and drawer username text
+                launch {
+                    userDataManager.usernameFlow.collect { uname ->
+                        try {
+                            val name = if (!uname.isNullOrBlank()) uname else getString(R.string.username_fallback)
+                            navHeaderTitle?.text = getString(R.string.hello_name, name)
+                            view.findViewById<TextView>(R.id.tv_username)?.text = name
+                        } catch (_: Exception) {}
+                    }
+                }
 
-        // Load profile image with automatic updates
-        ProfileImageLoader.loadProfileImage(
-            imageView = profileImgView,
-            context = requireContext(),
-            lifecycleOwner = viewLifecycleOwner,
-            circular = true
-        )
+                // profile image -> load directly using helper
+                launch {
+                    userDataManager.profileImageUrlFlow.collect { url ->
+                        try {
+                            // Use same helper as other screens; it handles urls/uris/files/defaults
+                            com.example.myapplication.ui.common.ProfileImageHelper.loadProfileImageIntoView(requireContext(), profileImgView, url)
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
+        }
 
         // Handle navigation view item clicks
         navView.setNavigationItemSelectedListener { menuItem ->
@@ -139,6 +145,47 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
                 }
             }
         } catch (_: Exception) {
+        }
+
+        // Setup Your Communities Recycler
+        val rvYourCommunities = view.findViewById<RecyclerView>(R.id.rv_your_communities)
+        val yourAdapter = YourCommunityAdapter { item ->
+            try {
+                val args = Bundle().apply { putString("communityId", item.communityId) }
+                findNavController().navigate(R.id.action_dashboardFragment_to_communityDetailFragment, args)
+            } catch (_: Exception) { }
+        }
+        rvYourCommunities?.layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.VERTICAL, false)
+        rvYourCommunities?.adapter = yourAdapter
+
+        // Toggle expand/collapse for "Your Community"
+        val ivToggle = view.findViewById<ImageView>(R.id.iv_toggle_your_comm)
+        var yourCommExpanded = true
+        fun applyToggleState(animated: Boolean = true) {
+            val targetRotation = if (yourCommExpanded) 0f else 180f
+            rvYourCommunities?.visibility = if (yourCommExpanded) View.VISIBLE else View.GONE
+            if (ivToggle != null) {
+                if (animated) {
+                    ObjectAnimator.ofFloat(ivToggle, View.ROTATION, ivToggle.rotation, targetRotation).setDuration(200).start()
+                } else {
+                    ivToggle.rotation = targetRotation
+                }
+            }
+        }
+        ivToggle?.setOnClickListener {
+            yourCommExpanded = !yourCommExpanded
+            applyToggleState()
+        }
+        // initialize expanded
+        applyToggleState(animated = false)
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                // Show combined (owned + joined) "My communities" list
+                communityVm.observeMyCommunities().collect { list ->
+                    yourAdapter.submitList(list)
+                }
+            }
         }
 
         // Initial setup complete — hide loader

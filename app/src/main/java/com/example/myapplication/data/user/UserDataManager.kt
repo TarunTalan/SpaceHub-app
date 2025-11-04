@@ -75,9 +75,9 @@ class UserDataManager private constructor(context: Context) {
         return dataStore.data.first()[PrefsKeys.EMAIL]
     }
 
-    /**
+    /*
      * Update profile image from server response.
-     * Only persists remote URL; no local file/uri/resource caching.
+
      */
     fun updateProfileImage(url: String?) {
         scope.launch {
