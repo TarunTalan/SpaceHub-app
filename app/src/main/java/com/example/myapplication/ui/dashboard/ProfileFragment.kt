@@ -6,8 +6,9 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
-import androidx.lifecycle.asLiveData
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.example.myapplication.R
 import com.example.myapplication.ui.common.BaseFragment
@@ -37,16 +38,9 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
         val etBio = view.findViewById<EditText>(R.id.etBio)
         val imgView = view.findViewById<ImageView>(R.id.profile)
 
-        // Apply input filters: no spaces + only letters for names + max length
-        val noSpacesFilter = InputFilter { source, _, _, _, _, _ ->
-            if (source != null && source.any { it.isWhitespace() }) "" else null
-        }
-        val lettersOnlyFilter = InputFilter { source, _, _, _, _, _ ->
-            if (source == null) null else {
-                val filtered = source.filter { it.isLetter() }
-                if (filtered.length == source.length) null else filtered
-            }
-        }
+        // Input filters
+        val noSpacesFilter = InputFilter { source, _, _, _, _, _ -> if (source != null && source.any { it.isWhitespace() }) "" else null }
+        val lettersOnlyFilter = InputFilter { source, _, _, _, _, _ -> if (source == null) null else { val filtered = source.filter { it.isLetter() }; if (filtered.length == source.length) null else filtered } }
         etFirst.filters = arrayOf(InputFilter.LengthFilter(25), noSpacesFilter, lettersOnlyFilter)
         etLast.filters = arrayOf(InputFilter.LengthFilter(25), noSpacesFilter, lettersOnlyFilter)
         etUser.filters = arrayOf(InputFilter.LengthFilter(25), noSpacesFilter)
@@ -67,70 +61,48 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
 
         fun showError(tv: TextView?, msg: String) { tv?.apply { text = msg; visibility = View.VISIBLE } }
 
-        // Clear inline errors as user types
-        etFirst.addTextChangedListener { text ->
-            if (!text.isNullOrBlank() && text.length <= 25) tvFirstNameError?.visibility = View.GONE
-        }
-        etLast.addTextChangedListener { text ->
-            if (!text.isNullOrBlank() && text.length <= 25) tvLastNameError?.visibility = View.GONE
-        }
-        etUser.addTextChangedListener { text ->
-            val value = text?.toString().orEmpty()
-            val res = InputValidator.validateUsername(value)
-            if (res == InputValidator.UsernameResult.VALID || value.isBlank()) tvUsernameError?.visibility = View.GONE
-        }
-        etBio.addTextChangedListener { text ->
-            val len = text?.length ?: 0
-            if (len <= 150) tvBioError?.visibility = View.GONE
-        }
+        // Inline error clearing
+        etFirst.addTextChangedListener { text -> if (!text.isNullOrBlank() && text.length <= 25) tvFirstNameError?.visibility = View.GONE }
+        etLast.addTextChangedListener { text -> if (!text.isNullOrBlank() && text.length <= 25) tvLastNameError?.visibility = View.GONE }
+        etUser.addTextChangedListener { text -> val value = text?.toString().orEmpty(); val res = InputValidator.validateUsername(value); if (res == InputValidator.UsernameResult.VALID || value.isBlank()) tvUsernameError?.visibility = View.GONE }
+        etBio.addTextChangedListener { text -> val len = text?.length ?: 0; if (len <= 150) tvBioError?.visibility = View.GONE }
         etDob.addTextChangedListener { _ -> etDob.error = null }
 
         val userDataManager = com.example.myapplication.data.user.UserDataManager.getInstance(requireContext())
 
-        // Observe Flows as LiveData to populate fields once if empty
-        userDataManager.firstNameFlow.asLiveData().observe(viewLifecycleOwner) { first ->
-            if (etFirst.text.isNullOrBlank()) first?.takeIf { it.isNotBlank() }?.let { etFirst.setText(it) }
-        }
-        userDataManager.lastNameFlow.asLiveData().observe(viewLifecycleOwner) { last ->
-            if (etLast.text.isNullOrBlank()) last?.takeIf { it.isNotBlank() }?.let { etLast.setText(it) }
-        }
-        userDataManager.usernameFlow.asLiveData().observe(viewLifecycleOwner) { username ->
-            if (etUser.text.isNullOrBlank()) username?.takeIf { it.isNotBlank() }?.let { etUser.setText(it) }
-        }
-        userDataManager.dateOfBirthFlow.asLiveData().observe(viewLifecycleOwner) { dob ->
-            if (etDob.text.isNullOrBlank()) dob?.takeIf { it.isNotBlank() }?.let { etDob.setText(it) }
-        }
-        userDataManager.bioFlow.asLiveData().observe(viewLifecycleOwner) { bio ->
-            if (etBio.text.isNullOrBlank()) bio?.takeIf { it.isNotBlank() }?.let { etBio.setText(it) }
-        }
-
-        // Load profile image from URL only (no local caching)
-        loadPersistedProfileImage(imgView)
-        userDataManager.profileImageUrlFlow.asLiveData().observe(viewLifecycleOwner) {
-            loadPersistedProfileImage(imgView)
-        }
-
-        etDob.apply {
-            isFocusable = false
-            isClickable = true
-            isCursorVisible = false
-            setOnClickListener { showMaterialDatePicker(this) }
+        // Collect flows and update UI immediately. Do not overwrite when EditText has focus.
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    userDataManager.firstNameFlow.collect { first -> if (!etFirst.hasFocus()) first?.takeIf { it.isNotBlank() }?.let { etFirst.setText(it) } }
+                }
+                launch {
+                    userDataManager.lastNameFlow.collect { last -> if (!etLast.hasFocus()) last?.takeIf { it.isNotBlank() }?.let { etLast.setText(it) } }
+                }
+                launch {
+                    userDataManager.usernameFlow.collect { uname -> if (!etUser.hasFocus()) uname?.takeIf { it.isNotBlank() }?.let { etUser.setText(it) } }
+                }
+                launch {
+                    userDataManager.dateOfBirthFlow.collect { dob -> if (!etDob.hasFocus()) dob?.takeIf { it.isNotBlank() }?.let { etDob.setText(it) } }
+                }
+                launch {
+                    userDataManager.bioFlow.collect { bio -> if (!etBio.hasFocus()) bio?.takeIf { it.isNotBlank() }?.let { etBio.setText(it) } }
+                }
+                launch {
+                    userDataManager.profileImageUrlFlow.collect { url -> ProfileImageHelper.loadProfileImageIntoView(requireContext(), imgView, url) }
+                }
+            }
         }
 
-        view.findViewById<ImageView>(R.id.back)?.setOnClickListener {
-            runCatching { findNavController().popBackStack() }
-        }
-        view.findViewById<TextView>(R.id.tvChangeProfilePicture)?.setOnClickListener {
-            runCatching { findNavController().navigate(R.id.action_profileFragment_to_changeProfilePicFragment) }
-        }
-        imgView.setOnClickListener {
-            runCatching { findNavController().navigate(R.id.action_profileFragment_to_changeProfilePicFragment) }
-        }
+        etDob.apply { isFocusable = false; isClickable = true; isCursorVisible = false; setOnClickListener { showMaterialDatePicker(this) } }
 
-        // Save button - validate inputs then update profile via API
+        view.findViewById<ImageView>(R.id.back)?.setOnClickListener { runCatching { findNavController().popBackStack() } }
+        view.findViewById<TextView>(R.id.tvChangeProfilePicture)?.setOnClickListener { runCatching { findNavController().navigate(R.id.action_profileFragment_to_changeProfilePicFragment) } }
+        imgView.setOnClickListener { runCatching { findNavController().navigate(R.id.action_profileFragment_to_changeProfilePicFragment) } }
+
+        // Save action
         view.findViewById<TextView>(R.id.tv_save)?.setOnClickListener {
             clearErrors()
-
             val firstVal = etFirst.text?.toString()?.trim().orEmpty()
             val lastVal = etLast.text?.toString()?.trim().orEmpty()
             val usernameVal = etUser.text?.toString()?.trim().orEmpty()
@@ -138,25 +110,14 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
             val dobUi = etDob.text?.toString()?.trim().orEmpty()
 
             var valid = true
+            if (firstVal.isBlank()) { valid = false; showError(tvFirstNameError, getString(R.string.first_name_required)) }
+            else if (firstVal.length > 25) { valid = false; showError(tvFirstNameError, getString(R.string.first_name_max_length)) }
 
-            if (firstVal.isBlank()) {
-                valid = false
-                showError(tvFirstNameError, getString(R.string.first_name_required))
-            } else if (firstVal.length > 25) {
-                valid = false
-                showError(tvFirstNameError, getString(R.string.first_name_max_length))
-            }
-
-            if (lastVal.isBlank()) {
-                valid = false
-                showError(tvLastNameError, getString(R.string.last_name_required))
-            } else if (lastVal.length > 25) {
-                valid = false
-                showError(tvLastNameError, getString(R.string.last_name_max_length))
-            }
+            if (lastVal.isBlank()) { valid = false; showError(tvLastNameError, getString(R.string.last_name_required)) }
+            else if (lastVal.length > 25) { valid = false; showError(tvLastNameError, getString(R.string.last_name_max_length)) }
 
             when (InputValidator.validateUsername(usernameVal)) {
-                InputValidator.UsernameResult.VALID -> { /* ok */ }
+                InputValidator.UsernameResult.VALID -> { }
                 InputValidator.UsernameResult.EMPTY -> { valid = false; showError(tvUsernameError, getString(R.string.username_required)) }
                 InputValidator.UsernameResult.HAS_SPACE -> { valid = false; showError(tvUsernameError, getString(R.string.username_no_spaces)) }
                 InputValidator.UsernameResult.HAS_DIGIT -> { valid = false; showError(tvUsernameError, getString(R.string.username_invalid_chars)) }
@@ -164,23 +125,14 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
             }
 
             if (dobUi.isNotEmpty()) {
-                try {
-                    val local = java.time.LocalDate.parse(dobUi, dobFormat)
-                    // ok
-                } catch (e: DateTimeParseException) {
-                    valid = false
-                    etDob.error = getString(R.string.invalid_dob_format)
-                }
+                try { java.time.LocalDate.parse(dobUi, dobFormat) }
+                catch (_: DateTimeParseException) { valid = false; etDob.error = getString(R.string.invalid_dob_format) }
             }
 
-            if (bioVal.length > 150) {
-                valid = false
-                showError(tvBioError, getString(R.string.bio_max_length))
-            }
+            if (bioVal.length > 150) { valid = false; showError(tvBioError, getString(R.string.bio_max_length)) }
 
             if (!valid) return@setOnClickListener
 
-            // Convert DOB to API format yyyy-MM-dd if present
             val apiDob: String = if (dobUi.isNotEmpty()) {
                 val local = java.time.LocalDate.parse(dobUi, dobFormat)
                 DateTimeFormatter.ISO_LOCAL_DATE.format(local)
@@ -209,6 +161,14 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Fetch fresh profile only when Profile screen is visible
+        viewLifecycleOwner.lifecycleScope.launch {
+            runCatching { val repo = com.example.myapplication.data.dashboard.DashboardRepository(requireContext()); repo.getProfile() }
+        }
+    }
+
     private fun showMaterialDatePicker(target: EditText) {
         val selection: Long = runCatching {
             val text = target.text.toString().trim()
@@ -217,30 +177,8 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
         }.getOrElse { MaterialDatePicker.todayInUtcMilliseconds() }
 
         val constraints = CalendarConstraints.Builder().setEnd(System.currentTimeMillis()).build()
-
-        val picker = MaterialDatePicker.Builder.datePicker()
-            .setTitleText("Select date of birth")
-            .setCalendarConstraints(constraints)
-            .setSelection(selection)
-            .build()
-
-        picker.addOnPositiveButtonClickListener { sel ->
-            runCatching {
-                val instant = Instant.ofEpochMilli(sel as Long)
-                val local = instant.atZone(ZoneId.systemDefault()).toLocalDate()
-                target.setText(local.format(dobFormat))
-            }
-        }
-
+        val picker = MaterialDatePicker.Builder.datePicker().setTitleText("Select date of birth").setCalendarConstraints(constraints).setSelection(selection).build()
+        picker.addOnPositiveButtonClickListener { sel -> runCatching { val instant = Instant.ofEpochMilli(sel as Long); val local = instant.atZone(ZoneId.systemDefault()).toLocalDate(); target.setText(local.format(dobFormat)) } }
         picker.show(parentFragmentManager, "DOB_PICKER")
-    }
-
-    /** Load persisted profile image from UserDataManager (URL only). */
-    private fun loadPersistedProfileImage(imageView: ImageView) {
-        lifecycleScope.launch {
-            val userDataManager = com.example.myapplication.data.user.UserDataManager.getInstance(requireContext())
-            val bestSource = userDataManager.getBestProfileImageSource()
-            ProfileImageHelper.loadProfileImageIntoView(requireContext(), imageView, bestSource)
-        }
     }
 }

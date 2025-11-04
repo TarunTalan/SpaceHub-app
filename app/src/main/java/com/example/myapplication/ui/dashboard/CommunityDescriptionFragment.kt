@@ -8,26 +8,31 @@ import android.widget.TextView
 import androidx.appcompat.widget.AppCompatButton
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
-import com.bumptech.glide.Glide
 import com.example.myapplication.R
+import com.example.myapplication.data.community.model.Community
+import com.example.myapplication.data.dashboard.model.CreateCommunityResponse
 import com.example.myapplication.data.network.NetworkModule
 import com.example.myapplication.ui.common.BaseFragment
 import com.example.myapplication.ui.common.ProfileSharedViewModel
-import android.webkit.MimeTypeMap
+import com.example.myapplication.ui.community.viewmodel.CommunityViewModel
+import com.bumptech.glide.Glide
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.io.File
+import retrofit2.Response
+import java.io.InputStream
 
 class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_description) {
     private val sharedVm: ProfileSharedViewModel by activityViewModels()
+    private val communityVm: CommunityViewModel by viewModels()
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -35,30 +40,43 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
         // Back navigation
         view.findViewById<ImageView>(R.id.back_arrow)?.setOnClickListener { try { findNavController().navigateUp() } catch (_: Exception) {} }
 
-        // Load preview image if available
-        try {
-            val commPic = view.findViewById<ImageView>(R.id.comm_pic)
-            // Prefer the original content Uri from the picker (keeps the selected image, not cache)
-            val contentUri = sharedVm.selectedContentUri.value
-            if (contentUri != null) {
-                Glide.with(this).load(contentUri).centerCrop().into(commPic)
-            } else {
-                val imagePath = sharedVm.selectedImagePath.value
-                if (!imagePath.isNullOrBlank()) {
-                    val file = File(imagePath)
-                    if (file.exists()) Glide.with(this).load(file).centerCrop().into(commPic) else Glide.with(this)
-                        .load(R.drawable.default_comm_icon).into(commPic)
+        val commPic = view.findViewById<ImageView>(R.id.comm_pic)
+        val commPicIcon = view.findViewById<ImageView>(R.id.comm_pic_icon)
+
+        fun renderPreview() {
+            try {
+                val contentUri = sharedVm.selectedContentUri.value
+                if (contentUri != null) {
+                    // show image, hide icon
+                    commPicIcon?.visibility = View.GONE
+                    commPic.visibility = View.VISIBLE
+                    Glide.with(this)
+                        .load(contentUri)
+                        .centerCrop()
+                        .into(commPic)
                 } else {
-                    // if nothing selected, ensure default
+                    // no selection: show icon, hide image view
+                    commPicIcon?.visibility = View.VISIBLE
+                    commPic.visibility = View.INVISIBLE
+                    commPic.setImageResource(R.drawable.default_comm_icon)
                 }
-            }
-        } catch (_: Exception) {}
+            } catch (_: Exception) { }
+        }
+
+        // Initial render
+        renderPreview()
+
+        // React to selection changes
+        try { sharedVm.selectedContentUri.observe(viewLifecycleOwner) { renderPreview() } } catch (_: Exception) { }
 
         val etCommDescription = view.findViewById<EditText>(R.id.etCommDescription)
         val tvCounter = view.findViewById<TextView>(R.id.tvFirstNameCounter)
 
-        etCommDescription?.addTextChangedListener { text -> tvCounter?.text = "${text?.length ?: 0} / 150" }
-        tvCounter?.text = "0 / 150"
+        etCommDescription?.addTextChangedListener { text ->
+            val len = text?.length ?: 0
+            tvCounter?.text = getString(R.string.char_count_slash, len, 150)
+        }
+        tvCounter?.text = getString(R.string.char_count_slash, 0, 150)
 
         view.findViewById<AppCompatButton>(R.id.btn_create_comm)?.setOnClickListener {
             val description = etCommDescription?.text?.toString()?.trim() ?: ""
@@ -76,13 +94,48 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
 
             lifecycleScope.launch {
                 try { setLoaderVisible(true) } catch (_: Exception) {}
-                val success = createCommunity(communityName, description)
+                val response = createCommunity(communityName, description)
                 try { setLoaderVisible(false) } catch (_: Exception) {}
 
-                if (success) {
-                    Snackbar.make(view, "Community created successfully!", Snackbar.LENGTH_SHORT).show()
-                    sharedVm.clear()
-                    try { findNavController().popBackStack(R.id.dashboardFragment, false) } catch (_: Exception) { try { findNavController().navigateUp() } catch (_: Exception) {} }
+                if (response != null && (response.isSuccessful || response.code() == 201)) {
+                    val body = response.body()
+                    val data = body?.data
+                    if (data != null) {
+                        // Persist into Room so Dashboard updates immediately
+                        val entity = Community(
+                            communityId = data.communityId,
+                            name = data.name,
+                            description = description,
+                            profilePicUrl = data.imageUrl,
+                            profilePicLocalPath = null,
+                            coverPhotoUrl = null,
+                            coverPhotoLocalPath = null,
+                            category = null,
+                            isPrivate = false,
+                            creatorId = null,
+                            creatorName = null,
+                            isOwner = true,
+                            isMember = true,
+                            memberCount = 1
+                        )
+                        communityVm.saveCommunity(entity)
+
+                        Snackbar.make(view, "Community created successfully!", Snackbar.LENGTH_SHORT).show()
+                        sharedVm.clear()
+                        // Navigate back to dashboard (pop if present, otherwise navigate)
+                        runCatching {
+                            val popped = findNavController().popBackStack(R.id.dashboardFragment, false)
+                            if (!popped) {
+                                // ensure we land on dashboard and clear intermediate screens
+                                val navOptions = NavOptions.Builder()
+                                    .setPopUpTo(R.id.auth_nav_graph, true)
+                                    .build()
+                                findNavController().navigate(R.id.dashboardFragment, null, navOptions)
+                            }
+                        }
+                    } else {
+                        Snackbar.make(view, "Community created but response missing data.", Snackbar.LENGTH_LONG).show()
+                    }
                 } else {
                     Snackbar.make(view, "Failed to create community. Please try again.", Snackbar.LENGTH_LONG).show()
                 }
@@ -90,7 +143,7 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
         }
     }
 
-    private suspend fun createCommunity(name: String, description: String): Boolean {
+    private suspend fun createCommunity(name: String, description: String): Response<CreateCommunityResponse>? {
         return withContext(Dispatchers.IO) {
             try {
                 val api = NetworkModule.createApiService(requireContext())
@@ -102,30 +155,29 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
                 val descriptionBody = description.toRequestBody("text/plain".toMediaTypeOrNull())
                 val emailBody = email.toRequestBody("text/plain".toMediaTypeOrNull())
 
-                // Build image file part if an image was selected
-                val imagePath = sharedVm.selectedImagePath.value
+                // Build image file part if an image content Uri is selected
+                val contentUri = sharedVm.selectedContentUri.value
                 var imageFilePart: MultipartBody.Part? = null
                 var imageUriText = ""
 
-                if (!imagePath.isNullOrBlank()) {
-                    val imgFile = File(imagePath)
-                    if (imgFile.exists()) {
-                        val contentUri = sharedVm.selectedContentUri.value
-                        val mimeFromResolver = try { contentUri?.let { requireContext().contentResolver.getType(it) } } catch (_: Exception) { null }
-                        val ext = imgFile.extension.takeIf { it.isNotBlank() } ?: MimeTypeMap.getFileExtensionFromUrl(imgFile.absolutePath)
-                        val mimeFromExt = ext?.lowercase()?.let { MimeTypeMap.getSingleton().getMimeTypeFromExtension(it) }
-                        val mime = mimeFromResolver ?: mimeFromExt ?: "image/jpeg"
-
-                        val reqFile = imgFile.asRequestBody(mime.toMediaTypeOrNull())
-                        imageFilePart = MultipartBody.Part.createFormData("imageFile", imgFile.name, reqFile)
-                        // send filename as image_uri (server may expect a URL; this preserves previous behavior)
-                        imageUriText = imgFile.name
-                    }
+                if (contentUri != null) {
+                    try {
+                        val resolver = requireContext().contentResolver
+                        val mime = resolver.getType(contentUri) ?: "image/jpeg"
+                        val input: InputStream? = resolver.openInputStream(contentUri)
+                        input?.use { stream ->
+                            val bytes = stream.readBytes()
+                            val filename = contentUri.lastPathSegment ?: "community_pic.jpg"
+                            val reqBody = bytes.toRequestBody(mime.toMediaTypeOrNull())
+                            imageFilePart = MultipartBody.Part.createFormData("imageFile", filename, reqBody)
+                            imageUriText = filename
+                        }
+                    } catch (_: Exception) { imageFilePart = null }
                 }
 
                 val imageUriBody = imageUriText.toRequestBody("text/plain".toMediaTypeOrNull())
 
-                val response = try {
+                return@withContext try {
                     api.createCommunity(
                         name = nameBody,
                         description = descriptionBody,
@@ -134,10 +186,8 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
                         imageFile = imageFilePart
                     )
                 } catch (_: Exception) { null }
-
-                return@withContext (response != null && response.isSuccessful)
             } catch (_: Exception) {
-                return@withContext false
+                return@withContext null
             }
         }
     }

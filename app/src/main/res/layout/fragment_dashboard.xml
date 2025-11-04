@@ -9,277 +9,317 @@
         android:layout_height="match_parent"
         android:fitsSystemWindows="false">
 
-<androidx.constraintlayout.widget.ConstraintLayout
-        android:layout_width="match_parent"
-        android:background="@drawable/background_gradient"
-        android:layout_height="match_parent"
-        tools:context=".ui.dashboard.DashboardFragment">
-
     <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/top_toolbar"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:paddingVertical="10dp"
-            android:background="@color/dashboard_toolbar"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-    >
+            android:layout_width="match_parent"
+            android:background="@drawable/background_gradient"
+            android:layout_height="match_parent"
+            tools:context=".ui.dashboard.DashboardFragment">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/top_toolbar"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:paddingVertical="10dp"
+                android:background="@color/dashboard_toolbar"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+        >
+
+            <ImageView
+                    android:id="@+id/drawer_nav_icon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/drawer_nav_icon"
+                    android:padding="10dp"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintStart_toStartOf="@id/guideline_start_top"
+                    app:layout_constraintBottom_toBottomOf="parent"/>
+
+            <TextView
+                    android:id="@+id/tv_username"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Username"
+                    android:gravity="center"
+                    android:textColor="@color/white"
+                    android:fontFamily="@font/roboto_semibold"
+                    app:layout_constraintTop_toTopOf="parent"
+                    android:textSize="@dimen/subtitle_text_size"
+                    app:layout_constraintEnd_toEndOf="@id/guideline_end_top"
+                    app:layout_constraintStart_toStartOf="@id/guideline_start_top"
+                    app:layout_constraintBottom_toBottomOf="parent"/>
+
+            <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/notification_icon"
+                    android:padding="10dp"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintEnd_toStartOf="@+id/guideline_end_top"
+                    app:layout_constraintBottom_toBottomOf="parent"/>
+
+
+            <androidx.constraintlayout.widget.Guideline
+                    android:id="@+id/guideline_start_top"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    app:layout_constraintGuide_percent="0.08"/>
+
+            <androidx.constraintlayout.widget.Guideline
+                    android:id="@+id/guideline_end_top"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    app:layout_constraintGuide_percent="0.92"/>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/your_community"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                app:layout_constraintTop_toBottomOf="@id/top_toolbar"
+                app:layout_constraintStart_toStartOf="@id/guideline_start"
+                app:layout_constraintEnd_toEndOf="@id/guideline_end"
+                android:layout_marginTop="20dp">
+            <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="My communities"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    android:fontFamily="@font/roboto_semibold"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    android:id="@+id/tv_my_communities"/>
+
+            <ImageView
+                    android:id="@+id/iv_toggle_your_comm"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/arrow_up"
+                    android:contentDescription="@string/toggle"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"/>
+
+            <!-- Recycler for My Communities -->
+            <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_your_communities"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintTop_toBottomOf="@id/tv_my_communities"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    android:layout_marginTop="12dp"
+                    android:overScrollMode="never"
+                    android:nestedScrollingEnabled="false"
+                    tools:listitem="@layout/item_community_card"
+                    tools:itemCount="2"/>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/illustration"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:visibility="gone"
+                app:layout_constraintBottom_toBottomOf="@id/guideline_center"
+                app:layout_constraintTop_toTopOf="@id/guideline_top"
+                app:layout_constraintEnd_toEndOf="@id/guideline_end"
+                app:layout_constraintStart_toStartOf="@id/guideline_start">
+
+            <ImageView
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:src="@drawable/illustration"
+                    android:layout_marginBottom="10dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="@id/guideline_top_2"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintBottom_toTopOf="@id/textView"
+                    android:id="@+id/imageView5"/>
+
+            <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="26sp"
+                    android:fontFamily="@font/roboto_medium"
+                    android:text="DMs with superpowers"
+                    android:id="@+id/textView"
+                    android:gravity="center"
+                    android:textColor="@color/white"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintBottom_toTopOf="@+id/textView2"/>
+
+            <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:textSize="@dimen/input_text_size"
+                    android:fontFamily="@font/roboto_regular"
+                    android:textColor="@color/white"
+                    android:gravity="center"
+                    android:paddingHorizontal="4dp"
+                    android:text="Invite your friends to chat together, be in audio room and more"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="@+id/textView"
+                    app:layout_constraintEnd_toEndOf="@id/textView"
+                    android:id="@+id/textView2"/>
+
+
+            <androidx.constraintlayout.widget.Guideline
+                    android:id="@+id/guideline_top_2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintGuide_percent="0.1"
+                    android:orientation="horizontal"/>
+        </androidx.constraintlayout.widget.ConstraintLayout>
 
         <ImageView
-                android:id="@+id/drawer_nav_icon"
+                android:id="@+id/add_comm"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:src="@drawable/drawer_nav_icon"
-                android:padding="10dp"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintStart_toStartOf="@id/guideline_start_top"
-                app:layout_constraintBottom_toBottomOf="parent"/>
-
+                android:src="@drawable/add__icon"
+                android:padding="2dp"
+                android:translationZ="10dp"
+                android:elevation="10dp"
+                android:background="@drawable/rect_button_bg_blue"
+                app:layout_constraintBottom_toTopOf="@+id/guideline_bottom"
+                app:layout_constraintEnd_toStartOf="@+id/guideline_end"/>
         <TextView
-                android:id="@+id/tv_username"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Username"
-                android:gravity="center"
+                android:textSize="13sp"
+                android:fontFamily="@font/roboto_regular"
                 android:textColor="@color/white"
-                android:fontFamily="@font/roboto_semibold"
-                app:layout_constraintTop_toTopOf="parent"
-                android:textSize="@dimen/subtitle_text_size"
-                app:layout_constraintEnd_toEndOf="@id/guideline_end_top"
-                app:layout_constraintStart_toStartOf="@id/guideline_start_top"
-                app:layout_constraintBottom_toBottomOf="parent"/>
-
-        <ImageView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:src="@drawable/notification_icon"
-                android:padding="10dp"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintEnd_toStartOf="@+id/guideline_end_top"
-                app:layout_constraintBottom_toBottomOf="parent"/>
+                android:text="Community"
+                android:translationZ="10dp"
+                android:elevation="10dp"
+                app:layout_constraintTop_toBottomOf="@id/add_comm"
+                app:layout_constraintEnd_toEndOf="@id/add_comm"
+                app:layout_constraintStart_toStartOf="@id/add_comm"/>
 
 
         <androidx.constraintlayout.widget.Guideline
-                android:id="@+id/guideline_start_top"
+                android:id="@+id/guideline_bottom"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                app:layout_constraintGuide_percent="0.91"/>
+
+        <androidx.constraintlayout.widget.Guideline
+                android:id="@+id/guideline_top"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                app:layout_constraintGuide_percent="0.08"/>
+
+        <androidx.constraintlayout.widget.Guideline
+                android:id="@+id/guideline_start"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 app:layout_constraintGuide_percent="0.08"/>
 
         <androidx.constraintlayout.widget.Guideline
-                android:id="@+id/guideline_end_top"
+                android:id="@+id/guideline_end"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 app:layout_constraintGuide_percent="0.92"/>
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+        <androidx.constraintlayout.widget.Guideline
+                android:id="@+id/guideline_center"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:layout_constraintGuide_percent="0.7"
+                android:orientation="horizontal"/>
 
-    <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/illustration"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            app:layout_constraintBottom_toBottomOf="@id/guideline_center"
-            app:layout_constraintTop_toTopOf="@id/guideline_top"
-            app:layout_constraintEnd_toEndOf="@id/guideline_end"
-            app:layout_constraintStart_toStartOf="@id/guideline_start">
+        <!-- Decorative Ellipses -->
+        <ImageView
+                android:id="@+id/ellipse1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:adjustViewBounds="true"
+                android:scaleType="fitXY"
+                android:src="@drawable/ellipse_dull_2"
+                android:layout_marginBottom="70dp"
+                app:layout_constraintBottom_toBottomOf="@+id/ellipse2"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                tools:ignore="ContentDescription"
+                android:elevation="-10dp"
+                android:translationZ="-10dp"/>
 
         <ImageView
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:src="@drawable/illustration"
-                android:layout_marginBottom="10dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="@id/guideline_top_2"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintBottom_toTopOf="@id/textView"
-                android:id="@+id/imageView5" />
-
-        <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="26sp"
-                android:fontFamily="@font/roboto_medium"
-                android:text="DMs with superpowers"
-                android:id="@+id/textView"
-                android:gravity="center"
-                android:textColor="@color/white"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintBottom_toTopOf="@+id/textView2" />
-
-        <TextView
+                android:id="@+id/ellipse2"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:textSize="@dimen/input_text_size"
-                android:fontFamily="@font/roboto_regular"
-                android:textColor="@color/white"
-                android:gravity="center"
-                android:paddingHorizontal="4dp"
-                android:text="Invite your friends to chat together, be in audio room and more"
+                android:adjustViewBounds="true"
+                android:scaleType="fitXY"
+                android:src="@drawable/ellipse_dull_2"
+                android:layout_marginBottom="70dp"
+                app:layout_constraintBottom_toBottomOf="@+id/ellipse3"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                tools:ignore="ContentDescription"
+                android:elevation="-10dp"
+                android:translationZ="-10dp"/>
+
+        <ImageView
+                android:id="@+id/ellipse3"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:adjustViewBounds="true"
+                android:scaleType="fitXY"
+                android:src="@drawable/ellipse_dull_2"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_marginBottom="18dp"
+                app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toStartOf="@+id/textView"
-                app:layout_constraintEnd_toEndOf="@id/textView"
-                android:id="@+id/textView2" />
+                tools:ignore="ContentDescription"
+                android:elevation="-10dp"
+                android:translationZ="-10dp"/>
 
 
-<!--        <androidx.constraintlayout.widget.Guideline-->
-<!--                android:id="@+id/guideline_center_2"-->
-<!--                android:layout_width="wrap_content"-->
-<!--                android:layout_height="wrap_content"-->
-<!--                app:layout_constraintGuide_percent="0.65"-->
-<!--                android:orientation="horizontal"/>-->
-        <androidx.constraintlayout.widget.Guideline
-                android:id="@+id/guideline_top_2"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                app:layout_constraintGuide_percent="0.1"
-                android:orientation="horizontal" />
-    </androidx.constraintlayout.widget.ConstraintLayout>
-
-    <ImageView
-            android:id="@+id/add_comm"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@drawable/add__icon"
-            android:padding="2dp"
-            android:translationZ="10dp"
-            android:elevation="10dp"
-            android:background="@drawable/rect_button_bg_blue"
-            app:layout_constraintBottom_toTopOf="@+id/guideline_bottom"
-            app:layout_constraintEnd_toStartOf="@+id/guideline_end" />
-    <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="13sp"
-            android:fontFamily="@font/roboto_regular"
-            android:textColor="@color/white"
-            android:text="Community"
-            android:translationZ="10dp"
-            android:elevation="10dp"
-            app:layout_constraintTop_toBottomOf="@id/add_comm"
-            app:layout_constraintEnd_toEndOf="@id/add_comm"
-            app:layout_constraintStart_toStartOf="@id/add_comm"/>
-
-
-    <androidx.constraintlayout.widget.Guideline
-            android:id="@+id/guideline_bottom"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            app:layout_constraintGuide_percent="0.91"/>
-
-    <androidx.constraintlayout.widget.Guideline
-            android:id="@+id/guideline_top"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            app:layout_constraintGuide_percent="0.08"/>
-
-    <androidx.constraintlayout.widget.Guideline
-            android:id="@+id/guideline_start"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            app:layout_constraintGuide_percent="0.08" />
-
-    <androidx.constraintlayout.widget.Guideline
-            android:id="@+id/guideline_end"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            app:layout_constraintGuide_percent="0.92" />
-
-    <androidx.constraintlayout.widget.Guideline
-            android:id="@+id/guideline_center"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            app:layout_constraintGuide_percent="0.7"
-            android:orientation="horizontal"/>
-
-    <!-- Decorative Ellipses -->
-    <ImageView
-            android:id="@+id/ellipse1"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:adjustViewBounds="true"
-            android:scaleType="fitXY"
-            android:src="@drawable/ellipse_dull_2"
-            android:layout_marginBottom="70dp"
-            app:layout_constraintBottom_toBottomOf="@id/ellipse2"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            tools:ignore="ContentDescription"
-            android:elevation="-10dp"
-            android:translationZ="-10dp" />
-
-    <ImageView
-            android:id="@+id/ellipse2"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:adjustViewBounds="true"
-            android:scaleType="fitXY"
-            android:src="@drawable/ellipse_dull_2"
-            android:layout_marginBottom="70dp"
-            app:layout_constraintBottom_toBottomOf="@+id/ellipse3"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            tools:ignore="ContentDescription"
-            android:elevation="-10dp"
-            android:translationZ="-10dp" />
-
-    <ImageView
-            android:id="@+id/ellipse3"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:adjustViewBounds="true"
-            android:scaleType="fitXY"
-            android:src="@drawable/ellipse_dull_2"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginBottom="18dp"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            tools:ignore="ContentDescription"
-            android:elevation="-10dp"
-            android:translationZ="-10dp" />
-
-
-    <!-- Loader overlay (hidden by default). Shows a dim background and a centered spinner -->
-    <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/dashboard_loader_container"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:visibility="gone"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
-
-        <View
-                android:id="@+id/dashboard_loader_dim"
+        <!-- Loader overlay (hidden by default). Shows a dim background and a centered spinner -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/dashboard_loader_container"
                 android:layout_width="0dp"
                 android:layout_height="0dp"
-                android:background="#80000000"
+                android:visibility="gone"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
+                app:layout_constraintEnd_toEndOf="parent">
 
-        <ProgressBar
-                android:id="@+id/dashboard_loader"
-                style="?android:attr/progressBarStyleLarge"
-                android:layout_width="60dp"
-                android:layout_height="60dp"
-                android:indeterminate="true"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
+            <View
+                    android:id="@+id/dashboard_loader_dim"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:background="#80000000"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"/>
+
+            <ProgressBar
+                    android:id="@+id/dashboard_loader"
+                    style="?android:attr/progressBarStyleLarge"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:indeterminate="true"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"/>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
-
-</androidx.constraintlayout.widget.ConstraintLayout>
 
     <com.google.android.material.navigation.NavigationView
             android:id="@+id/navigation_view"
@@ -289,5 +329,5 @@
             app:headerLayout="@layout/nav_header_dashboard"
             android:background="#2B333F"
             app:menu="@menu/menu_dashboard_drawer"
-            android:fitsSystemWindows="true" />
+            android:fitsSystemWindows="true"/>
 </androidx.drawerlayout.widget.DrawerLayout>

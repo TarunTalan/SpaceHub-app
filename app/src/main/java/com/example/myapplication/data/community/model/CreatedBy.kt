@@ -1,0 +1,32 @@
+package com.example.myapplication.data.community.model
+
+data class CreatedBy(
+    val accountNonExpired: Boolean,
+    val accountNonLocked: Boolean,
+    val authorities: List<Authority>,
+    val avatarUrl: String,
+    val bio: Any,
+    val coverPhotoUrl: Any,
+    val createdAt: String,
+    val credentialsNonExpired: Boolean,
+    val dateOfBirth: Any,
+    val email: String,
+    val enabled: Boolean,
+    val firstName: String,
+    val followersCount: Int,
+    val followingCount: Int,
+    val id: String,
+    val isPrivate: Boolean,
+    val isVerifiedForgot: Boolean,
+    val isVerifiedLogin: Boolean,
+    val isVerifiedRegistration: Boolean,
+    val lastName: String,
+    val location: Any,
+    val locked: Boolean,
+    val password: String,
+    val passwordVersion: Int,
+    val updatedAt: String,
+    val userRole: String,
+    val username: String,
+    val website: Any
+)

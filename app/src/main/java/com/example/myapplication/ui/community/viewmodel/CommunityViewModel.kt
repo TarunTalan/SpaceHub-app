@@ -8,60 +8,41 @@ import com.example.myapplication.data.community.repository.CommunityRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 
-/**
- * ViewModel for managing Community data in the UI.
- * Provides Flow for reactive UI updates.
- */
+
+// ViewModel for managing Community data in the UI.
+
 class CommunityViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = CommunityRepository.getInstance(application)
 
-    // ==================== OBSERVE DATA (Flow for advanced use cases) ====================
+    //  OBSERVE DATA
+    // Get specific community by ID as Flow
 
-    /**
-     * Get specific community by ID as Flow
-     */
     fun observeCommunity(communityId: String): Flow<Community?> {
         return repository.observeCommunityById(communityId)
     }
 
-    /**
-     * Search communities
-     */
+    // Search communities
     fun searchCommunities(query: String): Flow<List<Community>> {
         return repository.searchCommunities(query)
     }
 
-    /**
-     * Observe all communities as Flow (if needed by UI)
-     */
+    // Observe all communities as Flow (if needed by UI)
     fun observeAllCommunities(): Flow<List<Community>> = repository.observeAllCommunities()
 
-    /**
-     * Observe owned communities as Flow (if needed by UI)
-     */
-    fun observeOwnedCommunities(): Flow<List<Community>> = repository.observeOwnedCommunities()
+    // Unified observe: My communities (joined + owned)
+    fun observeMyCommunities(): Flow<List<Community>> = repository.observeMyCommunities()
 
-    /**
-     * Observe joined communities as Flow (if needed by UI)
-     */
-    fun observeJoinedCommunities(): Flow<List<Community>> = repository.observeJoinedCommunities()
 
-    // ==================== ACTIONS ====================
-
-    /**
-     * Save community after API call (e.g., after createCommunity API)
-     */
+    // Save community after API call (e.g., after createCommunity API)
     fun saveCommunity(community: Community) {
         viewModelScope.launch {
             repository.saveCommunity(community)
         }
     }
 
-    /**
-     * Create and save community from API response
-     * Call this in your Fragment after successful API call
-     */
+    // Create and save community from API response
+    // Call this in  Fragment after successful API call
     fun createCommunity(
         communityId: String,
         name: String,
@@ -94,54 +75,42 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    /**
-     * Update community details
-     */
+    // Update community details
     fun updateCommunityDetails(communityId: String, name: String, description: String?) {
         viewModelScope.launch {
             repository.updateCommunityDetails(communityId, name, description)
         }
     }
 
-    /**
-     * Update community profile picture
-     */
+    //Update community profile picture
     fun updateCommunityProfilePic(communityId: String, url: String?, localPath: String?) {
         viewModelScope.launch {
             repository.updateCommunityProfilePic(communityId, url, localPath)
         }
     }
 
-    /**
-     * Update member count
-     */
+    // Update member count
     fun updateMemberCount(communityId: String, count: Int) {
         viewModelScope.launch {
             repository.updateMemberCount(communityId, count)
         }
     }
 
-    /**
-     * Delete a community
-     */
+    // Delete a community
     fun deleteCommunity(communityId: String) {
         viewModelScope.launch {
             repository.deleteCommunity(communityId)
         }
     }
 
-    /**
-     * Delete all communities (e.g., on logout)
-     */
+    // Delete all communities (e.g., on logout)
     fun deleteAllCommunities() {
         viewModelScope.launch {
             repository.deleteAllCommunities()
         }
     }
 
-    /**
-     * Get specific community once (suspend function for coroutines)
-     */
+    // Get specific community once (suspend function for coroutines)
     suspend fun getCommunityById(communityId: String): Community? {
         return repository.getCommunityById(communityId)
     }

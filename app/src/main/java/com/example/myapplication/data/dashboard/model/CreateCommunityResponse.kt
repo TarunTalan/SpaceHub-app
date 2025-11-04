@@ -9,6 +9,6 @@ data class CreateCommunityResponse(
     data class CommunityData(
         val imageUrl: String?,
         val name: String,
-        val communityId: Int,
+        val communityId: String,
         )
 }

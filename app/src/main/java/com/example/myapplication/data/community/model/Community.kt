@@ -3,9 +3,9 @@ package com.example.myapplication.data.community.model
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-/**
- * Room entity representing a Community.
- * Each community has a unique communityId returned from the server.
+/*
+ Room entity representing a Community.
+ Each community has a unique communityId returned from the server.
  */
 @Entity(tableName = "communities")
 data class Community(

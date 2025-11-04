@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 
-/**
+/*
  * Token storage interface for JWT access/refresh tokens.
  * Provides abstraction for storing and retrieving authentication tokens.
  */
@@ -16,11 +16,9 @@ interface TokenStore {
     fun clear()
 }
 
-/**
+/*
  * SharedPreferences-based implementation of TokenStore.
  * Stores JWT tokens in encrypted SharedPreferences for secure persistence.
- *
- * @param context Application context
  */
 class SharedPrefsTokenStore(context: Context) : TokenStore {
 
@@ -29,17 +27,19 @@ class SharedPrefsTokenStore(context: Context) : TokenStore {
     override fun getAccessToken(): String? = prefs.getString(KEY_ACCESS, null)
 
     override fun setAccessToken(token: String?) {
-        prefs.edit { putString(KEY_ACCESS, token) }
+        // Use synchronous commit to ensure subsequent requests (called immediately after login)
+        // will see the token. This prevents a race where prefs.apply() hasn't completed yet.
+        prefs.edit(commit = true) { putString(KEY_ACCESS, token) }
     }
 
     override fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH, null)
 
     override fun setRefreshToken(token: String?) {
-        prefs.edit { putString(KEY_REFRESH, token) }
+        prefs.edit(commit = true) { putString(KEY_REFRESH, token) }
     }
 
     override fun clear() {
-        prefs.edit { clear() }
+        prefs.edit(commit = true) { clear() }
     }
 
     companion object {
@@ -48,4 +48,3 @@ class SharedPrefsTokenStore(context: Context) : TokenStore {
         private const val KEY_REFRESH = "refresh_token"
     }
 }
-

@@ -1,38 +1,12 @@
 package com.example.myapplication.data.network
 
-import com.example.myapplication.data.auth.model.ForgotPasswordRequest
-import com.example.myapplication.data.auth.model.ForgotPasswordResponce
-import com.example.myapplication.data.auth.model.SignupRequest
-import com.example.myapplication.data.auth.model.SignupResponse
-import com.example.myapplication.data.auth.model.LoginRequest
-import com.example.myapplication.data.auth.model.LoginResponse
-import com.example.myapplication.data.auth.model.ResendForgotOtpRequest
-import com.example.myapplication.data.auth.model.ResendForgotOtpResponse
-import com.example.myapplication.data.auth.model.ResendSignupOtpRequest
-import com.example.myapplication.data.auth.model.ResendSignupOtpResponse
-import com.example.myapplication.data.auth.model.SigupOtpRequest
-import com.example.myapplication.data.auth.model.SignupOtpResponse
-import com.example.myapplication.data.auth.model.ValidateForgotOtpRequest
-import com.example.myapplication.data.auth.model.ValidateForgotOtpResponce
-import com.example.myapplication.data.auth.model.ResetPasswordRequest
-import com.example.myapplication.data.auth.model.ResetPasswordResponce
-import com.example.myapplication.data.dashboard.model.CreateCommunityResponse
-import com.example.myapplication.data.dashboard.model.GetProfileResponse
-import com.example.myapplication.data.dashboard.model.UpdateProfilePicResponse
-import com.example.myapplication.data.dashboard.model.UpdateProfileRequest
-import com.example.myapplication.data.dashboard.model.UpdateProfileResponse
-import com.example.myapplication.data.dashboard.model.UploadProfileResponse
-import com.example.myapplication.data.dashboard.model.UsernameRequest
-import com.example.myapplication.data.dashboard.model.UsernameResponse
-import retrofit2.Response
-import retrofit2.http.Body
-import retrofit2.http.POST
+import com.example.myapplication.data.auth.model.*
+import com.example.myapplication.data.community.model.*
+import com.example.myapplication.data.dashboard.model.*
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
-import retrofit2.http.Multipart
-import retrofit2.http.PUT
-import retrofit2.http.Part
-import retrofit2.http.Query
+import retrofit2.Response
+import retrofit2.http.*
 
 interface ApiService {
     @POST("registration")
@@ -104,8 +78,81 @@ interface ApiService {
     ): Response<UpdateProfilePicResponse>
 
     // Get user profile data
-    @retrofit2.http.GET("profile/getProfile")
+    @GET("profile/getProfile")
     suspend fun getProfile(
         @Query("email") email: String
     ): Response<GetProfileResponse>
+
+    // -------- Communities: Members / Roles / Remove / Leave / Update / Delete --------
+
+    @POST("community/members")
+    suspend fun getAllMembers(
+        @Body body: GetAllMembersRequest
+    ): Response<GetAllMembersResponse>
+
+    @POST("community/changeRole")
+    suspend fun changeRole(
+        @Body body: ChangeRoleRequest
+    ): Response<ChangeRoleResponse>
+
+    @POST("community/removeMember")
+    suspend fun removeMember(
+        @Body body: RemoveMemberRequest
+    ): Response<RemoveMemberResponse>
+
+    // Re-add leaveCommunity so user can leave a community (joined list still comes from getMyCommunities)
+    @POST("community/leave")
+    suspend fun leaveCommunity(
+        @Body body: LeaveRequest
+    ): Response<LeaveResponse>
+
+    @POST("community/updateInfo")
+    suspend fun updateCommunityInfo(
+        @Body body: UpdateCommunityRequest
+    ): Response<UpdateCommunityResponse>
+
+    @POST("community/delete")
+    suspend fun deleteCommunity(
+        @Body body: DeleteCommunityRequest
+    ): Response<DeleteCommunityResponse>
+
+    // Keep a single endpoint that returns communities where the requester is member or owner
+    @GET("community/my-communities")
+    suspend fun getMyCommunities(
+        @Query("email") requesterEmail: String
+    ): Response<GetMyCommunitiesResponse>
+
+    @POST("community/blockMember")
+    suspend fun blockMember(
+        @Body body: BlockMemberRequest
+    ): Response<BlockMemberResponse>
+
+    // -------- Rooms (per provided API) --------
+
+    @POST("community/{communityId}/rooms/create")
+    suspend fun createRoom(
+        @Path("communityId") communityId: String,
+        @Body body: CreateRoomRequest
+    ): Response<CreateRoomResponse>
+
+    @DELETE("community/{communityId}/rooms/{roomId}")
+    suspend fun deleteRoom(
+        @Path("communityId") communityId: String,
+        @Path("roomId") roomId: String,
+        @Query("requesterEmail") email: String
+    ): Response<DeleteRoomResponse>
+
+    @GET("community/{communityId}/rooms/all")
+    suspend fun getAllRooms(
+        @Path("communityId") communityId: String
+    ): Response<GetAllRoomsResponse>
+
+    @PUT("community/{communityId}/rooms/{roomId}/rename")
+    suspend fun renameRoom(
+        @Path("communityId") communityId: String,
+        @Path("roomId") roomId: String,
+        @Body body: RenameRoomRequest
+    ): Response<RenameRoomResponse>
+
+
 }
