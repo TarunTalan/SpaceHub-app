@@ -7,6 +7,10 @@ import com.example.myapplication.data.community.database.CommunityDatabase
 import com.example.myapplication.data.community.model.*
 import com.example.myapplication.data.network.NetworkModule
 import com.example.myapplication.data.user.UserDataManager
+import com.google.gson.JsonArray
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
+import com.google.gson.JsonParseException
 import kotlinx.coroutines.flow.Flow
 
 
@@ -104,9 +108,6 @@ class CommunityRepository private constructor(context: Context) {
         communityDao.updateCommunityProfilePic(communityId, url, localPath)
     }
 
-    // Update full community object
-    suspend fun updateCommunity(community: Community) { communityDao.updateCommunity(community) }
-
     //Update member count
     suspend fun updateMemberCount(communityId: String, count: Int) { communityDao.updateMemberCount(communityId, count) }
 
@@ -115,8 +116,6 @@ class CommunityRepository private constructor(context: Context) {
 
     // Delete all communities (e.g., on logout)
     suspend fun deleteAllCommunities() { communityDao.deleteAllCommunities() }
-
-    // ---------------- Remote APIs ----------------
 
     suspend fun fetchMembers(communityId: String): Result<List<Member>> {
         return try {
@@ -379,29 +378,173 @@ class CommunityRepository private constructor(context: Context) {
 
     suspend fun getMyPendingRequests(): Result<List<PendingRequest>> {
         return try {
-            val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
-            val resp = api.getMyPendingRequests(email)
-            if (resp.isSuccessful) {
-                val body = resp.body()
-                Result.success(body?.data ?: emptyList())
-            } else {
-                Result.failure(RuntimeException("HTTP ${resp.code()}"))
+            val requester = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
+            val resp = api.getMyPendingRequestsRaw(requester)
+            if (!resp.isSuccessful) return Result.failure(RuntimeException("HTTP ${resp.code()}"))
+            val root: JsonElement? = resp.body()
+
+            // Expect: { status, message, data: [ { communityId, communityName, requests: [ { userId, username, email } ] } ] }
+            val dataArr: JsonArray? = when {
+                root == null || root.isJsonNull -> null
+                root.isJsonArray -> root.asJsonArray
+                root.isJsonObject -> root.asJsonObject.getAsJsonArray("data") ?: run {
+                    // In case server returns the array directly in another key
+                    val obj = root.asJsonObject
+                    obj.entrySet().firstOrNull { it.value.isJsonArray }?.value?.asJsonArray
+                }
+                else -> null
             }
+
+            val result = mutableListOf<PendingRequest>()
+            dataArr?.forEach { groupEl ->
+                val groupObj = groupEl.asJsonObject
+                val communityId = groupObj.get("communityId")?.asString
+                val communityName = groupObj.get("communityName")?.asString
+                if (communityId.isNullOrBlank() || communityName.isNullOrBlank()) return@forEach
+
+                val requests = groupObj.getAsJsonArray("requests") ?: JsonArray()
+                requests.forEach { item ->
+                    val req = item.asJsonObject
+                    val userId = req.get("userId")?.asString
+                    val email = req.get("email")?.asString
+                    val username = req.get("username")?.asString
+                    if (email.isNullOrBlank()) return@forEach
+
+                    // Synthesize a stable id for UI processing state
+                    val synthesizedId = (communityId + ":" + (userId ?: email))
+
+                    result += PendingRequest(
+                        id = synthesizedId,
+                        communityId = communityId,
+                        communityName = communityName,
+                        communityImageUrl = null,
+                        userEmail = email,
+                        userName = username,
+                        userAvatarUrl = null,
+                        requestedAt = "",
+                        status = "PENDING"
+                    )
+                }
+            }
+            Result.success(result)
         } catch (t: Throwable) {
-            Result.failure(t)
+            Result.failure(if (t is JsonParseException) RuntimeException("Malformed response", t) else t)
         }
     }
 
     suspend fun getPendingRequestsCount(): Result<Int> {
         return try {
-            val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
-            val resp = api.getMyPendingRequests(email)
-            if (resp.isSuccessful) {
-                val body = resp.body()
-                val count = body?.data?.size ?: 0
-                Result.success(count)
+            val requester = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
+            val resp = api.getMyPendingRequestsRaw(requester)
+            if (!resp.isSuccessful) return Result.failure(RuntimeException("HTTP ${resp.code()}"))
+            val root: JsonElement? = resp.body()
+
+            val dataArr: JsonArray? = when {
+                root == null || root.isJsonNull -> null
+                root.isJsonArray -> root.asJsonArray
+                root.isJsonObject -> root.asJsonObject.getAsJsonArray("data") ?: run {
+                    val obj = root.asJsonObject
+                    obj.entrySet().firstOrNull { it.value.isJsonArray }?.value?.asJsonArray
+                }
+                else -> null
+            }
+
+            var count = 0
+            dataArr?.forEach { groupEl ->
+                val groupObj = groupEl.asJsonObject
+                val requests = groupObj.getAsJsonArray("requests")
+                if (requests != null) count += requests.size()
+            }
+            Result.success(count)
+        } catch (t: Throwable) {
+            Result.failure(if (t is JsonParseException) RuntimeException("Malformed response", t) else t)
+        }
+    }
+
+    suspend fun acceptJoinRequest(request: PendingRequest): Result<Unit> {
+        Log.d("CommunityRepo", "acceptJoinRequest ENTRY - request=$request")
+        return try {
+            val creatorEmail = userData.getEmail()
+            if (creatorEmail.isNullOrBlank()) return Result.failure(IllegalStateException("Email not set"))
+
+            val userEmail = request.userEmail
+            val communityName = request.communityName
+            if (userEmail.isBlank() || communityName.isBlank()) {
+                Log.e("CommunityRepo", "ABORT: Missing fields userEmail=$userEmail, communityName=$communityName")
+                return Result.failure(IllegalArgumentException("Request data incomplete: userEmail or communityName is missing"))
+            }
+
+            val payload = AcceptRequest(
+                communityName = communityName,
+                creatorEmail = creatorEmail,
+                userEmail = userEmail
+            )
+            Log.d("CommunityRepo", "acceptJoinRequest - payload=$payload")
+            val resp = api.acceptRequest(payload)
+            Log.d("CommunityRepo", "acceptJoinRequest - HTTP ${resp.code()} isSuccessful=${resp.isSuccessful} bodyStatus=${resp.body()?.status} msg=${resp.body()?.message}")
+            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) Result.success(Unit)
+            else Result.failure(RuntimeException(resp.body()?.message ?: "HTTP ${resp.code()}"))
+        } catch (t: Throwable) {
+            Log.e("CommunityRepo", "acceptJoinRequest - exception: ${t.message}", t)
+            Result.failure(t)
+        }
+    }
+
+    suspend fun rejectJoinRequest(request: PendingRequest): Result<Unit> {
+        Log.d("CommunityRepo", "rejectJoinRequest ENTRY - request=$request")
+        return try {
+            val creatorEmail = userData.getEmail()
+            if (creatorEmail.isNullOrBlank()) return Result.failure(IllegalStateException("Email not set"))
+
+            val userEmail = request.userEmail
+            val communityName = request.communityName
+            if (userEmail.isBlank() || communityName.isBlank()) {
+                Log.e("CommunityRepo", "ABORT: Missing fields userEmail=$userEmail, communityName=$communityName")
+                return Result.failure(IllegalArgumentException("Request data incomplete: userEmail or communityName is missing"))
+            }
+
+            val payload = RejectRequest(
+                communityName = communityName,
+                creatorEmail = creatorEmail,
+                userEmail = userEmail
+            )
+            Log.d("CommunityRepo", "rejectJoinRequest - payload=$payload")
+            val resp = api.rejectRequest(payload)
+            Log.d("CommunityRepo", "rejectJoinRequest - HTTP ${resp.code()} isSuccessful=${resp.isSuccessful} bodyStatus=${resp.body()?.status} msg=${resp.body()?.message}")
+            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) Result.success(Unit)
+            else Result.failure(RuntimeException(resp.body()?.message ?: "HTTP ${resp.code()}"))
+        } catch (t: Throwable) {
+            Log.e("CommunityRepo", "rejectJoinRequest - exception: ${t.message}", t)
+            Result.failure(t)
+        }
+    }
+
+    suspend fun createInviteLink(communityId: String): Result<DataInviteLink> {
+        return try {
+            val inviter = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
+            val resp = api.createInviteLink(communityId, CommunityInviteLinkRequest(inviterEmail = inviter))
+            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
+                val link = resp.body()!!.data
+                Result.success(link)
             } else {
-                Result.failure(RuntimeException("HTTP ${resp.code()}"))
+                Result.failure(RuntimeException("HTTP ${resp.code()} - ${resp.body()?.message ?: ""}"))
+            }
+        } catch (t: Throwable) {
+            Result.failure(t)
+        }
+    }
+    suspend fun joinCommunityByLink(communityId: String, inviteCode: String): Result<Unit> {
+        return try {
+            val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
+            val req = JoinCommunityByLinkRequest(communityId = communityId, inviteCode = inviteCode, acceptorEmail = email)
+            val resp = api.joinCommunityByLink(req)
+            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
+                try { fetchMyCommunitiesRemote(email) } catch (_: Exception) {}
+                Result.success(Unit)
+            } else {
+                val code = resp.code()
+                val msg = resp.body()?.message ?: "HTTP $code"
+                Result.failure(RuntimeException(msg))
             }
         } catch (t: Throwable) {
             Result.failure(t)

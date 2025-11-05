@@ -85,7 +85,6 @@
                 android:layout_width="0dp"
                 android:layout_height="@dimen/input_height"
                 android:maxWidth="@dimen/input_max_width"
-                android:maxLength="25"
                 android:background="@drawable/edit_text_outline_selector"
                 android:fontFamily="@font/roboto_regular"
                 android:hint="Enter invite Link"
@@ -93,7 +92,7 @@
                 android:paddingHorizontal="20dp"
                 android:textColor="#FFFFFF"
                 android:textColorHint="#475569"
-                android:textSize="@dimen/input_text_size"
+                android:textSize="14sp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/tvJoinCommunity" />

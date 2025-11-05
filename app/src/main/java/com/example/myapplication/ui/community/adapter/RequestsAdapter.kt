@@ -25,7 +25,8 @@ class RequestsAdapter(
         override fun areContentsTheSame(oldItem: PendingRequest, newItem: PendingRequest) = oldItem == newItem
     }
 
-    fun setProcessing(requestId: String, processing: Boolean) {
+    fun setProcessing(requestId: String?, processing: Boolean) {
+        if (requestId == null) return
         if (processing) processingIds.add(requestId) else processingIds.remove(requestId)
         val idx = currentList.indexOfFirst { it.id == requestId }
         if (idx >= 0) notifyItemChanged(idx)
@@ -41,8 +42,15 @@ class RequestsAdapter(
         private val progress: ProgressBar = itemView.findViewById(R.id.progress)
 
         fun bind(request: PendingRequest) {
-            tvName.text = request.userName ?: request.userEmail
-            tvCommunity.text = "wants to join ${request.communityName}"
+            val displayName = when {
+                !request.userName.isNullOrBlank() -> request.userName
+                !request.userEmail.isNullOrBlank() -> request.userEmail
+                else -> "Unknown user"
+            }
+            tvName.text = displayName
+
+            val comm = request.communityName?.takeIf { it.isNotBlank() } ?: "-"
+            tvCommunity.text = "wants to join $comm"
             tvTime.text = formatTime(request.requestedAt)
 
             // Load avatar
@@ -57,28 +65,27 @@ class RequestsAdapter(
                 ivAvatar.setImageResource(R.drawable.default_profile)
             }
 
-            val isProcessing = processingIds.contains(request.id)
+            val isProcessing = processingIds.contains(request.id ?: "")
+            val hasRequired = !request.userEmail.isNullOrBlank() && !request.communityName.isNullOrBlank()
+
             progress.visibility = if (isProcessing) View.VISIBLE else View.GONE
+            btnAccept.isEnabled = !isProcessing && hasRequired
+            btnReject.isEnabled = !isProcessing && hasRequired
+            btnAccept.alpha = if (btnAccept.isEnabled) 1f else 0.5f
+            btnReject.alpha = if (btnReject.isEnabled) 1f else 0.5f
             btnAccept.visibility = if (isProcessing) View.GONE else View.VISIBLE
             btnReject.visibility = if (isProcessing) View.GONE else View.VISIBLE
 
             btnAccept.setOnClickListener {
-                if (!isProcessing) onAccept(request)
+                if (!isProcessing && hasRequired) onAccept(request)
             }
             btnReject.setOnClickListener {
-                if (!isProcessing) onReject(request)
+                if (!isProcessing && hasRequired) onReject(request)
             }
         }
 
-        private fun formatTime(timestamp: String): String {
-            // Simple time formatting - you can enhance this
-            return try {
-                // If timestamp is ISO format or epoch, parse and format
-                // For now, return simple text
-                "Recently"
-            } catch (e: Exception) {
-                "Recently"
-            }
+        private fun formatTime(timestamp: String?): String {
+            return "Recently"
         }
     }
 
@@ -91,4 +98,3 @@ class RequestsAdapter(
         holder.bind(getItem(position))
     }
 }
-

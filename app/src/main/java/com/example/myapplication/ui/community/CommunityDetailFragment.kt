@@ -1,6 +1,10 @@
 package com.example.myapplication.ui.community
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.DialogInterface
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Rect
 import android.os.Bundle
@@ -67,6 +71,50 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                             }
                             true
                         }
+                        R.id.action_invite -> {
+                            val communityId = arguments?.getString("communityId")
+                            if (communityId.isNullOrBlank()) {
+                                Toast.makeText(requireContext(), "Missing communityId", Toast.LENGTH_SHORT).show()
+                                return@setOnMenuItemClickListener true
+                            }
+                            // Call repo to create link and show
+                            viewLifecycleOwner.lifecycleScope.launch {
+                                val repo = CommunityRepository.getInstance(requireContext())
+                                val progress = ProgressBar(requireContext())
+                                val dlg = AlertDialog.Builder(requireContext())
+                                    .setTitle("Creating invite link...")
+                                    .setView(progress)
+                                    .setCancelable(false)
+                                    .create()
+                                try {
+                                    dlg.show()
+                                } catch (_: Exception) {}
+
+                                val res = repo.createInviteLink(communityId)
+                                try { dlg.dismiss() } catch (_: Exception) {}
+                                res.onSuccess { data ->
+                                    val link = data.inviteLink
+                                    val msg = "Invite link:\n$link"
+                                    AlertDialog.Builder(requireContext())
+                                        .setTitle("Invite link")
+                                        .setMessage(msg)
+                                        .setPositiveButton("Copy") { d, _ ->
+                                            copyToClipboard(requireContext(), "invite_link", link)
+                                            Toast.makeText(requireContext(), "Copied", Toast.LENGTH_SHORT).show()
+                                            d.dismiss()
+                                        }
+                                        .setNegativeButton("Share") { d, _ ->
+                                            shareText(link)
+                                            d.dismiss()
+                                        }
+                                        .setNeutralButton(android.R.string.ok, null)
+                                        .show()
+                                }.onFailure { e ->
+                                    Toast.makeText(requireContext(), "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            true
+                        }
                         R.id.action_delete_community -> {
                             val ctx = requireContext()
                             AlertDialog.Builder(ctx)
@@ -98,6 +146,47 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                                 findNavController().navigate(R.id.action_communityDetail_to_editCommunity, args)
                             } else {
                                 Toast.makeText(requireContext(), "Missing communityId", Toast.LENGTH_SHORT).show()
+                            }
+                            true
+                        }
+                        R.id.action_invite -> {
+                            val communityId = arguments?.getString("communityId")
+                            if (communityId.isNullOrBlank()) {
+                                Toast.makeText(requireContext(), "Missing communityId", Toast.LENGTH_SHORT).show()
+                                return@setOnMenuItemClickListener true
+                            }
+                            viewLifecycleOwner.lifecycleScope.launch {
+                                val repo = CommunityRepository.getInstance(requireContext())
+                                val progress = ProgressBar(requireContext())
+                                val dlg = AlertDialog.Builder(requireContext())
+                                    .setTitle("Creating invite link...")
+                                    .setView(progress)
+                                    .setCancelable(false)
+                                    .create()
+                                try { dlg.show() } catch (_: Exception) {}
+
+                                val res = repo.createInviteLink(communityId)
+                                try { dlg.dismiss() } catch (_: Exception) {}
+                                res.onSuccess { data ->
+                                    val link = data.inviteLink
+                                    val msg = "Invite link:\n$link"
+                                    AlertDialog.Builder(requireContext())
+                                        .setTitle("Invite link")
+                                        .setMessage(msg)
+                                        .setPositiveButton("Copy") { d, _ ->
+                                            copyToClipboard(requireContext(), "invite_link", link)
+                                            Toast.makeText(requireContext(), "Copied", Toast.LENGTH_SHORT).show()
+                                            d.dismiss()
+                                        }
+                                        .setNegativeButton("Share") { d, _ ->
+                                            shareText(link)
+                                            d.dismiss()
+                                        }
+                                        .setNeutralButton(android.R.string.ok, null)
+                                        .show()
+                                }.onFailure { e ->
+                                    Toast.makeText(requireContext(), "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
                             }
                             true
                         }
@@ -276,5 +365,20 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()
         }
+    }
+
+    private fun copyToClipboard(ctx: Context, label: String, text: String) {
+        val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        cm.setPrimaryClip(ClipData.newPlainText(label, text))
+    }
+
+    private fun shareText(text: String) {
+        val sendIntent: Intent = Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_TEXT, text)
+            type = "text/plain"
+        }
+        val shareIntent = Intent.createChooser(sendIntent, null)
+        startActivity(shareIntent)
     }
 }

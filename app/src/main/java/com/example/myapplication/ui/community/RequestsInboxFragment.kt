@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.R
 import com.example.myapplication.ui.community.adapter.RequestsAdapter
 import com.example.myapplication.ui.community.viewmodel.RequestsInboxViewModel
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 
 class RequestsInboxFragment : Fragment(R.layout.fragment_requests_inbox) {
 
@@ -25,6 +26,7 @@ class RequestsInboxFragment : Fragment(R.layout.fragment_requests_inbox) {
         val rvRequests = view.findViewById<RecyclerView>(R.id.rv_requests)
         val progress = view.findViewById<ProgressBar>(R.id.progress)
         val emptyView = view.findViewById<View>(R.id.empty_view)
+        val swipeRefresh = view.findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
 
         ivBack.setOnClickListener { findNavController().navigateUp() }
 
@@ -42,15 +44,21 @@ class RequestsInboxFragment : Fragment(R.layout.fragment_requests_inbox) {
         rvRequests.layoutManager = LinearLayoutManager(requireContext())
         rvRequests.adapter = adapter
 
+        swipeRefresh.setOnRefreshListener {
+            vm.loadRequests()
+        }
+
         // Observe data
         vm.requests.observe(viewLifecycleOwner) { list ->
             adapter.submitList(list)
             emptyView.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
             rvRequests.visibility = if (list.isEmpty()) View.GONE else View.VISIBLE
+            swipeRefresh.isRefreshing = false
         }
 
         vm.loading.observe(viewLifecycleOwner) { loading ->
             progress.visibility = if (loading) View.VISIBLE else View.GONE
+            if (!loading) swipeRefresh.isRefreshing = false
         }
 
         vm.toast.observe(viewLifecycleOwner) { msg ->
@@ -59,8 +67,17 @@ class RequestsInboxFragment : Fragment(R.layout.fragment_requests_inbox) {
             }
         }
 
-        // Load requests when fragment is created
+        vm.processingComplete.observe(viewLifecycleOwner) { requestId ->
+            adapter.setProcessing(requestId, false)
+        }
+
+        // Initial load
+        vm.loadRequests()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Auto-refresh when returning to inbox to show any new requests
         vm.loadRequests()
     }
 }
-

@@ -5,3 +5,4 @@ data class AcceptRequest(
     val creatorEmail: String,
     val userEmail: String
 )
+

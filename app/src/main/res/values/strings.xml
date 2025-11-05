@@ -181,4 +181,6 @@
     <string name="request_failed">Request failed!</string>
     <string name="requested">Requested</string>
     <string name="join">Join</string>
+    <string name="unknown_user">Unknown user</string>
+    <string name="request_wants_to_join_fmt">wants to join %1$s</string>
 </resources>

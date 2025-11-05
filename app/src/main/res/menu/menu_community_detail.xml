@@ -9,6 +9,12 @@
         app:showAsAction="always" />
 
     <item
+        android:id="@+id/action_invite"
+        android:title="Invite"
+        android:icon="@drawable/share"
+        app:showAsAction="always" />
+
+    <item
         android:id="@+id/action_delete_community"
         android:title="Delete"
         android:icon="@android:drawable/ic_menu_delete"

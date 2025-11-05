@@ -15,6 +15,6 @@ data class PendingRequest(
     val userName: String?,
     val userAvatarUrl: String?,
     val requestedAt: String,
-    val status: String // e.g., "PENDING", "APPROVED", "REJECTED"
+    val status: String
 )
 

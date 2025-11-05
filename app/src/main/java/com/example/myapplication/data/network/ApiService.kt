@@ -8,6 +8,7 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.*
+import com.google.gson.JsonElement
 
 interface ApiService {
     @POST("registration")
@@ -173,5 +174,33 @@ interface ApiService {
     suspend fun getMyPendingRequests(
         @Query("requesterEmail") requesterEmail: String
     ): Response<GetMyPendingRequestsResponse>
+
+    // Raw variant to handle servers that sometimes return a plain array or different envelope
+    @GET("community/my-pending-requests")
+    suspend fun getMyPendingRequestsRaw(
+        @Query("requesterEmail") requesterEmail: String
+    ): Response<JsonElement>
+
+    @POST("community/rejectRequest")
+    suspend fun rejectRequest(
+        @Body body: RejectRequest
+    ): Response<RejectRequestResponse>
+
+    @POST("community/acceptRequest")
+    suspend fun acceptRequest(
+        @Body body: AcceptRequest
+    ): Response<AcceptRequestResponse>
+
+    @POST("community/invites/{communityId}/create")
+    suspend fun createInviteLink(
+        @Path("communityId") communityId: String,
+        @Body body: CommunityInviteLinkRequest
+    ): Response<CommunityInviteLinkResponse>
+
+    @POST("community/invites/accept")
+    suspend fun joinCommunityByLink(
+        @Body body: JoinCommunityByLinkRequest
+    ): Response<JoinCommunityByLinkResponse>
+
 
 }

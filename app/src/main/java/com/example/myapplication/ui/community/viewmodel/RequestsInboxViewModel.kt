@@ -21,6 +21,9 @@ class RequestsInboxViewModel(app: Application) : AndroidViewModel(app) {
     private val _toast = MutableLiveData<String?>()
     val toast: LiveData<String?> = _toast
 
+    private val _processingComplete = MutableLiveData<String?>()
+    val processingComplete: LiveData<String?> = _processingComplete
+
     fun loadRequests() {
         viewModelScope.launch {
             _loading.postValue(true)
@@ -36,21 +39,33 @@ class RequestsInboxViewModel(app: Application) : AndroidViewModel(app) {
 
     fun acceptRequest(request: PendingRequest) {
         viewModelScope.launch {
-            // TODO: Implement accept API call
-            // For now, just remove from list
-            _toast.postValue("Accept functionality will be implemented soon")
-            val updatedList = _requests.value?.filter { it.id != request.id } ?: emptyList()
-            _requests.postValue(updatedList)
+            val result = repo.acceptJoinRequest(request)
+            result.onSuccess {
+                _toast.postValue("Request accepted successfully")
+                // Remove from list
+                val updatedList = _requests.value?.filter { it.id != request.id } ?: emptyList()
+                _requests.postValue(updatedList)
+            }.onFailure { error ->
+                _toast.postValue("Failed to accept: ${error.message}")
+            }
+            // Notify processing complete regardless of success/failure
+            _processingComplete.postValue(request.id)
         }
     }
 
     fun rejectRequest(request: PendingRequest) {
         viewModelScope.launch {
-            // TODO: Implement reject API call
-            // For now, just remove from list
-            _toast.postValue("Reject functionality will be implemented soon")
-            val updatedList = _requests.value?.filter { it.id != request.id } ?: emptyList()
-            _requests.postValue(updatedList)
+            val result = repo.rejectJoinRequest(request)
+            result.onSuccess {
+                _toast.postValue("Request rejected")
+                // Remove from list
+                val updatedList = _requests.value?.filter { it.id != request.id } ?: emptyList()
+                _requests.postValue(updatedList)
+            }.onFailure { error ->
+                _toast.postValue("Failed to reject: ${error.message}")
+            }
+            // Notify processing complete regardless of success/failure
+            _processingComplete.postValue(request.id)
         }
     }
 }
