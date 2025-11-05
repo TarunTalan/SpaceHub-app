@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ID declarations must be empty items. Do not put text content inside. -->
+    <item name="swipe_refresh_my_communities" type="id" />
+</resources>

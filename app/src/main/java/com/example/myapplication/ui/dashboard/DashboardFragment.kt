@@ -27,6 +27,9 @@ import androidx.core.content.edit
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.ui.common.ProfileSharedViewModel
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.example.myapplication.data.community.repository.CommunityRepository
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 
 class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
 
@@ -188,6 +191,8 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
 
         // Setup Your Communities Recycler
         val rvYourCommunities = view.findViewById<RecyclerView>(R.id.rv_your_communities)
+        // Empty state container (illustration with texts)
+        val emptyIllustrationContainer = view.findViewById<View>(R.id.illustration)
         val yourAdapter = YourCommunityAdapter { item ->
             try {
                 val args = Bundle().apply { putString("communityId", item.communityId) }
@@ -196,6 +201,21 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         }
         rvYourCommunities?.layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.VERTICAL, false)
         rvYourCommunities?.adapter = yourAdapter
+
+        // Pull-to-refresh: reload My Communities from server
+        val swipe = view.findViewById<SwipeRefreshLayout>(R.id.swipe_refresh_my_communities)
+        swipe?.setOnRefreshListener {
+            viewLifecycleOwner.lifecycleScope.launch {
+                val repo = CommunityRepository.getInstance(requireContext())
+                val email = com.example.myapplication.data.user.UserDataManager.getInstance(requireContext()).getEmail()
+                val res = repo.fetchMyCommunitiesRemote(email)
+                // stop spinner regardless of outcome
+                swipe.isRefreshing = false
+                res.onFailure { e ->
+                    try { android.widget.Toast.makeText(requireContext(), e.message ?: "Failed to refresh", android.widget.Toast.LENGTH_SHORT).show() } catch (_: Exception) {}
+                }
+            }
+        }
 
         // Toggle expand/collapse for "Your Community"
         val ivToggle = view.findViewById<ImageView>(R.id.iv_toggle_your_comm)
@@ -223,6 +243,12 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
                 // Show combined (owned + joined) "My communities" list
                 communityVm.observeMyCommunities().collect { list ->
                     yourAdapter.submitList(list)
+                    // Ensure any pending swipe spinner is stopped when data arrives
+                    swipe?.isRefreshing = false
+                    // Empty state toggle: show illustration when no communities
+                    val isEmpty = list.isNullOrEmpty()
+                    emptyIllustrationContainer?.visibility = if (isEmpty) View.VISIBLE else View.GONE
+                    rvYourCommunities?.visibility = if (isEmpty) View.GONE else View.VISIBLE
                 }
             }
         }

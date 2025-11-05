@@ -5,7 +5,6 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
-import android.graphics.Color
 import android.graphics.Rect
 import android.os.Bundle
 import android.util.Log
@@ -20,15 +19,18 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.R
 import com.example.myapplication.data.community.model.DataRoom
 import com.example.myapplication.data.community.repository.CommunityRepository
 import com.example.myapplication.data.user.UserDataManager
+import com.example.myapplication.ui.community.adapter.MemberAdapter
 import com.example.myapplication.ui.community.adapter.RoomAdapter
 import com.example.myapplication.ui.community.viewmodel.CommunityDetailViewModel
 import kotlinx.coroutines.launch
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 
 class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
 
@@ -237,10 +239,6 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
         val img = view.findViewById<ImageView>(R.id.community_image)
         val nameTv = view.findViewById<TextView>(R.id.community_name)
 
-        view.findViewById<View>(R.id.refresh_rooms)?.setOnClickListener {
-            viewLifecycleOwner.lifecycleScope.launch { vm.loadRooms() }
-        }
-
         // Back icon in header
         view.findViewById<View>(R.id.imageView)?.setOnClickListener { findNavController().navigateUp() }
 
@@ -324,17 +322,6 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                     // DEBUG: force full refresh in case DiffUtil incorrectly thinks list unchanged
                     try { adapter.notifyDataSetChanged() } catch (_: Exception) {}
                     try { android.util.Log.d("CommunityDetail", "adapter.itemCount=${adapter.itemCount}") } catch (_: Exception) {}
-                    // DEBUG: inspect RecyclerView layout bounds and make it visible with a tint
-                    try {
-                        rv.setBackgroundColor(Color.parseColor("#33FF00")) // translucent green
-                        rv.post {
-                            try {
-                                val rect = Rect()
-                                rv.getGlobalVisibleRect(rect)
-                                android.util.Log.d("CommunityDetail", "RV bounds: top=${rv.top}, left=${rv.left}, width=${rv.width}, height=${rv.height}, visibleRect=$rect")
-                            } catch (_: Exception) {}
-                        }
-                    } catch (_: Exception) {}
                  }
              }
         }
@@ -364,6 +351,98 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                 }
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()
+        }
+
+        // Long-press member count to open Members list (quick entry point)
+        view.findViewById<TextView>(R.id.members_tv)?.setOnLongClickListener {
+            val communityId = arguments?.getString("communityId") ?: return@setOnLongClickListener true
+            showMembersDialog(communityId)
+            true
+        }
+        view.findViewById<TextView>(R.id.member_count_tv)?.setOnLongClickListener {
+            val communityId = arguments?.getString("communityId") ?: return@setOnLongClickListener true
+            showMembersDialog(communityId)
+            true
+        }
+
+        // Wire swipe-to-refresh
+        val swipe = view.findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
+        swipe?.setOnRefreshListener { vm.refreshRooms() }
+        vm.loading.observe(viewLifecycleOwner) { show ->
+            view.findViewById<ProgressBar>(R.id.progress)?.visibility = if (show) View.VISIBLE else View.GONE
+            // stop the spinner when loading completes
+            if (!show) swipe?.isRefreshing = false
+        }
+    }
+
+    private fun showMembersDialog(communityId: String) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val ctx = requireContext()
+            val repo = CommunityRepository.getInstance(ctx)
+            val progress = ProgressBar(ctx)
+            val dlg = AlertDialog.Builder(ctx)
+                .setTitle("Members")
+                .setView(progress)
+                .setCancelable(true)
+                .create()
+            try { dlg.show() } catch (_: Exception) {}
+
+            val res = repo.fetchMembers(communityId)
+            if (res.isFailure) {
+                try { dlg.dismiss() } catch (_: Exception) {}
+                Toast.makeText(ctx, res.exceptionOrNull()?.message ?: "Failed to load members", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+
+            val members = res.getOrNull().orEmpty()
+            val currentEmail = com.example.myapplication.data.user.UserDataManager.getInstance(ctx).getEmail()
+            val currentIsAdmin = members.any { m ->
+                m.email.equals(currentEmail, true) && (m.role.equals("ADMIN", true) || m.role.equals("OWNER", true))
+            }
+
+            val rv = RecyclerView(ctx)
+            rv.layoutManager = LinearLayoutManager(ctx)
+            rv.addItemDecoration(DividerItemDecoration(ctx, DividerItemDecoration.VERTICAL))
+
+            val adapter = MemberAdapter(
+                isAdmin = currentIsAdmin,
+                onChangeRole = { member, newRole ->
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        val result = repo.changeMemberRole(communityId, member.email, newRole)
+                        result.onSuccess {
+                            Toast.makeText(ctx, "Role updated", Toast.LENGTH_SHORT).show()
+                            // refresh list
+                            showMembersDialog(communityId)
+                        }.onFailure { e ->
+                            Toast.makeText(ctx, e.message ?: "Failed", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
+                onRemove = { member ->
+                    AlertDialog.Builder(ctx)
+                        .setTitle("Remove member")
+                        .setMessage("Remove ${member.username}?")
+                        .setPositiveButton("Remove") { d, _ ->
+                            d.dismiss()
+                            viewLifecycleOwner.lifecycleScope.launch {
+                                val result = repo.removeMember(communityId, member.email)
+                                result.onSuccess {
+                                    Toast.makeText(ctx, "Removed", Toast.LENGTH_SHORT).show()
+                                    // refresh list
+                                    showMembersDialog(communityId)
+                                }.onFailure { e ->
+                                    Toast.makeText(ctx, e.message ?: "Failed", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show()
+                }
+            )
+            rv.adapter = adapter
+            adapter.submitList(members)
+
+            dlg.setView(rv)
         }
     }
 

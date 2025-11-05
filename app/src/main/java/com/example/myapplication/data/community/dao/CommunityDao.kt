@@ -103,4 +103,12 @@ interface CommunityDao {
     // Delete all communities
     @Query("DELETE FROM communities")
     suspend fun deleteAllCommunities()
+
+    // Delete communities not present in the latest server response
+    @Query("DELETE FROM communities WHERE communityId NOT IN (:ids)")
+    suspend fun deleteCommunitiesNotIn(ids: List<String>)
+
+    // Delete all non-member/owner communities
+    @Query("DELETE FROM communities WHERE isOwner = 0 AND isMember = 0")
+    suspend fun deleteAllNonMyCommunities()
 }

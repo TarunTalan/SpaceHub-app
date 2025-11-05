@@ -24,16 +24,16 @@ class SearchRepository private constructor(context: Context) {
             val body = resp.body()
             val list = body?.data?.communities?.map { net ->
                 CommunityUi(
-                    communityId = net.communityId,
-                    id = net.communityId.hashCode(),
-                    name = net.name,
-                    imageUrl = net.imageUrl.takeIf { it.isNotBlank() },
-                    subtitle = net.description,
+                    communityId = net.communityId ?: "",
+                    id = (net.communityId ?: "").hashCode(),
+                    name = net.name ?: "",
+                    imageUrl = net.imageUrl?.takeIf { it.isNotBlank() } ?: "",
+                    subtitle = net.description ?: "",
                     isLocal = false,
-                    isMember = net.isMember,
+                    isMember = net.isMember == true,
                     isOwner = false,
                     isAdmin = false,
-                    isRequested = net.isRequested
+                    isRequested = net.isRequested == true
                 )
             } ?: emptyList()
 

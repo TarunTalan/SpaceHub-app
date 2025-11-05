@@ -102,16 +102,23 @@ interface ApiService {
         @Body body: RemoveMemberRequest
     ): Response<RemoveMemberResponse>
 
-    // Re-add leaveCommunity so user can leave a community (joined list still comes from getMyCommunities)
+    // Leave a community
     @POST("community/leave")
     suspend fun leaveCommunity(
-        @Body body: LeaveRequest
-    ): Response<LeaveResponse>
+        @Body body: LeaveCommunityRequest
+    ): Response<LeaveCommunityResponse>
 
     @POST("community/updateInfo")
     suspend fun updateCommunityInfo(
         @Body body: UpdateCommunityRequest
     ): Response<UpdateCommunityResponse>
+
+    @POST("community/{communityId}/upload-banner")
+    suspend fun uploadCommunityBanner(
+        @Path("communityId") communityId: String,
+        @Query("requesterEmail") requesterEmail: String,
+        @Part file: MultipartBody.Part? = null
+    ): Response<UploadBannerResponse>
 
     @POST("community/delete")
     suspend fun deleteCommunity(
@@ -121,7 +128,7 @@ interface ApiService {
     // Keep a single endpoint that returns communities where the requester is member or owner
     @GET("community/my-communities")
     suspend fun getMyCommunities(
-        @Query("email") requesterEmail: String
+        @Query("requesterEmail") requesterEmail: String
     ): Response<GetMyCommunitiesResponse>
 
     @POST("community/blockMember")

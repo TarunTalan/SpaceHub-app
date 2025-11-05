@@ -2,6 +2,7 @@ package com.example.myapplication.data.community.repository
 
 import android.content.Context
 import android.util.Log
+import androidx.room.withTransaction
 import com.example.myapplication.data.community.dao.CommunityDao
 import com.example.myapplication.data.community.database.CommunityDatabase
 import com.example.myapplication.data.community.model.*
@@ -9,7 +10,6 @@ import com.example.myapplication.data.network.NetworkModule
 import com.example.myapplication.data.user.UserDataManager
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
-import com.google.gson.JsonObject
 import com.google.gson.JsonParseException
 import kotlinx.coroutines.flow.Flow
 
@@ -18,11 +18,12 @@ import kotlinx.coroutines.flow.Flow
   Repository for Community data operations.
   Provides a clean API for accessing communities from Room database and remote APIs.
  */
-class CommunityRepository private constructor(context: Context) {
+class CommunityRepository private constructor(private val context: Context) {
 
     private val communityDao: CommunityDao = CommunityDatabase.getInstance(context).communityDao()
     private val api = NetworkModule.createApiService(context)
     private val userData = UserDataManager.getInstance(context)
+    private val roomDao = CommunityDatabase.getInstance(context).roomDao()
 
     companion object {
         @Volatile
@@ -133,7 +134,7 @@ class CommunityRepository private constructor(context: Context) {
         }
     }
 
-    suspend fun changeMemberRole(communityId: String, targetUserEmail: String, newRole: String): Result<Unit> {
+    suspend fun changeMemberRole(communityId: String, targetUserEmail: String?, newRole: String): Result<Unit> {
         return try {
             val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
             val resp = api.changeRole(ChangeRoleRequest(communityId, newRole, email, targetUserEmail))
@@ -142,7 +143,7 @@ class CommunityRepository private constructor(context: Context) {
         } catch (t: Throwable) { Result.failure(t) }
     }
 
-    suspend fun removeMember(communityId: String, targetUserEmail: String): Result<Unit> {
+    suspend fun removeMember(communityId: String, targetUserEmail: String?): Result<Unit> {
         return try {
             val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
             val resp = api.removeMember(RemoveMemberRequest(communityId, email, targetUserEmail))
@@ -154,9 +155,12 @@ class CommunityRepository private constructor(context: Context) {
     suspend fun leaveCommunity(communityId: String, communityName: String): Result<Unit> {
         return try {
             val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
-            val resp = api.leaveCommunity(LeaveRequest(communityName = communityName, userEmail = email))
-            if (resp.isSuccessful && resp.body()?.status in listOf(200, 201)) Result.success(Unit)
-            else Result.failure(RuntimeException("Failed: ${resp.code()}"))
+            val resp = api.leaveCommunity(LeaveCommunityRequest(communityName = communityName, userEmail = email))
+            if (resp.isSuccessful && resp.body()?.status in listOf(200, 201)) {
+                // reconcile local list from server
+                runCatching { fetchMyCommunitiesRemote(email) }
+                Result.success(Unit)
+            } else Result.failure(RuntimeException("Failed: ${resp.code()}"))
         } catch (t: Throwable) { Result.failure(t) }
     }
 
@@ -285,8 +289,10 @@ class CommunityRepository private constructor(context: Context) {
             val req = DeleteCommunityRequest(name = community.name, userEmail = email)
             val resp = api.deleteCommunity(req)
             if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
-                // Remove locally as well
+                // Remove locally as well (immediate UI feedback)
                 communityDao.deleteCommunityById(communityId)
+                // Then reconcile with server to ensure no stale entries remain
+                runCatching { fetchMyCommunitiesRemote(email) }
                 Result.success(Unit)
             } else {
                 val code = resp.code()
@@ -311,55 +317,54 @@ class CommunityRepository private constructor(context: Context) {
     // Fetch "My communities" from remote API and persist locally into Room
     suspend fun fetchMyCommunitiesRemote(requesterEmail: String? = null): Result<Unit> {
         return try {
-            // Prefer provided email (this avoids races when DataStore write is still pending).
             val email = requesterEmail ?: userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
-
             val resp = api.getMyCommunities(email)
             if (!resp.isSuccessful) return Result.failure(RuntimeException("HTTP ${resp.code()}"))
 
             val body = resp.body()
             val data = body?.data ?: return Result.success(Unit)
 
-            // The generated model for data contains a `communities` list named in DataXXXX
-            val communitiesList = try {
-                // Map network model CommunityX/DataXX etc to local Community model
-                val mapped = data.communities.map { net ->
-                    val bannerStr = try {
-                        val s = net.bannerUrl?.toString() ?: ""
-                        s.takeIf { it.isNotBlank() && it != "null" }
-                    } catch (t: Throwable) { null }
-
-                    val img = net.imageUrl.takeIf { it.isNotBlank() }
-
+            val mapped: List<Community> = data.communities.mapNotNull { dto ->
+                try {
                     Community(
-                        communityId = net.communityId,
-                        name = net.name,
-                        description = net.description.takeIf { it.isNotBlank() },
-                        profilePicUrl = img,
+                        communityId = dto.communityId,
+                        name = dto.name,
+                        description = dto.description?.takeIf { it.isNotBlank() },
+                        profilePicUrl = dto.imageUrl?.takeIf { it.isNotBlank() },
                         profilePicLocalPath = null,
-                        coverPhotoUrl = bannerStr,
+                        coverPhotoUrl = dto.bannerUrl?.takeIf { it.isNotBlank() },
                         coverPhotoLocalPath = null,
                         category = null,
-                        isPrivate = false,
-                        creatorId = null,
-                        creatorName = null,
-                        isOwner = false,
-                        isMember = true,
                         memberCount = 0,
                         postCount = 0,
+                        isPrivate = false,
+                        creatorId = dto.createdBy?.email,
+                        creatorName = dto.createdBy?.username,
                         createdAt = System.currentTimeMillis(),
-                        updatedAt = System.currentTimeMillis()
+                        updatedAt = System.currentTimeMillis(),
+                        // Server response does not provide membership flags; infer none
+                        isOwner = false,
+                        isMember = true,
+                        isModerator = false
                     )
+                } catch (_: Exception) { null }
+            }
+
+            val ids = mapped.map { it.communityId }
+
+            // Run delete+insert in a single transaction so flows emit once
+            CommunityDatabase.getInstance(context).withTransaction {
+                // remove communities not present in latest response to avoid stale/deleted entries
+                if (ids.isNotEmpty()) {
+                    communityDao.deleteCommunitiesNotIn(ids)
+                } else {
+                    // server returned empty: clear all "my" communities
+                    communityDao.deleteAllNonMyCommunities()
                 }
-                mapped
-            } catch (t: Throwable) {
-                emptyList<Community>()
+                if (mapped.isNotEmpty()) {
+                    communityDao.insertCommunities(mapped)
+                }
             }
-
-            if (communitiesList.isNotEmpty()) {
-                communityDao.insertCommunities(communitiesList)
-            }
-
             Result.success(Unit)
         } catch (t: Throwable) {
             Result.failure(t)
@@ -482,8 +487,13 @@ class CommunityRepository private constructor(context: Context) {
             Log.d("CommunityRepo", "acceptJoinRequest - payload=$payload")
             val resp = api.acceptRequest(payload)
             Log.d("CommunityRepo", "acceptJoinRequest - HTTP ${resp.code()} isSuccessful=${resp.isSuccessful} bodyStatus=${resp.body()?.status} msg=${resp.body()?.message}")
-            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) Result.success(Unit)
-            else Result.failure(RuntimeException(resp.body()?.message ?: "HTTP ${resp.code()}"))
+            return if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
+                // After accepting a request, refresh My Communities to reflect any changes immediately
+                runCatching { fetchMyCommunitiesRemote(creatorEmail) }
+                Result.success(Unit)
+            } else {
+                Result.failure(RuntimeException(resp.body()?.message ?: "HTTP ${resp.code()}"))
+            }
         } catch (t: Throwable) {
             Log.e("CommunityRepo", "acceptJoinRequest - exception: ${t.message}", t)
             Result.failure(t)
@@ -546,6 +556,88 @@ class CommunityRepository private constructor(context: Context) {
                 val msg = resp.body()?.message ?: "HTTP $code"
                 Result.failure(RuntimeException(msg))
             }
+        } catch (t: Throwable) {
+            Result.failure(t)
+        }
+    }
+
+    suspend fun leaveCommunityRemote(communityName: String): Result<Unit> {
+        return try {
+            val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
+            val resp = api.leaveCommunity(LeaveCommunityRequest(communityName = communityName, userEmail = email))
+            if (resp.isSuccessful && resp.body()?.status in listOf(200, 201)) {
+                // Immediately reconcile local cache from server (will prune left community)
+                runCatching { fetchMyCommunitiesRemote(email) }
+                Result.success(Unit)
+            }
+            else Result.failure(RuntimeException("Failed: ${resp.code()}"))
+        } catch (t: Throwable) { Result.failure(t) }
+    }
+
+    // Observe rooms for a community
+    fun observeRooms(communityId: String) = roomDao.observeRooms(communityId)
+
+    // Fetch and persist rooms
+    suspend fun refreshRooms(communityId: String): Result<Unit> {
+        return try {
+            val resp = api.getAllRooms(communityId)
+            if (!resp.isSuccessful) return Result.failure(RuntimeException("HTTP ${resp.code()}"))
+            val body = resp.body()
+            val dataEl = body?.data
+
+            // Reuse existing JSON mapping logic from getAllRooms()
+            fun extractArray(el: com.google.gson.JsonElement?): com.google.gson.JsonArray? {
+                if (el == null || el.isJsonNull) return null
+                if (el.isJsonArray) return el.asJsonArray
+                if (el.isJsonObject) {
+                    val obj = el.asJsonObject
+                    val keys = arrayOf("rooms", "chatRooms", "data", "content", "results", "items")
+                    for (k in keys) {
+                        if (obj.has(k)) {
+                            val child = obj.get(k)
+                            val asArr = extractArray(child)
+                            if (asArr != null) return asArr
+                        }
+                    }
+                }
+                return null
+            }
+            fun mapRoom(el: com.google.gson.JsonElement): RoomEntity? {
+                if (el.isJsonPrimitive) {
+                    val v = el.asJsonPrimitive
+                    val s = if (v.isString) v.asString else v.toString()
+                    return RoomEntity(id = s, communityId = communityId, name = s, roomCode = "")
+                }
+                if (!el.isJsonObject) return null
+                val o = el.asJsonObject
+                val id = when {
+                    o.has("id") && !o.get("id").isJsonNull -> o.get("id").asString
+                    o.has("_id") && !o.get("_id").isJsonNull -> o.get("_id").asString
+                    o.has("roomId") && !o.get("roomId").isJsonNull -> o.get("roomId").asString
+                    else -> null
+                } ?: return null
+                val name = when {
+                    o.has("name") && !o.get("name").isJsonNull -> o.get("name").asString
+                    o.has("roomName") && !o.get("roomName").isJsonNull -> o.get("roomName").asString
+                    o.has("title") && !o.get("title").isJsonNull -> o.get("title").asString
+                    else -> id
+                }
+                val code = when {
+                    o.has("roomCode") && !o.get("roomCode").isJsonNull -> o.get("roomCode").asString
+                    o.has("room_code") && !o.get("room_code").isJsonNull -> o.get("room_code").asString
+                    o.has("type") && !o.get("type").isJsonNull -> o.get("type").asString
+                    o.has("code") && !o.get("code").isJsonNull -> o.get("code").asString
+                    else -> ""
+                }
+                return RoomEntity(id = id, communityId = communityId, name = name, roomCode = code)
+            }
+
+            val arr = extractArray(dataEl)
+            val rooms = arr?.mapNotNull { mapRoom(it) } ?: emptyList()
+            // Persist: replace existing rooms for this community
+            roomDao.deleteByCommunity(communityId)
+            if (rooms.isNotEmpty()) roomDao.insertAll(rooms)
+            Result.success(Unit)
         } catch (t: Throwable) {
             Result.failure(t)
         }

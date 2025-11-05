@@ -8,7 +8,9 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.myapplication.data.community.model.DataRoom
 import com.example.myapplication.data.community.repository.CommunityRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
 
 class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = CommunityRepository.getInstance(app)
@@ -34,14 +36,25 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
     private val _deleted = MutableLiveData<Boolean>(false)
     val deleted: LiveData<Boolean> = _deleted
 
+    private var roomsCollectJob: Job? = null
+
     fun setCommunityId(id: String) {
         if (_communityId.value == id) return
         _communityId.value = id
+        // Observe rooms from DB so UI auto-refreshes
+        roomsCollectJob?.cancel()
+        roomsCollectJob = viewModelScope.launch {
+            repo.observeRooms(id).collectLatest { entities ->
+                val mapped = entities.map { e -> DataRoom(id = e.id, name = e.name, roomCode = e.roomCode) }
+                _rooms.postValue(mapped)
+            }
+        }
         viewModelScope.launch {
             repo.getCommunityById(id)?.let { _communityName.postValue(it.name) }
             refreshMemberCount()
             refreshAdminCount()
-            loadRooms()
+            // initial network sync
+            syncRooms()
         }
     }
 
@@ -57,8 +70,8 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
         val res = repo.fetchMembers(id)
         res.onSuccess { list ->
             val count = list.count { m ->
-                val role = m.role.trim().uppercase()
-                role.contains("ADMIN") || role.contains("OWNER")
+                val role = m.role?.trim()?.uppercase()
+                role?.contains("ADMIN") == true || role?.contains("OWNER") == true
             }
             _adminCount.postValue(count)
         }.onFailure { _toast.postValue(it.message) }
@@ -73,7 +86,7 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
             _toast.postValue("Room created")
             refreshMemberCount()
             refreshAdminCount()
-            loadRooms()
+            syncRooms()
         }.onFailure { _toast.postValue(it.message ?: "Failed to create room") }
     }
 
@@ -86,29 +99,24 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
             _toast.postValue("Room deleted")
             refreshMemberCount()
             refreshAdminCount()
-            loadRooms()
+            syncRooms()
         }.onFailure { _toast.postValue(it.message ?: "Failed to delete room") }
     }
 
-    suspend fun loadRooms() {
+    private suspend fun syncRooms() {
         val id = _communityId.value ?: return
         _loading.postValue(true)
-        val res = repo.getAllRooms(id)
+        val res = repo.refreshRooms(id)
         _loading.postValue(false)
-        res.onSuccess { list ->
-            Log.d("CommunityVM", "loadRooms success for id=$id count=${list.size}")
-            _rooms.postValue(list)
-        }.onFailure { err ->
-            Log.w("CommunityVM", "loadRooms failed for id=$id: ${err.message}")
+        res.onFailure { err ->
+            Log.w("CommunityVM", "refreshRooms failed for id=$id: ${err.message}")
             _toast.postValue(err.message ?: "Failed to load rooms")
-            _rooms.postValue(emptyList())
         }
     }
 
     // non-suspending helper for UI to request a refresh
     fun refreshRooms() {
-        val id = _communityId.value ?: return
-        viewModelScope.launch { loadRooms() }
+        viewModelScope.launch { syncRooms() }
     }
 
     suspend fun renameRoom(roomId: String, newName: String) {
@@ -120,7 +128,7 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
             _toast.postValue("Room renamed")
             refreshMemberCount()
             refreshAdminCount()
-            loadRooms()
+            syncRooms()
         }.onFailure { _toast.postValue(it.message ?: "Failed to rename room") }
     }
 

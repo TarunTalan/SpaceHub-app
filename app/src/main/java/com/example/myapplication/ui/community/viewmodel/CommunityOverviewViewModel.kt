@@ -72,8 +72,8 @@ class CommunityOverviewViewModel(app: Application) : AndroidViewModel(app) {
             val adminRes = repo.fetchMembers(id)
             adminRes.onSuccess { members ->
                 val admins = members.count { m ->
-                    val role = m.role.trim().uppercase()
-                    role.contains("ADMIN") || role.contains("OWNER")
+                    val role = m.role?.trim()?.uppercase()
+                    role?.contains("ADMIN") == true || role?.contains("OWNER") == true
                 }
                 _adminCount.postValue(admins)
             }

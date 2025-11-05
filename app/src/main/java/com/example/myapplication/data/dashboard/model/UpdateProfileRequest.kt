@@ -8,5 +8,4 @@ data class UpdateProfileRequest(
     val website: String,
     val  isPrivate: Boolean,
     val username: String,
-    val dateOfBirth: String = ""
 )

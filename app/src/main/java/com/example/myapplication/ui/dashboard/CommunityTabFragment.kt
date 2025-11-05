@@ -21,6 +21,7 @@ class CommunityTabFragment : BaseFragment(R.layout.fragment_tab_community) {
     private lateinit var recycler: RecyclerView
     private lateinit var adapter: CommunityListAdapter
     private var emptyView: TextView? = null
+    private var emptyView2: TextView? = null
     private var loader: ProgressBar? = null
     private var emptyIllustration: ImageView? = null
 
@@ -38,6 +39,7 @@ class CommunityTabFragment : BaseFragment(R.layout.fragment_tab_community) {
         super.onViewCreated(view, savedInstanceState)
         recycler = view.findViewById(R.id.rvCommunity)
         emptyView = view.findViewById(R.id.emptyView)
+        emptyView2 = view.findViewById(R.id.emptyView2)
         loader = view.findViewById(R.id.progress_loader)
         emptyIllustration = view.findViewById(R.id.emptyIllustration)
         val repo = CommunityRepository.getInstance(requireContext())
@@ -98,12 +100,14 @@ class CommunityTabFragment : BaseFragment(R.layout.fragment_tab_community) {
     private fun updateEmptyState() {
         // If recycler not initialized yet, nothing to do
         if (!::recycler.isInitialized) return
-        // when loading, always hide empty UI
         val isLoading = loader?.visibility == View.VISIBLE
         val isEmpty = adapter.itemCount == 0
         val showEmpty = !isLoading && isEmpty
+        // Toggle views
         emptyView?.visibility = if (showEmpty) View.VISIBLE else View.GONE
+        emptyView2?.visibility = if (showEmpty) View.VISIBLE else View.GONE
         emptyIllustration?.visibility = if (showEmpty) View.VISIBLE else View.GONE
+        recycler.visibility = if (showEmpty) View.GONE else View.VISIBLE
     }
 
     fun setLoading(loading: Boolean) {
@@ -113,6 +117,7 @@ class CommunityTabFragment : BaseFragment(R.layout.fragment_tab_community) {
         recycler.visibility = if (loading) View.GONE else View.VISIBLE
         if (loading) {
             emptyView?.visibility = View.GONE
+            emptyView2?.visibility = View.GONE
             emptyIllustration?.visibility = View.GONE
         }
     }

@@ -12,6 +12,7 @@ import com.example.myapplication.R
 import com.example.myapplication.data.community.model.Member
 
 class MemberAdapter(
+    private val isAdmin: Boolean,
     private val onChangeRole: (Member, String) -> Unit,
     private val onRemove: (Member) -> Unit,
 ) : ListAdapter<Member, MemberAdapter.VH>(Diff) {
@@ -28,9 +29,20 @@ class MemberAdapter(
         private val btnRemove: Button = view.findViewById(R.id.btnRemove)
 
         fun bind(item: Member) {
-            tvName.text = item.username
+            tvName.text = item.username?.toString() ?: "Unknown"
             tvRole.text = item.role
-            btnPromote.setOnClickListener { onChangeRole(item, if (item.role.equals("ADMIN", true)) "MEMBER" else "ADMIN") }
+
+            val roleUpper = item.role?.trim()?.uppercase()
+            val isOwner = roleUpper?.contains("OWNER")
+
+            // Only admins can see action buttons; never allow remove on OWNER
+            btnPromote.visibility = if (isAdmin) View.VISIBLE else View.GONE
+            btnRemove.visibility = if (isAdmin && !isOwner!!) View.VISIBLE else View.GONE
+
+            btnPromote.setOnClickListener {
+                val next = if (roleUpper == "ADMIN") "MEMBER" else "ADMIN"
+                onChangeRole(item, next)
+            }
             btnRemove.setOnClickListener { onRemove(item) }
         }
     }
@@ -44,4 +56,3 @@ class MemberAdapter(
         holder.bind(getItem(position))
     }
 }
-

@@ -48,15 +48,15 @@ class DashboardRepository(private val context: Context) {
             handle = { resp ->
                 if (resp.isSuccessful) {
                     val body = resp.body()
-                    if (body != null && (body.status == 200 || body.status == 201)) {
-                        val uname = try { body.data } catch (_: Exception) { username }
+                    val statusCode = body?.status ?: resp.code()
+                    if (statusCode == 200 || statusCode == 201) {
+                        val uname = body?.data ?: username
                         DashboardResult.Success(uname)
                     } else {
-                        DashboardResult.Error(body?.message ?: "Username validation failed.", body?.status)
+                        DashboardResult.Error(body?.message ?: "Username validation failed.", statusCode)
                     }
                 } else {
-                    val statusCode = resp.code()
-                    DashboardResult.Error("Username validation failed.", statusCode)
+                    DashboardResult.Error("Username validation failed.", resp.code())
                 }
             }
         )

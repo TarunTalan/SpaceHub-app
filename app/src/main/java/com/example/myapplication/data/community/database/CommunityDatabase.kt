@@ -5,20 +5,23 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.myapplication.data.community.dao.CommunityDao
+import com.example.myapplication.data.community.dao.RoomDao
 import com.example.myapplication.data.community.model.Community
+import com.example.myapplication.data.community.model.RoomEntity
 
 /**
  * Room Database for storing community data.
  * Provides offline access and caching for communities.
  */
 @Database(
-    entities = [Community::class],
-    version = 1,
+    entities = [Community::class, RoomEntity::class],
+    version = 2,
     exportSchema = false
 )
 abstract class CommunityDatabase : RoomDatabase() {
 
     abstract fun communityDao(): CommunityDao
+    abstract fun roomDao(): RoomDao
 
     companion object {
         @Volatile
@@ -41,4 +44,3 @@ abstract class CommunityDatabase : RoomDatabase() {
         }
     }
 }
-

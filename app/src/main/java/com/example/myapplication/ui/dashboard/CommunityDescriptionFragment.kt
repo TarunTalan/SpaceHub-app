@@ -21,6 +21,7 @@ import com.example.myapplication.ui.common.BaseFragment
 import com.example.myapplication.ui.common.ProfileSharedViewModel
 import com.example.myapplication.ui.community.viewmodel.CommunityViewModel
 import com.bumptech.glide.Glide
+import com.example.myapplication.data.user.UserDataManager
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -156,8 +157,17 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
             try {
                 val api = NetworkModule.createApiService(requireContext())
 
+                // Prefer DataStore email (authoritative). Fallback to prefs if missing.
+                val userData = UserDataManager.getInstance(requireContext())
+                val emailDs = userData.getEmail()
                 val prefs = requireContext().getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
-                val email = prefs.getString("email", "") ?: ""
+                val emailPref = prefs.getString("email", null)
+                val email = when {
+                    !emailDs.isNullOrBlank() -> emailDs
+                    !emailPref.isNullOrBlank() -> emailPref
+                    else -> null
+                }
+                if (email.isNullOrBlank()) return@withContext null
 
                 val nameBody = name.toRequestBody("text/plain".toMediaTypeOrNull())
                 val descriptionBody = description.toRequestBody("text/plain".toMediaTypeOrNull())

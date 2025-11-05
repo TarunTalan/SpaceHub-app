@@ -4,8 +4,8 @@
     android:padding="12dp"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="8dp"
-    android:background="@android:color/white"
+    android:layout_marginBottom="15dp"
+    android:background="@drawable/edit_text_outline"
     android:clickable="true"
     android:focusable="true"
     android:elevation="2dp">
@@ -14,18 +14,13 @@
         android:id="@+id/tvRoomName"
         android:textStyle="bold"
         android:textSize="16sp"
-        android:textColor="@android:color/black"
+        android:textColor="@android:color/white"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:minHeight="48dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp"/>
-
-    <TextView
-        android:id="@+id/tvRoomType"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textColor="#666666"
-        android:paddingBottom="8dp"/>
+        android:gravity="center_vertical"
+        android:paddingVertical="4dp"
+        android:paddingHorizontal="10dp"
+        android:text="#hdck"
+    />
 
 </LinearLayout>

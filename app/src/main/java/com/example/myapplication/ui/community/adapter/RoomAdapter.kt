@@ -28,11 +28,12 @@ class RoomAdapter(
 
     inner class VH(view: View) : RecyclerView.ViewHolder(view) {
         private val tvName: TextView = view.findViewById(R.id.tvRoomName)
-        private val tvType: TextView = view.findViewById(R.id.tvRoomType)
         fun bind(item: DataRoom) {
             // Prefer name if present; fallback to id
-            tvName.text = item.name.ifBlank { item.id }
-            tvType.text = item.roomCode
+            val raw = item.name.ifBlank { item.id }
+            // Ensure a single leading '#' prefix when displaying the room name
+            val displayName = if (raw.startsWith("#")) raw else "#${raw}"
+            tvName.text = displayName
             itemView.setOnClickListener { onClick(item) }
             itemView.setOnLongClickListener { onLongClick(item); true }
         }

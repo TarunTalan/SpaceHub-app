@@ -176,7 +176,7 @@
     <string name="search_title">Discover communities</string>
     <string name="search_subtitle">Find communities or local groups by name</string>
     <string name="empty_list">No items to show</string>
-    <string name="community_id_fmt">Community ID: %1$d</string>
+    <string name="community_id_fmt">Community ID: %1$s</string>
     <string name="request_sent">Request Sent</string>
     <string name="request_failed">Request failed!</string>
     <string name="requested">Requested</string>

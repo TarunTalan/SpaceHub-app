@@ -1,7 +1,6 @@
 package com.example.myapplication.data.community.model
 
-data class UpdateCommunityResponse(
-    val `data`: DataUpdatedCommunity,
+data class LeaveCommunityResponse(
     val message: String,
     val status: Int
 )

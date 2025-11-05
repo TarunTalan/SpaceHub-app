@@ -4,5 +4,5 @@ data class ChangeRoleRequest(
     val communityId: String,
     val newRole: String,
     val requesterEmail: String,
-    val targetUserEmail: String
+    val targetUserEmail: String?
 )

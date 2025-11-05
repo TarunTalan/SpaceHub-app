@@ -146,7 +146,6 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
                 website = "",
                 isPrivate = false,
                 username = usernameVal,
-                dateOfBirth = apiDob
             )
 
             setLoaderVisible(true)
