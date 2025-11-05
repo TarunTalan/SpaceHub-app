@@ -32,7 +32,8 @@ class SearchRepository private constructor(context: Context) {
                     isLocal = false,
                     isMember = net.isMember,
                     isOwner = false,
-                    isAdmin = false
+                    isAdmin = false,
+                    isRequested = net.isRequested
                 )
             } ?: emptyList()
 

@@ -246,6 +246,8 @@
                 app:destination="@id/searchFriendForChatFragment"/>
         <action android:id="@+id/action_dashboardFragment_to_communityDetailFragment"
                 app:destination="@id/communityDetailFragment"/>
+        <action android:id="@+id/action_dashboardFragment_to_requestsInboxFragment"
+                app:destination="@id/requestsInboxFragment"/>
     </fragment>
 
     <fragment
@@ -256,19 +258,37 @@
         <action android:id="@+id/action_searchFragment_to_dashboardFragment" app:destination="@id/dashboardFragment"/>
         <action android:id="@+id/action_searchFragment_to_communityDetailFragment" app:destination="@id/communityDetailFragment"/>
         <action android:id="@+id/action_searchFragment_to_localGroupDetailFragment" app:destination="@id/localGroupDetailFragment"/>
+        <action android:id="@+id/action_searchFragment_to_communityOverviewFragment" app:destination="@id/communityOverviewFragment"/>
+    </fragment>
+
+    <fragment
+        android:id="@+id/communityOverviewFragment"
+        android:name="com.example.myapplication.ui.community.CommunityOverviewFragment"
+        android:label="CommunityOverview"
+        tools:layout="@layout/fragment_community_overview">
+        <argument android:name="communityId" app:argType="string" />
+        <argument android:name="name" app:argType="string" android:defaultValue="" />
+        <argument android:name="imageUrl" app:argType="string" android:defaultValue="" />
+        <argument android:name="bannerUrl" app:argType="string" android:defaultValue="" />
+        <argument android:name="description" app:argType="string" android:defaultValue="" />
+        <argument android:name="isRequested" app:argType="boolean" android:defaultValue="false" />
     </fragment>
 
     <fragment
         android:id="@+id/communityDetailFragment"
-        android:name="com.example.myapplication.ui.dashboard.CommunityDetailFragment"
-        android:label="CommunityDetailFragment"
-        tools:layout="@layout/fragment_community_detail" />
+        android:name="com.example.myapplication.ui.community.CommunityDetailFragment"
+        android:label="CommunityDetail"
+        tools:layout="@layout/fragment_community_detail">
+        <argument
+            android:name="communityId"
+            app:argType="string"/>
+    </fragment>
 
     <fragment
         android:id="@+id/localGroupDetailFragment"
-        android:name="com.example.myapplication.ui.dashboard.LocalGroupDetailFragment"
-        android:label="LocalGroupDetailFragment"
-        tools:layout="@layout/fragment_local_group_detail" />
+        android:name="com.example.myapplication.ui.dashboard.JoinCommunityFragment"
+        android:label="LocalGroupDetail"
+        tools:layout="@layout/fragment_join_community"/>
 
     <fragment
             android:id="@+id/createCommunityFragment"
@@ -341,20 +361,10 @@
               android:name="com.example.myapplication.ui.dashboard.ChangeProfilePicFragment"
               android:label="fragment_change_profile_pic" tools:layout="@layout/fragment_change_profile_pic"/>
     <fragment
-        android:id="@+id/communityDetailFragment"
-        android:name="com.example.myapplication.ui.community.CommunityDetailFragment"
-        android:label="CommunityDetail"
-        tools:layout="@layout/fragment_community_detail">
-        <argument
-            android:name="communityId"
-            app:argType="string"/>
-    </fragment>
-
-    <fragment
-        android:id="@+id/localGroupDetailFragment"
-        android:name="com.example.myapplication.ui.dashboard.JoinCommunityFragment"
-        android:label="LocalGroupDetail"
-        tools:layout="@layout/fragment_join_community"/>
+        android:id="@+id/requestsInboxFragment"
+        android:name="com.example.myapplication.ui.community.RequestsInboxFragment"
+        android:label="Requests Inbox"
+        tools:layout="@layout/fragment_requests_inbox"/>
 
     <fragment
         android:id="@+id/editCommunityFragment"

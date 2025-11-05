@@ -33,6 +33,9 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
     private val sharedVm: ProfileSharedViewModel by activityViewModels()
     private val communityVm: CommunityViewModel by viewModels()
 
+    // Store reference to badge update function
+    private var updateBadgeFn: (() -> Unit)? = null
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -54,6 +57,42 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
             }
         }
 
+        // Navigate to requests inbox on notification icon click
+        val ivNotification = view.findViewById<ImageView>(R.id.iv_notification)
+        val tvBadge = view.findViewById<TextView>(R.id.tv_notification_badge)
+
+        ivNotification?.setOnClickListener {
+            runCatching {
+                findNavController().navigate(R.id.action_dashboardFragment_to_requestsInboxFragment)
+            }
+        }
+
+        // Load and display pending requests count
+        fun updateBadge() {
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    val repo = com.example.myapplication.data.community.repository.CommunityRepository.getInstance(requireContext())
+                    val result = repo.getPendingRequestsCount()
+                    result.onSuccess { count ->
+                        if (count > 0) {
+                            tvBadge?.text = if (count > 99) "99+" else count.toString()
+                            tvBadge?.visibility = View.VISIBLE
+                        } else {
+                            tvBadge?.visibility = View.GONE
+                        }
+                    }.onFailure {
+                        tvBadge?.visibility = View.GONE
+                    }
+                } catch (e: Exception) {
+                    tvBadge?.visibility = View.GONE
+                }
+            }
+        }
+
+        // Store reference for onResume
+        updateBadgeFn = ::updateBadge
+        // Update badge on fragment start
+        updateBadge()
 
         // Update drawer header with chosen user profile
         val headerView = navView.getHeaderView(0)

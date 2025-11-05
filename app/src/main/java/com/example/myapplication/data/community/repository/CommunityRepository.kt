@@ -7,9 +7,6 @@ import com.example.myapplication.data.community.database.CommunityDatabase
 import com.example.myapplication.data.community.model.*
 import com.example.myapplication.data.network.NetworkModule
 import com.example.myapplication.data.user.UserDataManager
-import com.google.gson.Gson
-import com.google.gson.JsonArray
-import com.google.gson.JsonObject
 import kotlinx.coroutines.flow.Flow
 
 
@@ -373,9 +370,36 @@ class CommunityRepository private constructor(context: Context) {
     suspend fun requestToJoinCommunity(communityName: String): Result<Unit> {
         return try {
             val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
-            val resp = api.requestToJoinCommunity(RequestJoinRequest(communityName = communityName, userEmail = email))
-            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
-                Result.success(Unit)
+            val resp = api.requestToJoinCommunity(RequestJoinRequest(userEmail = email, communityName = communityName))
+            if (resp.isSuccessful) Result.success(Unit) else Result.failure(RuntimeException("HTTP ${resp.code()}"))
+        } catch (t: Throwable) {
+            Result.failure(t)
+        }
+    }
+
+    suspend fun getMyPendingRequests(): Result<List<PendingRequest>> {
+        return try {
+            val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
+            val resp = api.getMyPendingRequests(email)
+            if (resp.isSuccessful) {
+                val body = resp.body()
+                Result.success(body?.data ?: emptyList())
+            } else {
+                Result.failure(RuntimeException("HTTP ${resp.code()}"))
+            }
+        } catch (t: Throwable) {
+            Result.failure(t)
+        }
+    }
+
+    suspend fun getPendingRequestsCount(): Result<Int> {
+        return try {
+            val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
+            val resp = api.getMyPendingRequests(email)
+            if (resp.isSuccessful) {
+                val body = resp.body()
+                val count = body?.data?.size ?: 0
+                Result.success(count)
             } else {
                 Result.failure(RuntimeException("HTTP ${resp.code()}"))
             }

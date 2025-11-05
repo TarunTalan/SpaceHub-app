@@ -5,6 +5,7 @@
     <option name="pendingSessionIds">
       <option value="0d8fa1b7-d090-4170-9af7-07321c73a649" />
       <option value="4b1d682d-98c8-49fa-9bf8-42ca29d3ce2e" />
+      <option value="51ddf032-a05c-455c-b844-098efdaf2341" />
     </option>
     <option name="pendingTurns">
       <map>
@@ -67,15 +68,103 @@
             </set>
           </value>
         </entry>
+        <entry key="51ddf032-a05c-455c-b844-098efdaf2341">
+          <value>
+            <set>
+              <option value="0d201a9b-6844-4cfd-a2c5-d035b4763d1c" />
+              <option value="0dab3a3f-c291-4f2e-afab-149d2ca7f207" />
+              <option value="0dfa7357-1def-47f7-9b35-176455b3d331" />
+              <option value="10d0a586-2a23-4b80-bbca-7ee504b6811e" />
+              <option value="121d2c6a-5eed-4406-a5fd-e7a03368bae7" />
+              <option value="158d61c9-8535-4eb6-9818-d8eecae4abaf" />
+              <option value="19b68505-0bb7-44e3-9269-c999ffe123ca" />
+              <option value="1cd76faf-656a-48eb-96a3-5e7eba14f7fc" />
+              <option value="1f36ac18-246c-4e97-a511-c50fc3c49951" />
+              <option value="1f52179b-fa12-474b-a584-78fed236e415" />
+              <option value="20d02a13-04fb-44d0-a1ef-dce612a07d90" />
+              <option value="27493d3d-bc87-499e-85a5-938017fc22b0" />
+              <option value="2faae183-a316-4c5b-92cc-b5cc1bb9bbc3" />
+              <option value="3517ddd8-b5a3-44c5-8a44-d75038437ac7" />
+              <option value="3baa1f69-9e05-4ce4-97a5-60021087abf4" />
+              <option value="436cd240-91fa-4def-ac35-0ebe6387a6d9" />
+              <option value="4a538cc2-266d-4244-b381-5fab9b873f4f" />
+              <option value="50bbd52c-fa71-4094-82a4-ff9dd2d885b4" />
+              <option value="51052268-e45c-4992-87d1-1b674d79d818" />
+              <option value="5f237db4-6764-42a3-bd75-a00c7379d3d4" />
+              <option value="61eeb85b-dc2b-470a-ba2f-3eaf84abd355" />
+              <option value="62ad0b41-8f93-47af-b07a-711017b9ab18" />
+              <option value="6361a710-f580-438a-9a67-acb1271e5f0c" />
+              <option value="643ec89b-46ee-4341-807a-b2a6139e6813" />
+              <option value="653748e8-d474-442f-a39b-575d6fe8f1aa" />
+              <option value="83a007de-030b-4799-90c3-e457a9b4a9c4" />
+              <option value="8a9eb2a0-f34f-4973-a5df-fc89b7c444bb" />
+              <option value="8b4ffda7-7da7-498a-8d04-3dcf5de21188" />
+              <option value="9232675f-ce36-4350-ae2a-a5fc2e4fe04d" />
+              <option value="948129d1-70c1-4b09-a205-52f8d5ef9cee" />
+              <option value="99c6a029-2e35-416b-a68c-4370f1e37c64" />
+              <option value="9d8f3e3a-c26c-4403-97bd-a2f1232d5110" />
+              <option value="9dc0ac6a-2fc6-4a74-9499-2afa456ca6af" />
+              <option value="acf135c2-cb8e-4bc9-8695-46129ead3169" />
+              <option value="ae6e09af-38b4-4546-888d-7390b3d419a7" />
+              <option value="ae7fbd41-eefc-498e-a63e-7641994ed703" />
+              <option value="b8f12fc7-575f-426c-ad35-5cf610cc19dd" />
+              <option value="be55fbee-300a-4bc9-a76b-e925a93cd0a0" />
+              <option value="c47248e3-9de9-484a-af5d-2d8403d9f1ab" />
+              <option value="c4b471a9-599c-490e-b7d9-4fb6e1ea4513" />
+              <option value="cd72eda9-b5dc-49ad-83ed-830cee72b9bb" />
+              <option value="d0937398-808f-4206-843e-d43eafc9969d" />
+              <option value="d472369b-d707-4e8e-943d-15004b6e9276" />
+              <option value="d474188f-3dde-4296-be45-ba1f4b7145fa" />
+              <option value="e7f46f02-c675-4e21-8df6-43fe8f6f4bf3" />
+              <option value="e803c43e-b459-4a17-bf46-be9348c1cb40" />
+              <option value="edce3d55-e88c-4803-b01e-98f5bb31b2d7" />
+              <option value="f2efcfd4-fad4-4301-82ca-cb1083850c66" />
+              <option value="f38554d3-eff2-49f2-ac2a-2ab8bc8bad93" />
+              <option value="f813652a-d73c-40ae-b43e-d78e3014daf0" />
+              <option value="fd519869-2056-4714-a862-67df65af150e" />
+              <option value="fdb3cf41-b42c-44ca-b52d-5670229d975f" />
+            </set>
+          </value>
+        </entry>
       </map>
     </option>
     <pendingWorkingSetItems>
-      <entry key="0d8fa1b7-d090-4170-9af7-07321c73a649">
+      <entry key="0d8fa1b7-d090-4170-9af7-07321c73a649" />
+      <entry key="4b1d682d-98c8-49fa-9bf8-42ca29d3ce2e" />
+      <entry key="51ddf032-a05c-455c-b844-098efdaf2341">
         <set>
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/auth/signup/SignupVerificationFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/search/SearchRepository.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/SearchFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/adapter/CommunityListAdapter.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/CommunityTabFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/LocalGroupsTabFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_community_detail.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/menu/menu_community_detail.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/CommunityDetailFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/viewmodel/CommunityDetailViewModel.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/CommunityDetailFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/adapter/YourCommunityAdapter.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/network/ApiService.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/community/repository/CommunityRepository.kt" />
+          <option value="file://$PROJECT_DIR$/app/build.gradle.kts" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/CommunityDescriptionFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/item_room.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/adapter/RoomAdapter.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/navigation/auth_nav_graph.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/CommunityOverviewFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/viewmodel/CommunityOverviewViewModel.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/community/model/GetMyPendingRequestsResponse.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_requests_inbox.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/item_request.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/adapter/RequestsAdapter.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/viewmodel/RequestsInboxViewModel.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/RequestsInboxFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_dashboard.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/DashboardFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/drawable/rect_button_bg_red.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/drawable/notification_badge_bg.xml" />
         </set>
       </entry>
-      <entry key="4b1d682d-98c8-49fa-9bf8-42ca29d3ce2e" />
     </pendingWorkingSetItems>
   </component>
 </project>

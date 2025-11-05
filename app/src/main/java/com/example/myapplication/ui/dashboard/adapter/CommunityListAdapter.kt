@@ -22,7 +22,8 @@ data class CommunityUi(
     val isLocal: Boolean = false,
     val isMember: Boolean = false,
     val isOwner: Boolean = false,
-    val isAdmin: Boolean = false
+    val isAdmin: Boolean = false,
+    val isRequested: Boolean = false
 )
 
 class CommunityListAdapter(

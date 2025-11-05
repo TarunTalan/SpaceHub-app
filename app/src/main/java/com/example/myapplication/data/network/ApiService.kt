@@ -169,4 +169,9 @@ interface ApiService {
 
     ): Response<SearchCommunitiesResponse>
 
+    @GET("community/my-pending-requests")
+    suspend fun getMyPendingRequests(
+        @Query("requesterEmail") requesterEmail: String
+    ): Response<GetMyPendingRequestsResponse>
+
 }

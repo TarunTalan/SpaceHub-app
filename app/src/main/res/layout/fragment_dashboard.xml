@@ -51,13 +51,33 @@
                     app:layout_constraintBottom_toBottomOf="parent"/>
 
             <ImageView
+                    android:id="@+id/iv_notification"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:src="@drawable/notification_icon"
                     android:padding="10dp"
+                    android:clickable="true"
+                    android:focusable="true"
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintEnd_toStartOf="@+id/guideline_end_top"
                     app:layout_constraintBottom_toBottomOf="parent"/>
+
+            <!-- Badge indicator for pending requests -->
+            <TextView
+                    android:id="@+id/tv_notification_badge"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:background="@drawable/notification_badge_bg"
+                    android:gravity="center"
+                    android:text="0"
+                    android:textColor="@android:color/white"
+                    android:textSize="10sp"
+                    android:fontFamily="@font/roboto_bold"
+                    android:visibility="gone"
+                    app:layout_constraintEnd_toEndOf="@id/iv_notification"
+                    app:layout_constraintTop_toTopOf="@id/iv_notification"
+                    android:layout_marginEnd="8dp"
+                    android:layout_marginTop="8dp"/>
 
 
             <androidx.constraintlayout.widget.Guideline

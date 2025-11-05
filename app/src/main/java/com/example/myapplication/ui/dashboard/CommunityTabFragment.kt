@@ -43,14 +43,26 @@ class CommunityTabFragment : BaseFragment(R.layout.fragment_tab_community) {
         val repo = CommunityRepository.getInstance(requireContext())
         adapter = CommunityListAdapter({ item ->
             runCatching {
-                findNavController().navigate(
-                    R.id.action_searchFragment_to_communityDetailFragment,
-                    Bundle().apply {
-                        putString("communityId", item.communityId)
-                        putString("name", item.name)
-                        putString("imageUrl", item.imageUrl)
-                    }
-                )
+                val alreadyMember = item.isMember || item.isOwner || item.isAdmin
+                if (alreadyMember) {
+                    // Navigate to full community detail for members
+                    findNavController().navigate(
+                        R.id.action_searchFragment_to_communityDetailFragment,
+                        Bundle().apply { putString("communityId", item.communityId) }
+                    )
+                } else {
+                    // Navigate to overview for non-members
+                    findNavController().navigate(
+                        R.id.action_searchFragment_to_communityOverviewFragment,
+                        Bundle().apply {
+                            putString("communityId", item.communityId)
+                            putString("name", item.name)
+                            putString("imageUrl", item.imageUrl)
+                            putString("description", item.subtitle ?: "")
+                            putBoolean("isRequested", item.isRequested)
+                        }
+                    )
+                }
             }
         }, { item ->
             // Join button -> call requestToJoin
