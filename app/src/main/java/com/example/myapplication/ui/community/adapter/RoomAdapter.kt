@@ -15,6 +15,12 @@ class RoomAdapter(
     private val onLongClick: (DataRoom) -> Unit = { }
 ) : ListAdapter<DataRoom, RoomAdapter.VH>(Diff) {
 
+    init { setHasStableIds(true) }
+
+    override fun getItemId(position: Int): Long {
+        return try { getItem(position).id.hashCode().toLong() } catch (_: Exception) { super.getItemId(position) }
+    }
+
     object Diff : DiffUtil.ItemCallback<DataRoom>() {
         override fun areItemsTheSame(oldItem: DataRoom, newItem: DataRoom) = oldItem.id == newItem.id
         override fun areContentsTheSame(oldItem: DataRoom, newItem: DataRoom) = oldItem == newItem

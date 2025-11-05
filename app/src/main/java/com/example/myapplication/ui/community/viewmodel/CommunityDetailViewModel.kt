@@ -1,6 +1,7 @@
 package com.example.myapplication.ui.community.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -17,6 +18,9 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _totalMembers = MutableLiveData<Int>(0)
     val totalMembers: LiveData<Int> = _totalMembers
+
+    private val _adminCount = MutableLiveData<Int>(0)
+    val adminCount: LiveData<Int> = _adminCount
 
     private val _loading = MutableLiveData<Boolean>(false)
     val loading: LiveData<Boolean> = _loading
@@ -36,6 +40,7 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             repo.getCommunityById(id)?.let { _communityName.postValue(it.name) }
             refreshMemberCount()
+            refreshAdminCount()
             loadRooms()
         }
     }
@@ -47,6 +52,18 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
             .onFailure { _toast.postValue(it.message) }
     }
 
+    private suspend fun refreshAdminCount() {
+        val id = _communityId.value ?: return
+        val res = repo.fetchMembers(id)
+        res.onSuccess { list ->
+            val count = list.count { m ->
+                val role = m.role.trim().uppercase()
+                role.contains("ADMIN") || role.contains("OWNER")
+            }
+            _adminCount.postValue(count)
+        }.onFailure { _toast.postValue(it.message) }
+    }
+
     suspend fun createRoom(roomName: String) {
         val id = _communityId.value ?: return
         _loading.postValue(true)
@@ -55,6 +72,7 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
         res.onSuccess {
             _toast.postValue("Room created")
             refreshMemberCount()
+            refreshAdminCount()
             loadRooms()
         }.onFailure { _toast.postValue(it.message ?: "Failed to create room") }
     }
@@ -67,6 +85,7 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
         res.onSuccess {
             _toast.postValue("Room deleted")
             refreshMemberCount()
+            refreshAdminCount()
             loadRooms()
         }.onFailure { _toast.postValue(it.message ?: "Failed to delete room") }
     }
@@ -76,8 +95,20 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
         _loading.postValue(true)
         val res = repo.getAllRooms(id)
         _loading.postValue(false)
-        res.onSuccess { list -> _rooms.postValue(list) }
-            .onFailure { _toast.postValue(it.message ?: "Failed to load rooms") }
+        res.onSuccess { list ->
+            Log.d("CommunityVM", "loadRooms success for id=$id count=${list.size}")
+            _rooms.postValue(list)
+        }.onFailure { err ->
+            Log.w("CommunityVM", "loadRooms failed for id=$id: ${err.message}")
+            _toast.postValue(err.message ?: "Failed to load rooms")
+            _rooms.postValue(emptyList())
+        }
+    }
+
+    // non-suspending helper for UI to request a refresh
+    fun refreshRooms() {
+        val id = _communityId.value ?: return
+        viewModelScope.launch { loadRooms() }
     }
 
     suspend fun renameRoom(roomId: String, newName: String) {
@@ -88,6 +119,7 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
         res.onSuccess {
             _toast.postValue("Room renamed")
             refreshMemberCount()
+            refreshAdminCount()
             loadRooms()
         }.onFailure { _toast.postValue(it.message ?: "Failed to rename room") }
     }

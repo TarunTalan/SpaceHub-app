@@ -19,6 +19,16 @@
         android:layout_gravity="center"
         android:visibility="gone"/>
 
+    <!-- Illustration shown when the list is empty -->
+    <ImageView
+        android:id="@+id/emptyIllustration"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        android:layout_gravity="center"
+        android:scaleType="centerInside"
+        android:src="@drawable/illustration_search"
+        android:visibility="gone" />
+
     <TextView
         android:id="@+id/emptyView"
         android:layout_width="wrap_content"

@@ -17,8 +17,18 @@ class CommunityDetailFragment : BaseFragment(R.layout.fragment_community_detail)
         val imageUrl = args.getString("imageUrl")
 
         view.findViewById<TextView>(R.id.title)?.text = name
-        view.findViewById<TextView>(R.id.subtitle)?.text = getString(R.string.community_id_fmt, id)
+        view.findViewById<TextView>(R.id.subtitle)?.text = "Community ID: $id"
         val img = view.findViewById<ImageView>(R.id.img)
-        Glide.with(this).load(imageUrl).placeholder(R.drawable.default_profile).into(img)
+        // Only attempt to load when imageUrl is non-null/non-blank
+        if (!imageUrl.isNullOrBlank()) {
+            Glide.with(this)
+                .load(imageUrl)
+                .placeholder(R.drawable.default_profile)
+                .error(R.drawable.default_profile)
+                .circleCrop()
+                .into(img)
+        } else {
+            img?.setImageResource(R.drawable.default_profile)
+        }
     }
 }

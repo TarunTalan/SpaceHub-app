@@ -58,6 +58,7 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
+    implementation(libs.androidx.swiperefreshlayout)
 
     // Retrofit and networking
     implementation(libs.retrofit)
@@ -79,6 +80,7 @@ dependencies {
     // Room Database for complex data (communities, posts, etc.)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.swiperefreshlayout)
     ksp(libs.androidx.room.compiler)
 
     implementation(libs.androidx.ui.test)

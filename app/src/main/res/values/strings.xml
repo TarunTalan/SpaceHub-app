@@ -165,4 +165,20 @@
     <string name="update_failed">Update failed</string>
     <string name="invalid_dob_format">Invalid date format. Use DD/MM/YYYY</string>
     <string name="toggle">Toggle</string>
+
+    <!-- Search / Tabs related strings (missing, added to fix resource linking) -->
+    <string name="cd_back">Back</string>
+    <string name="cd_search_icon">Search Icon</string>
+    <string name="search_hint">Search communities or local groups</string>
+    <string name="tab_community">Communities</string>
+    <string name="tab_local_groups">Local Groups</string>
+    <string name="cd_search_illustration">Search illustration</string>
+    <string name="search_title">Discover communities</string>
+    <string name="search_subtitle">Find communities or local groups by name</string>
+    <string name="empty_list">No items to show</string>
+    <string name="community_id_fmt">Community ID: %1$d</string>
+    <string name="request_sent">Request Sent</string>
+    <string name="request_failed">Request failed!</string>
+    <string name="requested">Requested</string>
+    <string name="join">Join</string>
 </resources>

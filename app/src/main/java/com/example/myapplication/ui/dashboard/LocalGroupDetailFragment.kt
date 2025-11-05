@@ -17,8 +17,12 @@ class LocalGroupDetailFragment : BaseFragment(R.layout.fragment_local_group_deta
         val imageUrl = args.getString("imageUrl")
 
         view.findViewById<TextView>(R.id.title)?.text = name
-        view.findViewById<TextView>(R.id.subtitle)?.text = getString(R.string.local_group_id_fmt, id)
+        view.findViewById<TextView>(R.id.subtitle)?.text = "Local Group ID: $id"
         val img = view.findViewById<ImageView>(R.id.img)
-        Glide.with(this).load(imageUrl).placeholder(R.drawable.default_profile).into(img)
+        if (!imageUrl.isNullOrBlank()) {
+            Glide.with(this).load(imageUrl).placeholder(R.drawable.default_profile).into(img)
+        } else {
+            img?.setImageResource(R.drawable.default_profile)
+        }
     }
 }

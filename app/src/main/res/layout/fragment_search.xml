@@ -42,39 +42,46 @@
                         android:layout_height="wrap_content"
                         android:src="@drawable/back_icon"
                         android:contentDescription="@string/cd_back"
-                        android:padding="4dp"
+                        android:paddingVertical="4dp"
+                        android:paddingStart="4dp"
                         app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintBottom_toBottomOf="parent" />
-                <ImageView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
+
+                <!-- Submit button at the right side -->
+                <ImageButton
+                        android:id="@+id/submitSearch"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/rounded_button_bg_blue"
+                        android:padding="8dp"
                         android:src="@drawable/search_icon"
+                        android:tint="@android:color/white"
                         android:contentDescription="@string/cd_search_icon"
-                        android:layout_marginHorizontal="20dp"
-                        app:layout_constraintStart_toStartOf="@id/etSearch"
-                        app:layout_constraintBottom_toBottomOf="@id/etSearch"
-                        app:layout_constraintTop_toTopOf="@id/etSearch"/>
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent"/>
 
                 <EditText
                         android:id="@+id/etSearch"
                         android:layout_width="0dp"
                         android:layout_height="40dp"
                         android:inputType="text"
-                        android:textSize="@dimen/input_text_size"
-                        android:paddingStart="50dp"
-                        android:paddingEnd="25dp"
+                        android:imeOptions="actionSearch"
+                        android:textSize="15sp"
+                        android:paddingHorizontal="20dp"
                         android:textColor="@color/white"
                         android:fontFamily="@font/roboto_regular"
                         android:hint="@string/search_hint"
-                        android:autofillHints="emailAddress"
-                        android:textColorHint="@color/white"
-                        android:background="@drawable/edit_text_outline"
-                        android:layout_marginStart="20dp"
+                        android:textColorHint="#B0B8C1"
+                        android:ellipsize="end"
+                        android:background="@drawable/search"
+                        android:layout_marginHorizontal="16dp"
                         app:layout_constraintStart_toEndOf="@id/back"
-                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintEnd_toStartOf="@id/submitSearch"
                         app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintBottom_toBottomOf="parent"/>
+
 
             </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -133,74 +140,17 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                app:layout_constraintGuide_percent="0.08" />
+                app:layout_constraintGuide_percent="0.04"/>
 
         <androidx.constraintlayout.widget.Guideline
                 android:id="@+id/guideline_end_top"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                app:layout_constraintGuide_percent="0.92" />
+                app:layout_constraintGuide_percent="0.96"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/illustration"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            app:layout_constraintBottom_toBottomOf="@id/guideline_center"
-            app:layout_constraintTop_toTopOf="@id/guideline_top"
-            app:layout_constraintEnd_toEndOf="@id/guideline_end"
-            app:layout_constraintStart_toStartOf="@id/guideline_start">
-
-        <ImageView
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:padding="30dp"
-                android:src="@drawable/illustration_search"
-                android:contentDescription="@string/cd_search_illustration"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="@id/guideline_top_2"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintBottom_toTopOf="@id/textView"
-                android:id="@+id/imageView5" />
-
-        <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="26sp"
-                android:fontFamily="@font/roboto_medium"
-                android:text="@string/search_title"
-                android:id="@+id/textView"
-                android:gravity="center"
-                android:textColor="@color/white"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintBottom_toTopOf="@+id/textView2" />
-
-        <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:textSize="@dimen/input_text_size"
-                android:fontFamily="@font/roboto_regular"
-                android:textColor="@color/white"
-                android:gravity="center"
-                android:paddingHorizontal="4dp"
-                android:text="@string/search_subtitle"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toStartOf="@+id/textView"
-                app:layout_constraintEnd_toEndOf="@id/textView"
-                android:id="@+id/textView2" />
-
-        <androidx.constraintlayout.widget.Guideline
-                android:id="@+id/guideline_top_2"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                app:layout_constraintGuide_percent="0.1"
-                android:orientation="horizontal" />
-
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
 
 
     <androidx.constraintlayout.widget.Guideline

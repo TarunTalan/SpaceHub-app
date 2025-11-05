@@ -3,6 +3,7 @@ package com.example.myapplication.data.network
 import com.example.myapplication.data.auth.model.*
 import com.example.myapplication.data.community.model.*
 import com.example.myapplication.data.dashboard.model.*
+import com.example.myapplication.data.search.model.SearchCommunitiesResponse
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Response
@@ -127,6 +128,11 @@ interface ApiService {
         @Body body: BlockMemberRequest
     ): Response<BlockMemberResponse>
 
+    @POST("community/requestJoin")
+    suspend fun requestToJoinCommunity(
+        @Body body: RequestJoinRequest
+    ): Response<RequestJoinResponse>
+
     // -------- Rooms (per provided API) --------
 
     @POST("community/{communityId}/rooms/create")
@@ -154,5 +160,13 @@ interface ApiService {
         @Body body: RenameRoomRequest
     ): Response<RenameRoomResponse>
 
+    @GET("community/search")
+    suspend fun searchCommunities(
+        @Query("q") q: String,
+        @Query("requesterEmail") requesterEmail: String,
+        @Query("page") page: Int,
+        @Query("size") size: Int,
+
+    ): Response<SearchCommunitiesResponse>
 
 }

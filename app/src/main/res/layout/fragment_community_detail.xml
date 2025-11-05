@@ -1,62 +1,270 @@
-<?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fitsSystemWindows="false">
-
-    <com.google.android.material.appbar.AppBarLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:fitsSystemWindows="false">
-
-        <com.google.android.material.appbar.MaterialToolbar
-            android:id="@+id/toolbar"
-            android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            android:background="?attr/colorPrimary"
-            android:titleTextColor="@android:color/white"
-            app:title="Community"
-            app:popupTheme="@style/ThemeOverlay.AppCompat.Light" />
-
-    </com.google.android.material.appbar.AppBarLayout>
-
-    <LinearLayout
-        android:orientation="vertical"
+<androidx.constraintlayout.widget.ConstraintLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="16dp"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+        android:background="@drawable/background_gradient">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/communityDetailHeader"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="#20262F"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent">
+
+            <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/back_icon"
+                    android:contentDescription="@string/cd_back"
+                    android:paddingVertical="4dp"
+                    android:paddingEnd="4dp"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintStart_toStartOf="@id/guideline_start_top"
+                    android:id="@+id/imageView"/>
+
+            <TextView
+                    android:id="@+id/tvUsername"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="User Name"
+                    android:textColor="@android:color/white"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:ellipsize="marquee"
+                    android:layout_marginHorizontal="10dp"
+                    android:marqueeRepeatLimit="marquee_forever"
+                    android:singleLine="true"
+                    android:scrollHorizontally="true"
+                    android:focusable="true"
+                    android:focusableInTouchMode="true"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintEnd_toStartOf="@+id/setting_community"
+                    app:layout_constraintStart_toEndOf="@+id/imageView"/>
+
+            <ImageView
+                    android:id="@+id/setting_community"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:padding="4dp"
+                    android:src="@drawable/setting"
+                    android:tint="@android:color/white"
+                    app:layout_constraintEnd_toEndOf="@id/guideline_end_top"
+                    app:layout_constraintTop_toTopOf="parent"
+            />
+
+            <ImageView
+                    android:id="@+id/refresh_rooms"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:padding="4dp"
+                    android:src="@android:drawable/ic_popup_sync"
+                    android:tint="@android:color/white"
+                    app:layout_constraintEnd_toStartOf="@id/setting_community"
+                    app:layout_constraintTop_toTopOf="parent"/>
+
+            <ListView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/community_setting_menu"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/setting_community"/>
+
+
+            <androidx.constraintlayout.widget.Guideline
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/guideline_start_top"
+                    app:layout_constraintGuide_percent="0.06"
+                    android:orientation="vertical"/>
+            <androidx.constraintlayout.widget.Guideline
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/guideline_end_top"
+                    app:layout_constraintGuide_percent="0.94"
+                    android:orientation="vertical"/>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <ImageView
+                android:id="@+id/community_banner"
+                android:layout_width="match_parent"
+                android:layout_height="120dp"
+                android:src="@drawable/banner"
+                android:scaleType="fitXY"
+                app:layout_constraintTop_toBottomOf="@id/communityDetailHeader"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+        />
+
+
+        <ImageView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:id="@+id/community_image"
+                android:src="@drawable/default_comm_icon"
+                android:layout_marginBottom="-40dp"
+                app:layout_constraintBottom_toBottomOf="@+id/community_banner"
+                app:layout_constraintStart_toStartOf="@+id/guideline_start"/>
 
         <TextView
-            android:id="@+id/tv_member_count"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textStyle="bold"
-            android:layout_marginBottom="10dp"
-            android:text="Members: 0"/>
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/community_name"
+                android:text="Community Name"
+                android:textColor="@android:color/white"
+                android:textSize="16sp"
+                android:layout_marginTop="8dp"
+                app:layout_constraintTop_toBottomOf="@+id/community_image"
+                app:layout_constraintStart_toStartOf="@+id/guideline_start"
+        />
+
+        <!-- numeric member count -->
+        <TextView
+                android:id="@+id/member_count_tv"
+                android:layout_marginTop="4dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0"
+                android:textColor="@android:color/white"
+                android:textSize="14sp"
+                app:layout_constraintTop_toBottomOf="@+id/community_name"
+                app:layout_constraintStart_toStartOf="@+id/guideline_start"
+        />
+        <!-- label -->
+        <TextView
+                android:id="@+id/members_tv"
+                android:layout_marginTop="4dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Members"
+                android:textColor="@android:color/white"
+                android:textSize="14sp"
+                app:layout_constraintTop_toBottomOf="@+id/member_count_tv"
+                app:layout_constraintStart_toStartOf="@+id/guideline_start"
+        />
+        <!-- numeric admins count -->
+        <TextView
+                android:id="@+id/admin_count_tv"
+                android:layout_marginTop="4dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0"
+                android:textColor="@android:color/white"
+                android:textSize="14sp"
+                app:layout_constraintTop_toBottomOf="@+id/community_name"
+                app:layout_constraintStart_toStartOf="@id/admin_tv"
+        />
+        <!-- label -->
+        <TextView
+                android:id="@+id/admin_tv"
+                android:layout_marginTop="4dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Admins"
+                android:textColor="@android:color/white"
+                android:textSize="14sp"
+                android:layout_marginStart="15dp"
+                app:layout_constraintTop_toBottomOf="@+id/admin_count_tv"
+                app:layout_constraintStart_toEndOf="@id/members_tv"
+        />
+
+        <ImageView
+                android:id="@+id/divider_line"
+                android:layout_marginTop="20dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:src="@drawable/line"
+                app:layout_constraintTop_toBottomOf="@id/members_tv"/>
 
         <ProgressBar
             android:id="@+id/progress"
             style="@android:style/Widget.Material.ProgressBar.Horizontal"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:visibility="gone"/>
+            android:visibility="gone"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/divider_line"
+            android:layout_marginTop="8dp" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rv_rooms"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="0dp"
-            android:layout_weight="1"/>
-    </LinearLayout>
+            app:layout_constraintTop_toBottomOf="@id/progress"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="72dp" />
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fab_create_room"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:src="@android:drawable/ic_input_add"
-        app:layout_anchorGravity="bottom|end"
-        app:layout_anchor="@id/rv_rooms"
-        android:layout_margin="16dp"/>
+        <LinearLayout
+            android:id="@+id/empty_rooms_view"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingTop="24dp"
+            android:paddingBottom="24dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/progress"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+            <ImageView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:alpha="0.8"
+                android:src="@android:drawable/ic_menu_info_details"
+                android:contentDescription="No rooms"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="No rooms yet"
+                android:textColor="@android:color/white"
+                android:textSize="16sp"
+                android:layout_marginTop="8dp"/>
+
+        </LinearLayout>
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fab_create_room"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@android:drawable/ic_input_add"
+            android:contentDescription="Create room"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_margin="16dp" />
+
+        <androidx.constraintlayout.widget.Guideline
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/guideline_start"
+                app:layout_constraintGuide_percent="0.06"
+                android:orientation="vertical"/>
+        <androidx.constraintlayout.widget.Guideline
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/guideline_top"
+                app:layout_constraintGuide_percent="0.94"
+                android:orientation="vertical"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,15 +1,18 @@
 package com.example.myapplication.ui.dashboard
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.myapplication.data.search.SearchRepository
+import com.example.myapplication.ui.dashboard.adapter.CommunityUi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import com.example.myapplication.ui.dashboard.adapter.CommunityUi
 
-class SearchSharedViewModel : ViewModel() {
+class SearchSharedViewModel(app: Application) : AndroidViewModel(app) {
+    private val repo = SearchRepository.getInstance(app)
+
     private val _allCommunities = MutableStateFlow<List<CommunityUi>>(emptyList())
     val allCommunities: StateFlow<List<CommunityUi>> = _allCommunities.asStateFlow()
 
@@ -19,12 +22,9 @@ class SearchSharedViewModel : ViewModel() {
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
-    fun setSource(communities: List<CommunityUi>, locals: List<CommunityUi>) {
-        _allCommunities.value = communities
-        _allLocalGroups.value = locals
-    }
-
     fun setQuery(q: String) { _query.value = q }
+
+    fun setCommunities(list: List<CommunityUi>) { _allCommunities.value = list }
 
     fun filterCommunities(): List<CommunityUi> {
         val q = _query.value.trim().lowercase()
@@ -37,5 +37,13 @@ class SearchSharedViewModel : ViewModel() {
         if (q.isEmpty()) return _allLocalGroups.value
         return _allLocalGroups.value.filter { it.name.lowercase().contains(q) }
     }
-}
 
+    fun search(q: String, onResult: (List<CommunityUi>) -> Unit = {}) {
+        viewModelScope.launch {
+            val res = repo.searchCommunities(q)
+            val list = res.getOrElse { emptyList() }
+            _allCommunities.value = list
+            onResult(list)
+        }
+    }
+}

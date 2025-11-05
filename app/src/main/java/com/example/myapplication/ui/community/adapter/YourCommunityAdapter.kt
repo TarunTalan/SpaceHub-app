@@ -28,15 +28,26 @@ class YourCommunityAdapter(
         private val tvName: TextView = itemView.findViewById(R.id.tvName)
         private val tvDesc: TextView = itemView.findViewById(R.id.tvDesc)
         private val tvRoleBadge: TextView = itemView.findViewById(R.id.tvRoleBadge)
+        private val btnJoin: TextView? = itemView.findViewById(R.id.btnJoinRequest)
+        private val btnJoinProgress: View? = itemView.findViewById(R.id.btnJoinProgress)
         fun bind(item: Community) {
             tvName.text = item.name
             tvDesc.text = item.description ?: ""
             val url = item.profilePicUrl ?: item.coverPhotoUrl
             if (!url.isNullOrBlank()) {
-                Glide.with(itemView).load(url).placeholder(R.drawable.default_comm_icon).into(ivCover)
+                Glide.with(itemView)
+                    .load(url)
+                    .placeholder(R.drawable.default_comm_icon)
+                    .error(R.drawable.default_comm_icon)
+                    .circleCrop()
+                    .into(ivCover)
             } else {
                 ivCover.setImageResource(R.drawable.default_comm_icon)
             }
+
+            // Dashboard lists only communities you belong to; hide join controls entirely
+            btnJoin?.visibility = View.GONE
+            btnJoinProgress?.visibility = View.GONE
 
             // Show role badge: Owner takes precedence, then Moderator/Admin
             when {

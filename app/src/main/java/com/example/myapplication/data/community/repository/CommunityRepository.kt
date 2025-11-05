@@ -1,6 +1,7 @@
 package com.example.myapplication.data.community.repository
 
 import android.content.Context
+import android.util.Log
 import com.example.myapplication.data.community.dao.CommunityDao
 import com.example.myapplication.data.community.database.CommunityDatabase
 import com.example.myapplication.data.community.model.*
@@ -185,23 +186,66 @@ class CommunityRepository private constructor(context: Context) {
     suspend fun getAllRooms(communityId: String): Result<List<DataRoom>> {
         return try {
             val resp = api.getAllRooms(communityId)
-            if (!resp.isSuccessful) return Result.failure(RuntimeException("HTTP ${resp.code()}"))
-            val body = resp.body()
-            val dataEl = body?.data
-            val gson = Gson()
-            val rooms: List<DataRoom> = when {
-                dataEl == null || dataEl.isJsonNull -> emptyList()
-                dataEl.isJsonArray -> gson.fromJson(dataEl as JsonArray, Array<DataRoom>::class.java).toList()
-                dataEl.isJsonObject -> {
-                    val obj = dataEl as JsonObject
-                    val roomsEl = obj.get("rooms")
-                    if (roomsEl != null && roomsEl.isJsonArray) gson.fromJson(roomsEl as JsonArray, Array<DataRoom>::class.java).toList() else emptyList()
-                }
-                else -> emptyList()
-            }
-            Result.success(rooms)
-        } catch (t: Throwable) { Result.failure(t) }
-    }
+             if (!resp.isSuccessful) return Result.failure(RuntimeException("HTTP ${resp.code()}"))
+             val body = resp.body()
+             try {
+                 Log.d("CommunityRepo", "getAllRooms - response code=${resp.code()} bodyData=${body?.data}")
+             } catch (_: Exception) {}
+             val dataEl = body?.data
+
+             fun extractArray(el: com.google.gson.JsonElement?): com.google.gson.JsonArray? {
+                 if (el == null || el.isJsonNull) return null
+                 if (el.isJsonArray) return el.asJsonArray
+                 if (el.isJsonObject) {
+                     val obj = el.asJsonObject
+                     val keys = arrayOf("rooms", "chatRooms", "data", "content", "results", "items")
+                     for (k in keys) {
+                         if (obj.has(k)) {
+                             val child = obj.get(k)
+                             val asArr = extractArray(child)
+                             if (asArr != null) return asArr
+                         }
+                     }
+                 }
+                 return null
+             }
+
+             fun mapRoom(el: com.google.gson.JsonElement): DataRoom? {
+                 if (el.isJsonPrimitive) {
+                     // simple string or number representing room name/id
+                     val v = el.asJsonPrimitive
+                     val s = if (v.isString) v.asString else v.toString()
+                     return DataRoom(id = s, name = s, roomCode = "")
+                 }
+                 if (!el.isJsonObject) return null
+                 val o = el.asJsonObject
+                 val id = when {
+                     o.has("id") && !o.get("id").isJsonNull -> o.get("id").asString
+                     o.has("_id") && !o.get("_id").isJsonNull -> o.get("_id").asString
+                     o.has("roomId") && !o.get("roomId").isJsonNull -> o.get("roomId").asString
+                     else -> null
+                 } ?: return null
+                 val name = when {
+                     o.has("name") && !o.get("name").isJsonNull -> o.get("name").asString
+                     o.has("roomName") && !o.get("roomName").isJsonNull -> o.get("roomName").asString
+                     o.has("title") && !o.get("title").isJsonNull -> o.get("title").asString
+                     else -> id
+                 }
+                 val code = when {
+                     o.has("roomCode") && !o.get("roomCode").isJsonNull -> o.get("roomCode").asString
+                     o.has("room_code") && !o.get("room_code").isJsonNull -> o.get("room_code").asString
+                     o.has("type") && !o.get("type").isJsonNull -> o.get("type").asString
+                     o.has("code") && !o.get("code").isJsonNull -> o.get("code").asString
+                     else -> ""
+                 }
+                 return DataRoom(id = id, name = name, roomCode = code)
+             }
+
+             val arr = extractArray(dataEl)
+             val rooms: List<DataRoom> = arr?.mapNotNull { mapRoom(it) } ?: emptyList()
+             Result.success(rooms)
+         } catch (t: Throwable) { Result.failure(t) }
+     }
 
     suspend fun fetchMemberCount(communityId: String): Result<Int> {
         return try {
@@ -321,6 +365,20 @@ class CommunityRepository private constructor(context: Context) {
             }
 
             Result.success(Unit)
+        } catch (t: Throwable) {
+            Result.failure(t)
+        }
+    }
+
+    suspend fun requestToJoinCommunity(communityName: String): Result<Unit> {
+        return try {
+            val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
+            val resp = api.requestToJoinCommunity(RequestJoinRequest(communityName = communityName, userEmail = email))
+            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
+                Result.success(Unit)
+            } else {
+                Result.failure(RuntimeException("HTTP ${resp.code()}"))
+            }
         } catch (t: Throwable) {
             Result.failure(t)
         }

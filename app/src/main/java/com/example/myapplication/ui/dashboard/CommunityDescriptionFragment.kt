@@ -16,6 +16,7 @@ import com.example.myapplication.R
 import com.example.myapplication.data.community.model.Community
 import com.example.myapplication.data.dashboard.model.CreateCommunityResponse
 import com.example.myapplication.data.network.NetworkModule
+import com.example.myapplication.data.community.repository.CommunityRepository
 import com.example.myapplication.ui.common.BaseFragment
 import com.example.myapplication.ui.common.ProfileSharedViewModel
 import com.example.myapplication.ui.community.viewmodel.CommunityViewModel
@@ -119,6 +120,13 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
                             memberCount = 1
                         )
                         communityVm.saveCommunity(entity)
+
+                        // Create default room "General" (non-blocking UI; failures are tolerated)
+                        try {
+                            withContext(Dispatchers.IO) {
+                                CommunityRepository.getInstance(requireContext()).createRoom(data.communityId, "General")
+                            }
+                        } catch (_: Exception) { }
 
                         Snackbar.make(view, "Community created successfully!", Snackbar.LENGTH_SHORT).show()
                         sharedVm.clear()

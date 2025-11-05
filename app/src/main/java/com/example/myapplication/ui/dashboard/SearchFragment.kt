@@ -1,27 +1,28 @@
 package com.example.myapplication.ui.dashboard
 
 import android.os.Bundle
+import android.view.inputmethod.EditorInfo
 import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
 import android.view.ViewTreeObserver
+import android.view.WindowManager
 import androidx.viewpager2.widget.ViewPager2
 import com.example.myapplication.R
 import com.example.myapplication.ui.common.BaseFragment
 import androidx.navigation.fragment.findNavController
 import android.animation.ValueAnimator
-import androidx.core.widget.addTextChangedListener
 import android.widget.EditText
 import androidx.fragment.app.activityViewModels
-import com.example.myapplication.ui.dashboard.adapter.CommunityUi
 
 class SearchFragment: BaseFragment(R.layout.fragment_search) {
     private val vm: SearchSharedViewModel by activityViewModels()
+    private var previousSoftInputMode: Int? = null
+    private var pageCallback: ViewPager2.OnPageChangeCallback? = null
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Back navigation
         view.findViewById<ImageView>(R.id.back)?.setOnClickListener {
             runCatching {
                 val nav = findNavController()
@@ -35,14 +36,16 @@ class SearchFragment: BaseFragment(R.layout.fragment_search) {
         val indicator = view.findViewById<View>(R.id.bottomNavIndicator)
         val pager = view.findViewById<ViewPager2>(R.id.viewPager)
         val etSearch = view.findViewById<EditText>(R.id.etSearch)
+        val submitIcon = view.findViewById<ImageView>(R.id.submitSearch)
 
-        // Setup pager
         pager.adapter = SearchTabsAdapter(this)
 
         fun positionIndicator(centerX: Float, width: Int, animate: Boolean) {
             indicator?.let { ind ->
+                // Use translationX so ConstraintLayout doesn't fight with position
+                val targetX = centerX - ind.width / 2f
                 if (animate) {
-                    ind.animate().x(centerX - ind.width / 2f).setDuration(200).start()
+                    ind.animate().translationX(targetX).setDuration(200).start()
                     val startW = ind.width
                     if (startW != width) {
                         ValueAnimator.ofInt(startW, width).apply {
@@ -55,7 +58,7 @@ class SearchFragment: BaseFragment(R.layout.fragment_search) {
                         }.start()
                     }
                 } else {
-                    ind.x = centerX - ind.width / 2f
+                    ind.translationX = targetX
                     if (ind.width != width) {
                         ind.layoutParams = ind.layoutParams.apply { this.width = width }
                         ind.requestLayout()
@@ -69,13 +72,12 @@ class SearchFragment: BaseFragment(R.layout.fragment_search) {
             other.alpha = 0.6f
         }
 
-        // Initial placement when layout is ready
         view.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
                 view.viewTreeObserver.removeOnGlobalLayoutListener(this)
                 indicator?.alpha = 0f
                 indicator?.scaleX = 0f
-                val center = communityTab.x + communityTab.width / 2f
+                val center = communityTab.x
                 positionIndicator(center, communityTab.width, animate = false)
                 indicator?.pivotX = indicator.width / 2f
                 indicator?.animate()?.alpha(1f)?.scaleX(1f)?.setDuration(250)?.start()
@@ -83,61 +85,92 @@ class SearchFragment: BaseFragment(R.layout.fragment_search) {
             }
         })
 
-        // Click listeners -> change page
-        communityTab.setOnClickListener { pager.currentItem = 0 }
-        localTab.setOnClickListener { pager.currentItem = 1 }
-
-        fun findTabFragment(index: Int): androidx.fragment.app.Fragment? {
-            return childFragmentManager.findFragmentByTag("f$index") ?: run {
-                // ViewPager2 tags fragments differently; fallback by iterating
-                childFragmentManager.fragments.getOrNull(index)
-            }
+        // Clicking tabs changes the pager. Also animate indicator immediately for snappy UI.
+        communityTab.setOnClickListener {
+            pager.currentItem = 0
+            updateSelectedStyles(communityTab, localTab)
+            val center = communityTab.x
+            positionIndicator(center, communityTab.width, animate = true)
+        }
+        localTab.setOnClickListener {
+            pager.currentItem = 1
+            updateSelectedStyles(localTab, communityTab)
+            val center = localTab.x
+            positionIndicator(center, localTab.width, animate = true)
         }
 
-        fun submitFiltered() {
-            val listCom = vm.filterCommunities()
-            val listLocal = vm.filterLocalGroups()
-            (childFragmentManager.findFragmentByTag("f0") as? CommunityTabFragment)?.submitList(listCom)
-            (childFragmentManager.findFragmentByTag("f1") as? LocalGroupsTabFragment)?.submitList(listLocal)
-        }
-
-        // Sync indicator on page scroll
-        pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
-            override fun onPageScrolled(position: Int, positionOffset: Float, positionOffsetPixels: Int) {
-                val leftTab = if (position == 0) communityTab else localTab
-                val rightTab = if (position == 0) localTab else communityTab
-                val leftCenter = leftTab.x + leftTab.width / 2f
-                val rightCenter = rightTab.x + rightTab.width / 2f
-                val center = leftCenter + (rightCenter - leftCenter) * positionOffset
-                val width = (leftTab.width + (rightTab.width - leftTab.width) * positionOffset).toInt()
-                positionIndicator(center, width, animate = false)
-            }
+        // Ensure the indicator moves when the user swipes pages as well
+        pageCallback = object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
-                if (position == 0) updateSelectedStyles(communityTab, localTab) else updateSelectedStyles(localTab, communityTab)
+                val selected = if (position == 0) communityTab else localTab
+                val other = if (position == 0) localTab else communityTab
+                updateSelectedStyles(selected, other)
+                val center = selected.x
+                positionIndicator(center, selected.width, animate = true)
             }
-        })
+        }
+        pager.registerOnPageChangeCallback(pageCallback!!)
 
-        // Mock data source for now (replace with repo calls)
-        if (vm.allCommunities.value.isEmpty() && vm.allLocalGroups.value.isEmpty()) {
-            val demo = listOf(
-                CommunityUi(1, "Android Community", null, "42k members"),
-                CommunityUi(2, "Kotlin Lovers", null, "15k members"),
-                CommunityUi(3, "Space Hub", null, "8k members")
-            )
-            val demoLocal = listOf(
-                CommunityUi(101, "Local Android Devs", null, "1k members", isLocal = true),
-                CommunityUi(102, "Bengaluru Kotlin", null, "2k members", isLocal = true)
-            )
-            vm.setSource(demo, demoLocal)
+        fun findTabFragmentByType(index: Int): androidx.fragment.app.Fragment? {
+            return childFragmentManager.fragments.firstOrNull {
+                when (index) {
+                    0 -> it is CommunityTabFragment
+                    else -> it is LocalGroupsTabFragment
+                }
+            }
         }
 
-        // Initial submit
-        submitFiltered()
-
-        // Search box wiring
-        etSearch.addTextChangedListener { text ->
-            vm.setQuery(text?.toString().orEmpty())
-            submitFiltered()
+        fun updateCommunityList(items: List<com.example.myapplication.ui.dashboard.adapter.CommunityUi>) {
+            (findTabFragmentByType(0) as? CommunityTabFragment)?.let { frag ->
+                frag.view?.post { if (frag.isAdded) frag.submitList(items) }
+            }
         }
+
+        fun triggerSearch() {
+            val query = etSearch.text?.toString()?.trim().orEmpty()
+            val commTab = findTabFragmentByType(0) as? CommunityTabFragment
+            commTab?.setLoading(true)
+            vm.setQuery(query)
+            vm.search(query) { list ->
+                updateCommunityList(list)
+                commTab?.setLoading(false)
+            }
+        }
+
+        // IME action search on keyboard
+        etSearch.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                triggerSearch()
+                true
+            } else false
+        }
+
+        // Right-side submit icon click
+        submitIcon?.setOnClickListener { triggerSearch() }
+
+        // Initial empty list
+        updateCommunityList(emptyList())
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Pin the layout so it doesn't move with the keyboard
+        val window = activity?.window ?: return
+        previousSoftInputMode = window.attributes?.softInputMode
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Restore the previous soft input mode for other screens
+        val window = activity?.window ?: return
+        previousSoftInputMode?.let { window.setSoftInputMode(it) }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // unregister page callback to avoid leaks
+        pageCallback?.let { view?.findViewById<ViewPager2>(R.id.viewPager)?.unregisterOnPageChangeCallback(it) }
+        pageCallback = null
     }
 }
