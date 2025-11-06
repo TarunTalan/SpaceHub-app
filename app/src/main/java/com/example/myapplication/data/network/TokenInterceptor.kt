@@ -11,10 +11,9 @@ class TokenInterceptor(private val tokenStore: TokenStore) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val original = chain.request()
+        val path = original.url.encodedPath
 
         // Skip adding Authorization header for unauthenticated endpoints
-        val path = original.url.encodedPath
-        // Include all public endpoints that must not receive Authorization header
         val unauthEndpoints = listOf(
             "registration",
             "login",
@@ -22,7 +21,6 @@ class TokenInterceptor(private val tokenStore: TokenStore) : Interceptor {
             "forgotpassword",
             "validateforgototp",
             "resetpassword",
-            // Resend OTP endpoints use session tokens in the request body and should not be sent the access token
             "resendsignupotp",
             "resendforgototp"
         )
@@ -32,14 +30,13 @@ class TokenInterceptor(private val tokenStore: TokenStore) : Interceptor {
         val tokenPresent = !token.isNullOrBlank()
 
         val newReq = if (!isUnauthEndpoint && tokenPresent) {
-            // Add Authorization header for authenticated endpoints
             original.newBuilder()
                 .header("Authorization", "Bearer $token")
                 .build()
         } else {
-            // Skip adding the header for unauthenticated endpoints
             original
         }
+
 
         return chain.proceed(newReq)
     }

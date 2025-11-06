@@ -5,9 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
-import android.graphics.Rect
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import android.widget.EditText
 import android.widget.ImageView
@@ -35,17 +33,10 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
 
     private val vm: CommunityDetailViewModel by viewModels()
+    private var isFirstResume = true
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        // Ensure rooms are refreshed when fragment becomes visible
-        // (useful after returning from create screen)
-        viewLifecycleOwner.lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
-            override fun onResume(owner: androidx.lifecycle.LifecycleOwner) {
-                super.onResume(owner)
-                vm.refreshRooms()
-            }
-        })
 
         val toolbar = view.findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
         // show a back arrow and navigate up when clicked
@@ -101,7 +92,7 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                                         .setTitle("Invite link")
                                         .setMessage(msg)
                                         .setPositiveButton("Copy") { d, _ ->
-                                            copyToClipboard(requireContext(), "invite_link", link)
+                                            copyToClipboard(requireContext(), link)
                                             Toast.makeText(requireContext(), "Copied", Toast.LENGTH_SHORT).show()
                                             d.dismiss()
                                         }
@@ -233,7 +224,7 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                                         .setTitle("Invite link")
                                         .setMessage(msg)
                                         .setPositiveButton("Copy") { d, _ ->
-                                            copyToClipboard(requireContext(), "invite_link", link)
+                                            copyToClipboard(requireContext(), link)
                                             Toast.makeText(requireContext(), "Copied", Toast.LENGTH_SHORT).show()
                                             d.dismiss()
                                         }
@@ -329,13 +320,14 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
         }
         vm.setCommunityId(communityId)
 
-        // Hide delete menu item for non-admins by checking local community record
+        // Hide delete menu item for non-owners by checking role from backend
         try {
             lifecycleScope.launch {
                 val repo = CommunityRepository.getInstance(requireContext())
                 val comm = repo.getCommunityById(communityId)
-                val currentEmail = UserDataManager.getInstance(requireContext()).getEmail()
-                val isOwner = comm?.let { c -> (c.isOwner == true) || (!c.creatorId.isNullOrBlank() && c.creatorId == currentEmail) } == true
+                // Use role from backend to determine ownership
+                val role = comm?.role?.uppercase()
+                val isOwner = role in listOf("OWNER", "CREATOR")
                 // toolbar may be null in some layouts; use safe-call
                 toolbar?.menu?.findItem(R.id.action_delete_community)?.isVisible = isOwner
             }
@@ -421,9 +413,6 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
         try { rv.bringToFront(); rv.elevation = 12f } catch (_: Exception) {}
 
          vm.rooms.observe(viewLifecycleOwner) { list: List<DataRoom> ->
-            // debug log to confirm emission
-            try { Log.d("CommunityDetail", "rooms observed size=${list.size} first=${list.firstOrNull()}") } catch (_: Exception) {}
-
             adapter.submitList(list) {
                 // run after list is committed to adapter
                 val isEmpty = list.isEmpty()
@@ -431,9 +420,6 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                 rv.visibility = if (isEmpty) View.GONE else View.VISIBLE
                 if (!isEmpty) {
                     try { rv.post { rv.scrollToPosition(0) } } catch (_: Exception) {}
-                    // DEBUG: force full refresh in case DiffUtil incorrectly thinks list unchanged
-                    try { adapter.notifyDataSetChanged() } catch (_: Exception) {}
-                    try { android.util.Log.d("CommunityDetail", "adapter.itemCount=${adapter.itemCount}") } catch (_: Exception) {}
                  }
              }
         }
@@ -503,7 +489,7 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
             }
 
             val members = res.getOrNull().orEmpty()
-            val currentEmail = com.example.myapplication.data.user.UserDataManager.getInstance(ctx).getEmail()
+            val currentEmail = UserDataManager.getInstance(ctx).getEmail()
             val currentIsAdmin = members.any { m ->
                 m.email.equals(currentEmail, true) && (m.role.equals("ADMIN", true) || m.role.equals("OWNER", true))
             }
@@ -554,9 +540,9 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
         }
     }
 
-    private fun copyToClipboard(ctx: Context, label: String, text: String) {
+    private fun copyToClipboard(ctx: Context, text: String) {
         val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        cm.setPrimaryClip(ClipData.newPlainText(label, text))
+        cm.setPrimaryClip(ClipData.newPlainText("invite_link", text))
     }
 
     private fun shareText(text: String) {
@@ -567,5 +553,16 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
         }
         val shareIntent = Intent.createChooser(sendIntent, null)
         startActivity(shareIntent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Only refresh on subsequent resumes (e.g., after returning from create room screen)
+        // Skip the first resume to avoid duplicate API calls during initial load
+        if (isFirstResume) {
+            isFirstResume = false
+        } else {
+            vm.refreshRooms()
+        }
     }
 }

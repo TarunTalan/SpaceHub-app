@@ -62,12 +62,14 @@
                 app:layout_constraintBottom_toBottomOf="parent" />
 
         <ImageView
-
+                android:id="@+id/ivAddPerson"
                 android:layout_width="0dp"
                 android:layout_height="0dp"
                 android:src="@drawable/add_person"
                 android:scaleType="centerInside"
                 android:paddingEnd="5dp"
+                android:clickable="true"
+                android:focusable="true"
                 app:layout_constraintStart_toStartOf="@id/guideline_end_top"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"

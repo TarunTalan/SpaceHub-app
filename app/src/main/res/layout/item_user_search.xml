@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    app:cardBackgroundColor="@color/transparent"
+    app:cardElevation="0dp"
+    app:cardUseCompatPadding="false">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+
+        <ImageView
+            android:id="@+id/ivUserAvatar"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:src="@drawable/default_profile"
+            android:scaleType="centerCrop"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/tvUsername"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="@username"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:fontFamily="@font/roboto_semibold"
+            android:layout_marginStart="12dp"
+            app:layout_constraintStart_toEndOf="@id/ivUserAvatar"
+            app:layout_constraintTop_toTopOf="@id/ivUserAvatar"
+            app:layout_constraintEnd_toStartOf="@id/btnAddFriend" />
+
+        <TextView
+            android:id="@+id/tvUserName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Full Name"
+            android:textColor="#CCFFFFFF"
+            android:textSize="14sp"
+            android:layout_marginStart="12dp"
+            app:layout_constraintStart_toEndOf="@id/ivUserAvatar"
+            app:layout_constraintTop_toBottomOf="@id/tvUsername"
+            app:layout_constraintEnd_toStartOf="@id/btnAddFriend" />
+
+        <TextView
+            android:id="@+id/tvUserBio"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Bio"
+            android:textColor="#99FFFFFF"
+            android:textSize="12sp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="4dp"
+            app:layout_constraintStart_toEndOf="@id/ivUserAvatar"
+            app:layout_constraintTop_toBottomOf="@id/tvUserName"
+            app:layout_constraintEnd_toStartOf="@id/btnAddFriend" />
+
+        <ProgressBar
+            android:id="@+id/progressAddFriend"
+            style="?android:attr/progressBarStyleSmall"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:indeterminate="true"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/ivUserAvatar"
+            app:layout_constraintBottom_toBottomOf="@id/ivUserAvatar" />
+
+        <TextView
+            android:id="@+id/btnAddFriend"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Add Friend"
+            android:textColor="@color/white"
+            android:textSize="13sp"
+            android:fontFamily="@font/roboto_medium"
+            android:background="@drawable/rounded_button_bg_blue"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="8dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/ivUserAvatar"
+            app:layout_constraintBottom_toBottomOf="@id/ivUserAvatar" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.cardview.widget.CardView>
+

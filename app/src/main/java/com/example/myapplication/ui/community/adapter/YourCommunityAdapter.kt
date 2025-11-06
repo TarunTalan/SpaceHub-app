@@ -27,12 +27,32 @@ class YourCommunityAdapter(
         private val ivCover: ImageView = itemView.findViewById(R.id.ivCover)
         private val tvName: TextView = itemView.findViewById(R.id.tvName)
         private val tvDesc: TextView = itemView.findViewById(R.id.tvDesc)
-//        private val tvRoleBadge: TextView = itemView.findViewById(R.id.tvRoleBadge)
+        private val tvRoleBadge: TextView = itemView.findViewById(R.id.tvRoleBadge)
         private val btnJoin: TextView? = itemView.findViewById(R.id.btnJoinRequest)
         private val btnJoinProgress: View? = itemView.findViewById(R.id.btnJoinProgress)
+
         fun bind(item: Community) {
             tvName.text = item.name
             tvDesc.text = item.description ?: ""
+
+            // Show role badge for OWNER/ADMIN/MODERATOR
+            val role = item.role?.uppercase()
+            when {
+                role in listOf("OWNER", "CREATOR") -> {
+                    tvRoleBadge.visibility = View.VISIBLE
+                    tvRoleBadge.text = "OWNER"
+                    tvRoleBadge.setBackgroundResource(R.drawable.rounded_button_bg_blue)
+                }
+                role in listOf("ADMIN", "MODERATOR", "MANAGER") -> {
+                    tvRoleBadge.visibility = View.VISIBLE
+                    tvRoleBadge.text = "ADMIN"
+                    tvRoleBadge.setBackgroundResource(R.drawable.rounded_button_bg_blue)
+                }
+                else -> {
+                    tvRoleBadge.visibility = View.GONE
+                }
+            }
+
             val url = item.profilePicUrl ?: item.coverPhotoUrl
             if (!url.isNullOrBlank()) {
                 Glide.with(itemView)

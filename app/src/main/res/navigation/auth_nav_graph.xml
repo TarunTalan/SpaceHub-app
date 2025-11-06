@@ -314,7 +314,15 @@
             android:label="ChatRoomFragment"
             tools:layout="@layout/fragment_chat_room">
         <action android:id="@+id/action_chatRoomFragment_to_dashboardFragment" app:destination="@id/dashboardFragment"/>
+        <action android:id="@+id/action_chatRoomFragment_to_searchFriendsFragment" app:destination="@id/searchFriendsFragment"/>
     </fragment>
+
+    <fragment
+            android:id="@+id/searchFriendsFragment"
+            android:name="com.example.myapplication.ui.friends.SearchFriendsFragment"
+            android:label="Search Friends"
+            tools:layout="@layout/fragment_search_friends" />
+
     <fragment
             android:id="@+id/profileFragment"
             android:name="com.example.myapplication.ui.dashboard.ProfileFragment"

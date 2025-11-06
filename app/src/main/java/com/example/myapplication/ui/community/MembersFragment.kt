@@ -2,11 +2,9 @@ package com.example.myapplication.ui.community
 
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
 import android.graphics.RectF
 import android.os.Bundle
 import android.view.View
-import android.view.animation.DecelerateInterpolator
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -24,6 +22,9 @@ import com.example.myapplication.ui.community.adapter.MemberAdapter
 import kotlinx.coroutines.launch
 
 class MembersFragment : Fragment(R.layout.fragment_members) {
+    private var isAdmin = false
+    private lateinit var membersAdapter: MemberAdapter
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         val rv = view.findViewById<RecyclerView>(R.id.rv_members)
@@ -35,61 +36,71 @@ class MembersFragment : Fragment(R.layout.fragment_members) {
             return
         }
 
-        // By default, controls disabled; enable if current user is owner/admin
-        var isAdmin = false
-        lateinit var membersAdapter: MemberAdapter
-        membersAdapter = MemberAdapter(
+        // Setup RecyclerView
+        rv.layoutManager = LinearLayoutManager(requireContext())
+        rv.addItemDecoration(DividerItemDecoration(requireContext(), DividerItemDecoration.VERTICAL))
+
+        // Initialize adapter with helper function
+        fun createAdapter() = MemberAdapter(
             isAdmin = isAdmin,
             onChangeRole = { member, next ->
                 lifecycleScope.launch {
                     val res = CommunityRepository.getInstance(requireContext()).changeMemberRole(communityId, member.email, next)
-                    if (res.isSuccess) loadMembers(communityId, rv, progress, membersAdapter) else Toast.makeText(requireContext(), "Failed", Toast.LENGTH_SHORT).show()
+                    if (res.isSuccess) {
+                        // Reload members after role change
+                        view?.let { v ->
+                            val rvReload = v.findViewById<RecyclerView>(R.id.rv_members)
+                            val progressReload = v.findViewById<ProgressBar>(R.id.progress)
+                            if (rvReload != null && progressReload != null) {
+                                loadMembers(communityId, rvReload, progressReload)
+                            }
+                        }
+                    } else {
+                        Toast.makeText(requireContext(), "Failed", Toast.LENGTH_SHORT).show()
+                    }
                 }
             },
             onRemove = { member ->
                 lifecycleScope.launch {
                     val res = CommunityRepository.getInstance(requireContext()).removeMember(communityId, member.email)
-                    if (res.isSuccess) loadMembers(communityId, rv, progress, membersAdapter) else Toast.makeText(requireContext(), "Failed", Toast.LENGTH_SHORT).show()
+                    if (res.isSuccess) {
+                        // Reload members after removal
+                        view?.let { v ->
+                            val rvReload = v.findViewById<RecyclerView>(R.id.rv_members)
+                            val progressReload = v.findViewById<ProgressBar>(R.id.progress)
+                            if (rvReload != null && progressReload != null) {
+                                loadMembers(communityId, rvReload, progressReload)
+                            }
+                        }
+                    } else {
+                        Toast.makeText(requireContext(), "Failed", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         )
-        rv.layoutManager = LinearLayoutManager(requireContext())
-        rv.adapter = membersAdapter
-        rv.addItemDecoration(DividerItemDecoration(requireContext(), DividerItemDecoration.VERTICAL))
 
-        // Determine admin rights from local community cache
+        // Determine admin rights from local community cache, then setup adapter
         lifecycleScope.launch {
             val repo = CommunityRepository.getInstance(requireContext())
             val comm = repo.getCommunityById(communityId)
-            val nowAdmin = (comm?.isOwner == true || comm?.isModerator == true)
-            if (nowAdmin != isAdmin) {
-                isAdmin = nowAdmin
-                // Recreate adapter to reflect admin controls
-                val current = (rv.adapter as? MemberAdapter)
-                if (current != null) {
-                    val currentList = current.currentList
-                    membersAdapter = MemberAdapter(
-                        isAdmin = isAdmin,
-                        onChangeRole = { member, next ->
-                            lifecycleScope.launch {
-                                val res = CommunityRepository.getInstance(requireContext()).changeMemberRole(communityId, member.email, next)
-                                if (res.isSuccess) loadMembers(communityId, rv, progress, membersAdapter) else Toast.makeText(requireContext(), "Failed", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        onRemove = { member ->
-                            lifecycleScope.launch {
-                                val res = CommunityRepository.getInstance(requireContext()).removeMember(communityId, member.email)
-                                if (res.isSuccess) loadMembers(communityId, rv, progress, membersAdapter) else Toast.makeText(requireContext(), "Failed", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    )
-                    rv.adapter = membersAdapter
-                    membersAdapter.submitList(currentList)
-                }
-            }
-        }
+            // Use role from backend to determine admin status
+            val role = comm?.role?.uppercase()
+            isAdmin = role in listOf("OWNER", "CREATOR", "ADMIN", "MODERATOR", "MANAGER")
+            android.util.Log.d("MembersFragment", "Admin status: role=$role, isAdmin=$isAdmin")
 
-        val swipeBgPaint = Paint().apply { color = Color.parseColor("#E53935") }
+            // Now create and set adapter with correct admin status
+            membersAdapter = createAdapter()
+            rv.adapter = membersAdapter
+
+            // Setup swipe-to-delete
+            setupSwipeToDelete(rv, communityId)
+
+            // Load members
+            loadMembers(communityId, rv, progress)
+        }
+    }
+
+    private fun setupSwipeToDelete(rv: RecyclerView, communityId: String) {
         val deleteIcon = ResourcesCompat.getDrawable(resources, android.R.drawable.ic_menu_delete, null)
 
         // Attach swipe-to-confirm-delete helper (no reveal button)
@@ -104,7 +115,7 @@ class MembersFragment : Fragment(R.layout.fragment_members) {
                     rv.adapter?.notifyItemChanged(position)
                     return
                 }
-                val item = (rv.adapter as? MemberAdapter)?.currentList?.getOrNull(position)
+                val item = membersAdapter.currentList.getOrNull(position)
                 val email = item?.email
                 if (email.isNullOrBlank()) {
                     Toast.makeText(requireContext(), "Unknown member", Toast.LENGTH_SHORT).show()
@@ -117,8 +128,9 @@ class MembersFragment : Fragment(R.layout.fragment_members) {
                     .setPositiveButton("Remove") { _, _ ->
                         lifecycleScope.launch {
                             val res = CommunityRepository.getInstance(requireContext()).removeMember(communityId, email)
-                            if (res.isSuccess) {
-                                loadMembers(communityId, rv, progress, membersAdapter)
+                            val progress = view?.findViewById<ProgressBar>(R.id.progress)
+                            if (res.isSuccess && progress != null) {
+                                loadMembers(communityId, rv, progress)
                             } else {
                                 Toast.makeText(requireContext(), "Failed", Toast.LENGTH_SHORT).show()
                                 rv.adapter?.notifyItemChanged(position)
@@ -140,7 +152,8 @@ class MembersFragment : Fragment(R.layout.fragment_members) {
                 val itemView = vh.itemView
                 if (dX < 0) {
                     val bg = RectF(itemView.right + dX, itemView.top.toFloat(), itemView.right.toFloat(), itemView.bottom.toFloat())
-                    c.drawRect(bg, swipeBgPaint)
+                    val paint = android.graphics.Paint().apply { color = Color.parseColor("#E53935") }
+                    c.drawRect(bg, paint)
                     deleteIcon?.let { icon ->
                         val iconMargin = (itemView.height - 48) / 2
                         val iconSize = 48
@@ -155,20 +168,31 @@ class MembersFragment : Fragment(R.layout.fragment_members) {
             }
         }
         ItemTouchHelper(touchHelper).attachToRecyclerView(rv)
-
-        loadMembers(communityId, rv, progress, membersAdapter)
     }
 
-    private fun loadMembers(communityId: String, rv: RecyclerView, progress: ProgressBar, adapter: MemberAdapter) {
+    private fun loadMembers(communityId: String, rv: RecyclerView, progress: ProgressBar) {
         progress.visibility = View.VISIBLE
         rv.visibility = View.GONE
         viewLifecycleOwner.lifecycleScope.launch {
             val repo = CommunityRepository.getInstance(requireContext())
             val res = repo.fetchMembers(communityId)
             progress.visibility = View.GONE
-            rv.visibility = View.VISIBLE
-            res.onSuccess { adapter.submitList(it) }
-                .onFailure { Toast.makeText(requireContext(), it.message ?: "Failed", Toast.LENGTH_SHORT).show() }
+
+            res.onSuccess { members ->
+                android.util.Log.d("MembersFragment", "Members loaded successfully: ${members.size} members")
+                rv.visibility = View.VISIBLE
+                membersAdapter.submitList(members) {
+                    // Callback after list is submitted
+                    android.util.Log.d("MembersFragment", "Adapter updated with ${membersAdapter.itemCount} items")
+                    if (members.isEmpty()) {
+                        Toast.makeText(requireContext(), "No members found", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }.onFailure { error ->
+                android.util.Log.e("MembersFragment", "Failed to load members: ${error.message}", error)
+                rv.visibility = View.VISIBLE // Show empty RecyclerView
+                Toast.makeText(requireContext(), "Failed: ${error.message}", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }

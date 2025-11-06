@@ -36,6 +36,7 @@ data class Community(
     val updatedAt: Long = System.currentTimeMillis(),
 
     // User's relationship with this community
+    val role: String? = null,
     val isOwner: Boolean = false,
     val isMember: Boolean = false,
     val isModerator: Boolean = false

@@ -3,7 +3,8 @@ package com.example.myapplication.data.network
 import com.example.myapplication.data.auth.model.*
 import com.example.myapplication.data.community.model.*
 import com.example.myapplication.data.dashboard.model.*
-import com.example.myapplication.data.search.model.SearchCommunitiesResponse
+import com.example.myapplication.data.friends.model.*
+import com.example.myapplication.data.search.model.*
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Response
@@ -178,12 +179,6 @@ interface ApiService {
     ): Response<SearchCommunitiesResponse>
 
     @GET("community/my-pending-requests")
-    suspend fun getMyPendingRequests(
-        @Query("requesterEmail") requesterEmail: String
-    ): Response<GetMyPendingRequestsResponse>
-
-    // Raw variant to handle servers that sometimes return a plain array or different envelope
-    @GET("community/my-pending-requests")
     suspend fun getMyPendingRequestsRaw(
         @Query("requesterEmail") requesterEmail: String
     ): Response<JsonElement>
@@ -209,5 +204,40 @@ interface ApiService {
         @Body body: JoinCommunityByLinkRequest
     ): Response<JoinCommunityByLinkResponse>
 
+    @POST("create")
+    suspend fun createChatRoom(
+        @Body body: CreateChatRoomRequest
+    ): Response<CreateChatRoomResponse>
 
+    @GET("rooms/all")
+    suspend fun getAllChatRooms(
+        @Query("email") email: String
+    ): Response<GetAllChatRoomsResponse>
+
+    @POST("friends/request")
+    suspend fun sendFriendRequest(
+        @Body body: SendFriendRequest
+    ): Response<SendFriendRequestResponse>
+
+    @POST("friends/respond")
+    suspend fun respondFriendRequest(
+        @Body body: RespondFriendRequest
+    ): Response<RespondFriendRequestResponse>
+
+    @POST("friends/list")
+    suspend fun getFriendsList(
+        @Body body: FriendsListRequest
+    ): Response<FriendsListResponse>
+
+    @POST("friends/pending/incoming")
+    suspend fun getIncomingFriendRequests(
+        @Body body: IncomingFriendRequest
+    ): Response<IncomingFriendRequestResponse>
+
+    @GET("search")
+    suspend fun searchUsers(
+        @Query("q") query: String,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20
+    ): Response<SearchUsersResponse>
 }

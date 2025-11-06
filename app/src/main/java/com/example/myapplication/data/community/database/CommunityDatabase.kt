@@ -15,7 +15,7 @@ import com.example.myapplication.data.community.model.RoomEntity
  */
 @Database(
     entities = [Community::class, RoomEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class CommunityDatabase : RoomDatabase() {

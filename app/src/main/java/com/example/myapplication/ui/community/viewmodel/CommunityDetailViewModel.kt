@@ -84,8 +84,6 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
         _loading.postValue(false)
         res.onSuccess {
             _toast.postValue("Room created")
-            refreshMemberCount()
-            refreshAdminCount()
             syncRooms()
         }.onFailure { _toast.postValue(it.message ?: "Failed to create room") }
     }
@@ -97,8 +95,6 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
         _loading.postValue(false)
         res.onSuccess {
             _toast.postValue("Room deleted")
-            refreshMemberCount()
-            refreshAdminCount()
             syncRooms()
         }.onFailure { _toast.postValue(it.message ?: "Failed to delete room") }
     }
@@ -126,8 +122,6 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
         _loading.postValue(false)
         res.onSuccess {
             _toast.postValue("Room renamed")
-            refreshMemberCount()
-            refreshAdminCount()
             syncRooms()
         }.onFailure { _toast.postValue(it.message ?: "Failed to rename room") }
     }
