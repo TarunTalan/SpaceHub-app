@@ -6,16 +6,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@drawable/background_gradient"
-        tools:context=".ui.community.EditCommunityFragment">
-
-    <ProgressBar
-            android:id="@+id/progress"
-            style="@android:style/Widget.DeviceDefault.Light.ProgressBar.Large"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:visibility="gone"/>
-
+        tools:context=".ui.dashboard.GroupNamePicFragment">
 
     <ImageView
             android:layout_width="0dp"
@@ -43,7 +34,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/roboto_medium"
-                android:text="Create Your Community"
+                android:text="Create Your Group"
                 android:textColor="#FFFFFF"
                 android:textSize="@dimen/onboarding_title_text_size"
                 android:gravity="center"
@@ -56,7 +47,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/roboto_regular"
-                android:text="Your community is where you and your friends hang out and start talking."
+                android:text="Your group is where you and your friends hang out and start talking."
                 android:textColor="#FFFFFF"
                 android:textSize="15sp"
                 android:gravity="center"
@@ -69,7 +60,7 @@
 
     <!-- Logo container: stack the logo and an outline overlay so outline always covers the logo -->
     <FrameLayout
-            android:id="@+id/comm_pic_frame"
+            android:id="@+id/grp_pic_frame"
             android:layout_width="100dp"
             android:layout_height="100dp"
             android:clipToPadding="false"
@@ -79,7 +70,7 @@
             app:layout_constraintTop_toBottomOf="@id/guideline_comm">
 
         <com.google.android.material.imageview.ShapeableImageView
-                android:id="@+id/comm_pic"
+                android:id="@+id/grp_pic"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:background="@drawable/outline_circle_dashed_white"
@@ -88,7 +79,7 @@
         />
 
         <ImageView
-                android:id="@+id/comm_pic_icon"
+                android:id="@+id/grp_pic_icon"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
@@ -112,16 +103,16 @@
             android:textSize="13sp"
             android:textColor="@color/white"
             android:layout_marginTop="4dp"
-            app:layout_constraintEnd_toEndOf="@id/comm_pic_frame"
-            app:layout_constraintStart_toStartOf="@id/comm_pic_frame"
-            app:layout_constraintTop_toBottomOf="@id/comm_pic_frame"
+            app:layout_constraintEnd_toEndOf="@id/grp_pic_frame"
+            app:layout_constraintStart_toStartOf="@id/grp_pic_frame"
+            app:layout_constraintTop_toBottomOf="@id/grp_pic_frame"
     />
 
     <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            app:layout_constraintTop_toBottomOf="@+id/comm_pic_frame"
-            app:layout_constraintBottom_toTopOf="@id/btn_create_comm"
+            app:layout_constraintTop_toBottomOf="@+id/grp_pic_frame"
+            app:layout_constraintBottom_toTopOf="@id/btn_create_grp"
             app:layout_constraintEnd_toStartOf="@+id/guideline_end"
             app:layout_constraintStart_toStartOf="@+id/guideline_start"
             android:elevation="5dp"
@@ -239,7 +230,7 @@
 
 
     <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/tvCommunity_name_grp"
+            android:id="@+id/tvGrp_name_grp"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             app:layout_constraintTop_toBottomOf="@+id/guideline_center"
@@ -254,21 +245,21 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/roboto_semibold"
                 android:paddingBottom="5dp"
-                android:text="Community Name"
+                android:text="Group Name"
                 android:textSize="@dimen/label_text_size"
                 android:textColor="#FFFFFF"
-                app:layout_constraintStart_toStartOf="@+id/etCommName"
+                app:layout_constraintStart_toStartOf="@+id/etGrpName"
                 app:layout_constraintTop_toTopOf="parent"/>
 
         <EditText
-                android:id="@+id/etCommunityName"
+                android:id="@+id/etGrpName"
                 android:layout_width="0dp"
                 android:layout_height="@dimen/input_height"
                 android:maxWidth="@dimen/input_max_width"
                 android:maxLength="25"
                 android:background="@drawable/edit_text_outline_selector"
                 android:fontFamily="@font/roboto_regular"
-                android:hint="Enter your Community Name"
+                android:hint="Enter your Group Name"
                 android:inputType="text"
                 android:paddingHorizontal="20dp"
                 android:textColor="#FFFFFF"
@@ -279,81 +270,22 @@
                 app:layout_constraintTop_toBottomOf="@id/tvGrpName"/>
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/Community_description_grp"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="30dp"
-            app:layout_constraintTop_toBottomOf="@+id/tvCommunity_name_grp"
-            app:layout_constraintEnd_toStartOf="@+id/guideline_end"
-            app:layout_constraintStart_toStartOf="@+id/guideline_start"
-            android:elevation="5dp"
-            android:translationZ="5dp">
-
-        <TextView
-                android:id="@+id/tvCommunityDescription"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="@font/roboto_semibold"
-                android:paddingBottom="5dp"
-                android:text="Community Description"
-                android:textSize="@dimen/label_text_size"
-                android:textColor="#FFFFFF"
-                app:layout_constraintStart_toStartOf="@+id/etCommDescription"
-                app:layout_constraintTop_toTopOf="parent" />
-
-        <EditText
-                android:id="@+id/etCommunityDescription"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:maxWidth="@dimen/input_max_width"
-                android:maxLength="150"
-                android:background="@drawable/edit_text_outline_selector_2"
-                android:fontFamily="@font/roboto_regular"
-                android:hint="Write description about your Community"
-                android:lines="4"
-                android:gravity="top|start"
-                android:inputType="textMultiLine"
-                android:paddingHorizontal="20dp"
-                android:paddingVertical="8dp"
-                android:textColor="#FFFFFF"
-                android:textColorHint="#475569"
-                android:textSize="@dimen/input_text_size"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/tvCommunityDescription" />
-
-        <TextView
-                android:id="@+id/tvFirstNameCounter"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:fontFamily="@font/roboto_regular"
-                android:textColor="#C6CAD1"
-                android:textSize="12sp"
-                app:layout_constraintEnd_toEndOf="@+id/etCommDescription"
-                app:layout_constraintTop_toBottomOf="@+id/etCommDescription"
-                tools:text="0 / 100 words" />
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
-
-
     <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnSave"
+            android:id="@+id/btn_create_grp"
             android:layout_width="0dp"
             android:layout_height="@dimen/onboarding_button_height"
             android:background="@drawable/rounded_button_bg"
             android:fontFamily="@font/roboto_regular"
-            android:text="Save"
+            android:text="Next"
             android:textSize="@dimen/onboarding_button_text_size"
             android:textAllCaps="false"
             android:textColor="#FFFFFF"
             android:elevation="5dp"
             android:translationZ="5dp"
-            app:layout_constraintTop_toBottomOf="@id/Community_description_grp"
+            app:layout_constraintTop_toBottomOf="@id/tvGrp_name_grp"
             app:layout_constraintEnd_toEndOf="@id/guideline_end"
             app:layout_constraintStart_toStartOf="@id/guideline_start"
-            android:layout_marginTop="30dp"/>
+            android:layout_marginTop="80dp"/>
 
     <androidx.constraintlayout.widget.Guideline
             android:id="@+id/guideline_start"
@@ -442,5 +374,3 @@
             android:layout_height="wrap_content"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
-        </ScrollView>
-

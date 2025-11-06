@@ -194,7 +194,6 @@ class CommunityRepository private constructor(private val context: Context) {
     suspend fun createChatRoom(communityId: String, roomId: String, chatRoomName: String): Result<DataChatRoom> {
         return try {
             val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
-            // TODO: Store and use actual userId from profile instead of email
             val req = CreateChatRoomRequest(name = chatRoomName, userId = email)
             val resp = api.createChatRoom(req)
             if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
