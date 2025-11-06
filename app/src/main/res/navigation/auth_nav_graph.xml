@@ -378,4 +378,16 @@
     <action
         android:id="@+id/action_communityDetail_to_editCommunity"
         app:destination="@id/editCommunityFragment" />
+
+    <fragment
+        android:id="@+id/membersFragment"
+        android:name="com.example.myapplication.ui.community.MembersFragment"
+        android:label="Members"
+        tools:layout="@layout/fragment_members">
+        <argument android:name="communityId" app:argType="string" />
+    </fragment>
+
+    <action
+        android:id="@+id/action_communityDetail_to_members"
+        app:destination="@id/membersFragment" />
 </navigation>

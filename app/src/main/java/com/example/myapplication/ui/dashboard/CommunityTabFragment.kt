@@ -6,8 +6,10 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.R
@@ -82,6 +84,10 @@ class CommunityTabFragment : BaseFragment(R.layout.fragment_tab_community) {
         })
         recycler.layoutManager = LinearLayoutManager(requireContext())
         recycler.adapter = adapter
+        // Add thin divider between items
+        val divider = DividerItemDecoration(requireContext(), DividerItemDecoration.VERTICAL)
+        ContextCompat.getDrawable(requireContext(), R.drawable.divider_thin)?.let { divider.setDrawable(it) }
+        recycler.addItemDecoration(divider)
 
         // register observer after adapter is set
         adapter.registerAdapterDataObserver(adapterObserver)

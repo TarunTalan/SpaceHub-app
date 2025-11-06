@@ -183,4 +183,6 @@
     <string name="join">Join</string>
     <string name="unknown_user">Unknown user</string>
     <string name="request_wants_to_join_fmt">wants to join %1$s</string>
+    <string name="profile_image">Profile image</string>
+    <string name="delete">Remove</string>
 </resources>

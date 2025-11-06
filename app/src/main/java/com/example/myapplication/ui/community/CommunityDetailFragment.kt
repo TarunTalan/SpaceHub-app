@@ -117,12 +117,69 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                             }
                             true
                         }
+                        R.id.action_members -> {
+                            val communityId = arguments?.getString("communityId")
+                            if (communityId.isNullOrBlank()) {
+                                Toast.makeText(requireContext(), "Missing communityId", Toast.LENGTH_SHORT).show()
+                            } else {
+                                findNavController().navigate(R.id.action_communityDetail_to_members, Bundle().apply { putString("communityId", communityId) })
+                            }
+                            true
+                        }
+                        R.id.action_leave_community -> {
+                            val communityId = arguments?.getString("communityId")
+                            if (communityId.isNullOrBlank()) {
+                                Toast.makeText(requireContext(), "Missing communityId", Toast.LENGTH_SHORT).show()
+                                return@setOnMenuItemClickListener true
+                            }
+                            AlertDialog.Builder(requireContext())
+                                .setTitle("Leave Community")
+                                .setMessage("Are you sure you want to leave this community?")
+                                .setPositiveButton("Leave") { _, _ ->
+                                    // We need communityName for API; get it from repo
+                                    viewLifecycleOwner.lifecycleScope.launch {
+                                        val repo = CommunityRepository.getInstance(requireContext())
+                                        val comm = repo.getCommunityById(communityId)
+                                        val name = comm?.name
+                                        if (name.isNullOrBlank()) {
+                                            Toast.makeText(requireContext(), "Community name missing", Toast.LENGTH_SHORT).show()
+                                            return@launch
+                                        }
+                                        val res = repo.leaveCommunity(communityId, name)
+                                        if (res.isSuccess) {
+                                            Toast.makeText(requireContext(), "Left community", Toast.LENGTH_SHORT).show()
+                                            findNavController().navigateUp()
+                                        } else {
+                                            Toast.makeText(requireContext(), "Failed to leave", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                }
+                                .setNegativeButton(android.R.string.cancel, null)
+                                .show()
+                            true
+                        }
                         R.id.action_delete_community -> {
                             val ctx = requireContext()
                             AlertDialog.Builder(ctx)
                                 .setTitle("Delete Community")
                                 .setMessage("Are you sure you want to delete this community?")
                                 .setPositiveButton("Delete") { _, _ -> vm.deleteCommunity() }
+                                .setNegativeButton(android.R.string.cancel, null)
+                                .show()
+                            true
+                        }
+                        R.id.action_add_room -> {
+                            val ctx = requireContext()
+                            val input = EditText(ctx).apply { hint = "Room name" }
+                            AlertDialog.Builder(ctx)
+                                .setTitle("Add room")
+                                .setView(input)
+                                .setPositiveButton("Create") { d, _ ->
+                                    val name = input.text?.toString()?.trim().orEmpty()
+                                    if (name.isNotEmpty()) viewLifecycleOwner.lifecycleScope.launch { vm.createRoom(name) }
+                                    else Toast.makeText(ctx, "Name required", Toast.LENGTH_SHORT).show()
+                                    d.dismiss()
+                                }
                                 .setNegativeButton(android.R.string.cancel, null)
                                 .show()
                             true
@@ -192,12 +249,68 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                             }
                             true
                         }
+                        R.id.action_members -> {
+                            val communityId = arguments?.getString("communityId")
+                            if (communityId.isNullOrBlank()) {
+                                Toast.makeText(requireContext(), "Missing communityId", Toast.LENGTH_SHORT).show()
+                            } else {
+                                findNavController().navigate(R.id.action_communityDetail_to_members, Bundle().apply { putString("communityId", communityId) })
+                            }
+                            true
+                        }
+                        R.id.action_leave_community -> {
+                            val communityId = arguments?.getString("communityId")
+                            if (communityId.isNullOrBlank()) {
+                                Toast.makeText(requireContext(), "Missing communityId", Toast.LENGTH_SHORT).show()
+                                return@setOnMenuItemClickListener true
+                            }
+                            AlertDialog.Builder(requireContext())
+                                .setTitle("Leave Community")
+                                .setMessage("Are you sure you want to leave this community?")
+                                .setPositiveButton("Leave") { _, _ ->
+                                    viewLifecycleOwner.lifecycleScope.launch {
+                                        val repo = CommunityRepository.getInstance(requireContext())
+                                        val comm = repo.getCommunityById(communityId)
+                                        val name = comm?.name
+                                        if (name.isNullOrBlank()) {
+                                            Toast.makeText(requireContext(), "Community name missing", Toast.LENGTH_SHORT).show()
+                                            return@launch
+                                        }
+                                        val res = repo.leaveCommunity(communityId, name)
+                                        if (res.isSuccess) {
+                                            Toast.makeText(requireContext(), "Left community", Toast.LENGTH_SHORT).show()
+                                            findNavController().navigateUp()
+                                        } else {
+                                            Toast.makeText(requireContext(), "Failed to leave", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                }
+                                .setNegativeButton(android.R.string.cancel, null)
+                                .show()
+                            true
+                        }
                         R.id.action_delete_community -> {
                             val ctx = requireContext()
                             AlertDialog.Builder(ctx)
                                 .setTitle("Delete Community")
                                 .setMessage("Are you sure you want to delete this community?")
                                 .setPositiveButton("Delete") { _, _ -> vm.deleteCommunity() }
+                                .setNegativeButton(android.R.string.cancel, null)
+                                .show()
+                            true
+                        }
+                        R.id.action_add_room -> {
+                            val ctx = requireContext()
+                            val input = EditText(ctx).apply { hint = "Room name" }
+                            AlertDialog.Builder(ctx)
+                                .setTitle("Add room")
+                                .setView(input)
+                                .setPositiveButton("Create") { d, _ ->
+                                    val name = input.text?.toString()?.trim().orEmpty()
+                                    if (name.isNotEmpty()) viewLifecycleOwner.lifecycleScope.launch { vm.createRoom(name) }
+                                    else Toast.makeText(ctx, "Name required", Toast.LENGTH_SHORT).show()
+                                    d.dismiss()
+                                }
                                 .setNegativeButton(android.R.string.cancel, null)
                                 .show()
                             true
@@ -230,7 +343,6 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
 
         val emptyView = view.findViewById<View>(R.id.empty_rooms_view)
         val rv = view.findViewById<RecyclerView>(R.id.rv_rooms)
-        val progress = view.findViewById<ProgressBar>(R.id.progress)
         val memberCount = view.findViewById<TextView>(R.id.member_count_tv)
         val adminCount = view.findViewById<TextView>(R.id.admin_count_tv)
         val tvUser = view.findViewById<TextView>(R.id.tvUsername)
@@ -326,9 +438,6 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
              }
         }
         vm.totalMembers.observe(viewLifecycleOwner) { count -> memberCount.text = count.toString() }
-        vm.loading.observe(viewLifecycleOwner) { show ->
-            progress.visibility = if (show) View.VISIBLE else View.GONE
-        }
         vm.adminCount.observe(viewLifecycleOwner) { count -> adminCount.text = count.toString() }
         vm.toast.observe(viewLifecycleOwner) { msg -> if (!msg.isNullOrBlank()) Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show() }
         vm.deleted.observe(viewLifecycleOwner) { deleted -> if (deleted == true) findNavController().popBackStack() }
@@ -369,8 +478,7 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
         val swipe = view.findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
         swipe?.setOnRefreshListener { vm.refreshRooms() }
         vm.loading.observe(viewLifecycleOwner) { show ->
-            view.findViewById<ProgressBar>(R.id.progress)?.visibility = if (show) View.VISIBLE else View.GONE
-            // stop the spinner when loading completes
+            // Do not toggle any full-screen loader; only stop the swipe spinner when loading completes
             if (!show) swipe?.isRefreshing = false
         }
     }

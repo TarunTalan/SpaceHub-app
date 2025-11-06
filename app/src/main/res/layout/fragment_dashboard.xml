@@ -11,8 +11,8 @@
 
     <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:background="@drawable/background_gradient"
             android:layout_height="match_parent"
+            android:background="@drawable/background_gradient"
             tools:context=".ui.dashboard.DashboardFragment">
 
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -85,68 +85,124 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    app:layout_constraintGuide_percent="0.08"/>
+                    app:layout_constraintGuide_percent="0.04"/>
 
             <androidx.constraintlayout.widget.Guideline
                     android:id="@+id/guideline_end_top"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    app:layout_constraintGuide_percent="0.92"/>
+                    app:layout_constraintGuide_percent="0.96"/>
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <androidx.constraintlayout.widget.ConstraintLayout
-                android:id="@+id/your_community"
+        <!-- Scrollable content below toolbar: make it span full screen width -->
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+                android:id="@+id/swipe_refresh_my_communities"
                 android:layout_width="0dp"
                 android:layout_height="0dp"
                 app:layout_constraintTop_toBottomOf="@id/top_toolbar"
-                app:layout_constraintStart_toStartOf="@id/guideline_start"
-                app:layout_constraintEnd_toEndOf="@id/guideline_end"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintBottom_toTopOf="@id/guideline_bottom"
                 android:layout_marginTop="20dp">
-            <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="My communities"
-                    android:textColor="@color/white"
-                    android:textSize="18sp"
-                    android:fontFamily="@font/roboto_semibold"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    android:id="@+id/tv_my_communities"/>
 
-            <ImageView
-                    android:id="@+id/iv_toggle_your_comm"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:src="@drawable/arrow_up"
-                    android:contentDescription="@string/toggle"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"/>
+            <androidx.core.widget.NestedScrollView
+                    android:id="@+id/nested_content"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:fillViewport="true"
+                    android:overScrollMode="never">
 
-            <!-- Swipe-to-refresh wrapper for My Communities list -->
-            <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-                    android:id="@+id/swipe_refresh_my_communities"
-                    android:layout_width="0dp"
-                    android:layout_height="0dp"
-                    app:layout_constraintTop_toBottomOf="@id/tv_my_communities"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    android:layout_marginTop="12dp">
-
-                <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/rv_your_communities"
+                <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:overScrollMode="never"
-                        tools:listitem="@layout/item_community_card"
-                        tools:itemCount="2"/>
-            </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
 
-        </androidx.constraintlayout.widget.ConstraintLayout>
+                    <!-- My communities header row -->
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content">
 
+                        <TextView
+                                android:id="@+id/tv_my_communities"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="My communities"
+                                android:textColor="@color/white"
+                                android:textSize="18sp"
+                                android:layout_marginStart="25dp"
+                                android:fontFamily="@font/roboto_semibold"
+                                app:layout_constraintTop_toTopOf="parent"
+                                app:layout_constraintBottom_toBottomOf="parent"
+                                app:layout_constraintStart_toStartOf="parent"/>
+
+                        <ImageView
+                                android:id="@+id/iv_toggle_your_comm"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:src="@drawable/arrow_up"
+                                android:layout_marginEnd="25dp"
+                                android:contentDescription="@string/toggle"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintTop_toTopOf="parent"
+                                app:layout_constraintBottom_toBottomOf="parent"/>
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+                    <!-- My communities list (non-nested scrolling, expands in scroll view) -->
+                    <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rv_your_communities"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:nestedScrollingEnabled="false"
+                            android:overScrollMode="never"
+                            tools:listitem="@layout/item_community_card"
+                            tools:itemCount="4"/>
+
+                    <!-- Joined communities header row (with toggle) -->
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content">
+
+                        <TextView
+                                android:id="@+id/tv_joined_communities"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Joined communities"
+                                android:textColor="@color/white"
+                                android:textSize="18sp"
+                                android:layout_marginStart="25dp"
+                                android:layout_marginTop="12dp"
+                                android:fontFamily="@font/roboto_semibold"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toTopOf="parent"
+                                app:layout_constraintBottom_toBottomOf="parent"/>
+
+                        <ImageView
+                                android:id="@+id/iv_toggle_joined_comm"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:src="@drawable/arrow_up"
+                                android:layout_marginEnd="25dp"
+                                android:contentDescription="@string/toggle"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintTop_toTopOf="parent"
+                                app:layout_constraintBottom_toBottomOf="parent"/>
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+                    <!-- Joined communities list (non-nested scrolling) -->
+                    <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rv_joined_communities"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:nestedScrollingEnabled="false"
+                            android:overScrollMode="never"
+                            tools:listitem="@layout/item_community_card"
+                            tools:itemCount="6"/>
+
+                </LinearLayout>
+            </androidx.core.widget.NestedScrollView>
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
         <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/illustration"
@@ -272,7 +328,7 @@
                 android:layout_height="wrap_content"
                 android:adjustViewBounds="true"
                 android:scaleType="fitXY"
-                android:src="@drawable/ellipse_dull_2"
+                android:src="@drawable/ellipse_"
                 android:layout_marginBottom="70dp"
                 app:layout_constraintBottom_toBottomOf="@+id/ellipse2"
                 app:layout_constraintEnd_toEndOf="parent"
@@ -287,7 +343,7 @@
                 android:layout_height="wrap_content"
                 android:adjustViewBounds="true"
                 android:scaleType="fitXY"
-                android:src="@drawable/ellipse_dull_2"
+                android:src="@drawable/ellipse_"
                 android:layout_marginBottom="70dp"
                 app:layout_constraintBottom_toBottomOf="@+id/ellipse3"
                 app:layout_constraintEnd_toEndOf="parent"
@@ -302,7 +358,7 @@
                 android:layout_height="wrap_content"
                 android:adjustViewBounds="true"
                 android:scaleType="fitXY"
-                android:src="@drawable/ellipse_dull_2"
+                android:src="@drawable/ellipse_"
                 app:layout_constraintEnd_toEndOf="parent"
                 android:layout_marginBottom="18dp"
                 app:layout_constraintStart_toStartOf="parent"

@@ -72,7 +72,6 @@ class CommunityListAdapter(
         private val tvSubtitle: TextView? = itemView.findViewById(R.id.tvDesc) ?: itemView.findViewById(R.id.tvSubtitle)
         private val btnJoinRequest: TextView? = itemView.findViewById(R.id.btnJoinRequest)
         private val btnProgress: ProgressBar? = itemView.findViewById(R.id.btnJoinProgress)
-        private val tvRoleBadge: TextView? = itemView.findViewById(R.id.tvRoleBadge)
 
         fun bind(item: CommunityUi) {
             tvName?.text = item.name
@@ -95,19 +94,6 @@ class CommunityListAdapter(
 
             // Determine if join controls should be visible: hide when user is already member/owner/admin
             val alreadyMember = item.isMember || item.isOwner || item.isAdmin
-
-            // Role badge: show Owner/Admin if applicable
-            when {
-                item.isOwner -> {
-                    tvRoleBadge?.visibility = View.VISIBLE
-                    tvRoleBadge?.text = itemView.context.getString(R.string.role_owner)
-                }
-                item.isAdmin -> {
-                    tvRoleBadge?.visibility = View.VISIBLE
-                    tvRoleBadge?.text = itemView.context.getString(R.string.role_admin)
-                }
-                else -> tvRoleBadge?.visibility = View.GONE
-            }
 
             if (alreadyMember) {
                 // hide join button and progress

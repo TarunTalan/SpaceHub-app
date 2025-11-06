@@ -27,7 +27,7 @@ class YourCommunityAdapter(
         private val ivCover: ImageView = itemView.findViewById(R.id.ivCover)
         private val tvName: TextView = itemView.findViewById(R.id.tvName)
         private val tvDesc: TextView = itemView.findViewById(R.id.tvDesc)
-        private val tvRoleBadge: TextView = itemView.findViewById(R.id.tvRoleBadge)
+//        private val tvRoleBadge: TextView = itemView.findViewById(R.id.tvRoleBadge)
         private val btnJoin: TextView? = itemView.findViewById(R.id.btnJoinRequest)
         private val btnJoinProgress: View? = itemView.findViewById(R.id.btnJoinProgress)
         fun bind(item: Community) {
@@ -48,19 +48,6 @@ class YourCommunityAdapter(
             // Dashboard lists only communities you belong to; hide join controls entirely
             btnJoin?.visibility = View.GONE
             btnJoinProgress?.visibility = View.GONE
-
-            // Show role badge: Owner takes precedence, then Moderator/Admin
-            when {
-                item.isOwner -> {
-                    tvRoleBadge.visibility = View.VISIBLE
-                    tvRoleBadge.text = itemView.context.getString(R.string.role_owner)
-                }
-                item.isModerator -> {
-                    tvRoleBadge.visibility = View.VISIBLE
-                    tvRoleBadge.text = itemView.context.getString(R.string.role_admin)
-                }
-                else -> tvRoleBadge.visibility = View.GONE
-            }
 
             itemView.setOnClickListener { onClick(item) }
         }

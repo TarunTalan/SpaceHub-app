@@ -94,7 +94,7 @@
         <ImageView
             android:layout_width="80dp"
             android:layout_height="80dp"
-            android:src="@android:drawable/ic_dialog_info"
+            android:src="@drawable/info_icon"
             android:alpha="0.6"
             android:contentDescription="No requests"/>
 

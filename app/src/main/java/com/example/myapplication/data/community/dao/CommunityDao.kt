@@ -90,6 +90,23 @@ interface CommunityDao {
     @Query("UPDATE communities SET memberCount = :count WHERE communityId = :communityId")
     suspend fun updateMemberCount(communityId: String, count: Int)
 
+    // Update relationship flags (isOwner, isMember, isModerator)
+    @Query("""
+        UPDATE communities 
+        SET isOwner = :isOwner,
+            isMember = :isMember,
+            isModerator = :isModerator,
+            updatedAt = :updatedAt
+        WHERE communityId = :communityId
+    """)
+    suspend fun updateRelationship(
+        communityId: String,
+        isOwner: Boolean,
+        isMember: Boolean,
+        isModerator: Boolean,
+        updatedAt: Long = System.currentTimeMillis()
+    )
+
     //  DELETE
 
     // Delete specific community

@@ -11,7 +11,9 @@ import com.example.myapplication.data.user.UserDataManager
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonParseException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 
 
 /*
@@ -125,6 +127,17 @@ class CommunityRepository private constructor(private val context: Context) {
             if (resp.isSuccessful) {
                 val body = resp.body()
                 val list = body?.data?.members ?: emptyList()
+                // Update relationship flags locally based on my role (handle synonyms)
+                val myRole = list.firstOrNull { it.email.equals(email, true) }?.role?.trim()?.uppercase()
+                val isOwner = myRole == "OWNER" || myRole == "CREATOR"
+                val isModerator = when {
+                    myRole == null -> false
+                    myRole.contains("ADMIN") -> true // ADMIN or ADMINISTRATOR
+                    myRole == "MODERATOR" || myRole == "MANAGER" || myRole == "OWNER" || myRole == "CREATOR" -> true
+                    else -> false
+                }
+                val isMember = list.any { it.email.equals(email, true) }
+                runCatching { communityDao.updateRelationship(communityId, isOwner, isMember, isModerator) }
                 Result.success(list)
             } else {
                 Result.failure(RuntimeException("HTTP ${resp.code()}"))
@@ -157,8 +170,8 @@ class CommunityRepository private constructor(private val context: Context) {
             val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
             val resp = api.leaveCommunity(LeaveCommunityRequest(communityName = communityName, userEmail = email))
             if (resp.isSuccessful && resp.body()?.status in listOf(200, 201)) {
-                // reconcile local list from server
-                runCatching { fetchMyCommunitiesRemote(email) }
+                // Minimize API calls: update local DB immediately instead of refetching
+                try { communityDao.deleteCommunityById(communityId) } catch (_: Exception) {}
                 Result.success(Unit)
             } else Result.failure(RuntimeException("Failed: ${resp.code()}"))
         } catch (t: Throwable) { Result.failure(t) }
@@ -169,8 +182,11 @@ class CommunityRepository private constructor(private val context: Context) {
         return try {
             val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
             val resp = api.createRoom(communityId, CreateRoomRequest(requesterEmail = email, roomName = roomName))
-            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) Result.success(Unit)
-            else Result.failure(RuntimeException("HTTP ${resp.code()}"))
+            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
+                // Refresh only this community’s rooms so UI updates; one lightweight API call
+                runCatching { refreshRooms(communityId) }
+                Result.success(Unit)
+            } else Result.failure(RuntimeException("HTTP ${resp.code()}"))
         } catch (t: Throwable) { Result.failure(t) }
     }
 
@@ -178,8 +194,11 @@ class CommunityRepository private constructor(private val context: Context) {
         return try {
             val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
             val resp = api.deleteRoom(communityId, roomId, email)
-            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) Result.success(Unit)
-            else Result.failure(RuntimeException("HTTP ${resp.code()}"))
+            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
+                // Refresh only this community’s rooms
+                runCatching { refreshRooms(communityId) }
+                Result.success(Unit)
+            } else Result.failure(RuntimeException("HTTP ${resp.code()}"))
         } catch (t: Throwable) { Result.failure(t) }
     }
 
@@ -267,8 +286,11 @@ class CommunityRepository private constructor(private val context: Context) {
                 roomId = roomId,
                 body = RenameRoomRequest(newRoomName = newName, requesterEmail = email)
             )
-            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) Result.success(Unit)
-            else Result.failure(RuntimeException("HTTP ${resp.code()}"))
+            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
+                // Refresh only this community’s rooms
+                runCatching { refreshRooms(communityId) }
+                Result.success(Unit)
+            } else Result.failure(RuntimeException("HTTP ${resp.code()}"))
         } catch (t: Throwable) { Result.failure(t) }
     }
 
@@ -326,6 +348,22 @@ class CommunityRepository private constructor(private val context: Context) {
 
             val mapped: List<Community> = data.communities.mapNotNull { dto ->
                 try {
+                    val createdByEmail = dto.createdBy?.email
+                    val creatorIsMe = !createdByEmail.isNullOrBlank() && createdByEmail.equals(email, true)
+                    val myRoleRaw = dto.communityUsers
+                        ?.firstOrNull { cu -> cu.user.email.equals(email, true) }
+                        ?.role
+                        ?.trim()
+                        ?.uppercase()
+                    val isOwner = creatorIsMe || myRoleRaw == "OWNER" || myRoleRaw == "CREATOR"
+                    val isModerator = when {
+                        myRoleRaw == null -> false
+                        myRoleRaw.contains("ADMIN") -> true
+                        myRoleRaw == "MODERATOR" || myRoleRaw == "MANAGER" || myRoleRaw == "OWNER" || myRoleRaw == "CREATOR" -> true
+                        else -> false
+                    }
+                    val isMember = true // API returns only communities I belong to
+
                     Community(
                         communityId = dto.communityId,
                         name = dto.name,
@@ -342,28 +380,56 @@ class CommunityRepository private constructor(private val context: Context) {
                         creatorName = dto.createdBy?.username,
                         createdAt = System.currentTimeMillis(),
                         updatedAt = System.currentTimeMillis(),
-                        // Server response does not provide membership flags; infer none
-                        isOwner = false,
-                        isMember = true,
-                        isModerator = false
+                        isOwner = isOwner,
+                        isMember = isMember,
+                        isModerator = isModerator
                     )
                 } catch (_: Exception) { null }
             }
 
             val ids = mapped.map { it.communityId }
 
-            // Run delete+insert in a single transaction so flows emit once
             CommunityDatabase.getInstance(context).withTransaction {
-                // remove communities not present in latest response to avoid stale/deleted entries
                 if (ids.isNotEmpty()) {
                     communityDao.deleteCommunitiesNotIn(ids)
                 } else {
-                    // server returned empty: clear all "my" communities
                     communityDao.deleteAllNonMyCommunities()
                 }
                 if (mapped.isNotEmpty()) {
                     communityDao.insertCommunities(mapped)
                 }
+            }
+            Result.success(Unit)
+        } catch (t: Throwable) {
+            Result.failure(t)
+        }
+    }
+
+    // Helper: backfill my role for a few communities to classify admin correctly with minimal API cost
+    private suspend fun backfillRolesIfMissing(limit: Int = 5) {
+        runCatching {
+            val list = communityDao.getAllCommunities()
+            val targets = list.filter { !it.isOwner && !it.isModerator }.take(limit)
+            for (c in targets) {
+                // fetchMembers updates relationship flags in DB based on my role
+                runCatching { fetchMembers(c.communityId) }
+            }
+        }
+    }
+
+    // Helper: fetch my communities from server, then refresh rooms for each (bootstrap after auth)
+    suspend fun bootstrapCommunitiesAndRooms(): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val email = userData.getEmail() ?: return@withContext Result.failure(IllegalStateException("Email not set"))
+            val commRes = fetchMyCommunitiesRemote(email)
+            if (commRes.isFailure) return@withContext Result.failure(commRes.exceptionOrNull()!!)
+
+            // Backfill my role for a few communities so Dashboard classifies admin vs joined without opening detail
+            backfillRolesIfMissing(limit = 5)
+
+            val communities = communityDao.getAllCommunities()
+            communities.forEach { c ->
+                runCatching { refreshRooms(c.communityId) }
             }
             Result.success(Unit)
         } catch (t: Throwable) {
@@ -576,6 +642,7 @@ class CommunityRepository private constructor(private val context: Context) {
 
     // Observe rooms for a community
     fun observeRooms(communityId: String) = roomDao.observeRooms(communityId)
+
 
     // Fetch and persist rooms
     suspend fun refreshRooms(communityId: String): Result<Unit> {

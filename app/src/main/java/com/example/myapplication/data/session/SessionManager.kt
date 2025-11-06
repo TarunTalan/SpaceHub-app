@@ -1,6 +1,8 @@
 package com.example.myapplication.data.session
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -20,14 +22,43 @@ object SessionManager {
     fun clearSession(context: Context) {
         try {
             // Clear auth tokens
-            try { SharedPrefsTokenStore(context).clear() } catch (_: Exception) { }
+            runCatching { SharedPrefsTokenStore(context).clear() }
 
-            // Use UserDataManager to centrally clear all user data
-            try {
+            // Clear DataStore user profile/session data
+            runCatching {
                 com.example.myapplication.data.user.UserDataManager
                     .getInstance(context)
                     .clear()
-            } catch (_: Exception) { }
+            }
+
+            // Wipe Room database tables (communities, rooms, etc.)
+            scope.launch {
+                runCatching {
+                    com.example.myapplication.data.community.database.CommunityDatabase
+                        .getInstance(context)
+                        .clearAllTables()
+                }
+            }
+
+            // Clear app-level SharedPreferences used by UI (like last_screen)
+            runCatching {
+                val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                prefs.edit().clear().apply()
+            }
+
+            // Purge cache directories (temporary media, images, etc.)
+            runCatching { context.cacheDir?.deleteRecursively() }
+            runCatching { context.externalCacheDir?.deleteRecursively() }
+
+            // Also clear Glide caches (memory on main thread, disk on background)
+            runCatching {
+                Handler(Looper.getMainLooper()).post {
+                    try { com.bumptech.glide.Glide.get(context).clearMemory() } catch (_: Exception) {}
+                }
+                scope.launch(Dispatchers.IO) {
+                    runCatching { com.bumptech.glide.Glide.get(context).clearDiskCache() }
+                }
+            }
         } catch (_: Exception) {
         }
     }
