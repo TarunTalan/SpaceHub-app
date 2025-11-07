@@ -4,8 +4,8 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
+import android.view.WindowManager
 import android.widget.EditText
-import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.fragment.app.Fragment
@@ -27,15 +27,24 @@ class SearchFriendsFragment : Fragment(R.layout.fragment_search_friends) {
     private lateinit var adapter: UserSearchAdapter
     private var searchJob: Job? = null
 
+    // Track previous soft input mode to restore later
+    private var prevSoftInputMode: Int? = null
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
         val etSearch = view.findViewById<EditText>(R.id.etSearchUsers)
-        val ivClear = view.findViewById<ImageView>(R.id.ivClearSearch)
         val rvResults = view.findViewById<RecyclerView>(R.id.rvSearchResults)
         val progressLoading = view.findViewById<ProgressBar>(R.id.progressLoading)
         val emptyState = view.findViewById<View>(R.id.emptyState)
         val noResultsState = view.findViewById<View>(R.id.noResultsState)
+
+        // Override soft input behavior so bottom nav doesn't move with keyboard
+        val window = activity?.window
+        if (window != null && prevSoftInputMode == null) {
+            prevSoftInputMode = window.attributes.softInputMode
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+        }
 
         // Setup RecyclerView
         adapter = UserSearchAdapter { user ->
@@ -55,8 +64,6 @@ class SearchFriendsFragment : Fragment(R.layout.fragment_search_friends) {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
                 val query = s?.toString() ?: ""
-                ivClear.visibility = if (query.isNotBlank()) View.VISIBLE else View.GONE
-
                 // Debounce search
                 searchJob?.cancel()
                 searchJob = lifecycleScope.launch {
@@ -65,11 +72,6 @@ class SearchFriendsFragment : Fragment(R.layout.fragment_search_friends) {
                 }
             }
         })
-
-        // Clear search
-        ivClear.setOnClickListener {
-            etSearch.text.clear()
-        }
 
         // Observe search results
         viewModel.searchResults.observe(viewLifecycleOwner) { results ->
@@ -97,10 +99,20 @@ class SearchFriendsFragment : Fragment(R.layout.fragment_search_friends) {
             }
         }
 
+        // Observe toast messages (e.g., already exists / already friends)
+        viewModel.toast.observe(viewLifecycleOwner) { msg ->
+            if (!msg.isNullOrBlank()) {
+                Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+                viewModel.clearToast()
+            }
+        }
+
         // Observe friend request sent
         viewModel.requestSent.observe(viewLifecycleOwner) { email ->
             email?.let {
                 adapter.setLoading(it, false)
+                // Only show generic success toast if no specific toast was shown
+                // The ViewModel clears toast after showing; here we don't double-toast
                 Toast.makeText(requireContext(), "Friend request sent!", Toast.LENGTH_SHORT).show()
                 viewModel.clearRequestSent()
             }
@@ -110,6 +122,11 @@ class SearchFriendsFragment : Fragment(R.layout.fragment_search_friends) {
     override fun onDestroyView() {
         super.onDestroyView()
         searchJob?.cancel()
+        // Restore previous soft input mode when leaving this screen
+        val window = activity?.window
+        if (window != null && prevSoftInputMode != null) {
+            window.setSoftInputMode(prevSoftInputMode!!)
+            prevSoftInputMode = null
+        }
     }
 }
-

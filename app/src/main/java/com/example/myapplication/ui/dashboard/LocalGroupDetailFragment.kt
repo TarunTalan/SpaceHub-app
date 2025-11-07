@@ -11,7 +11,7 @@ import com.example.myapplication.data.groups.repository.LocalGroupRepository
 import com.example.myapplication.ui.common.BaseFragment
 import kotlinx.coroutines.launch
 
-class LocalGroupDetailFragment : BaseFragment(R.layout.fragment_local_group_detail) {
+class LocalGroupDetailFragment : BaseFragment(R.layout.fragment_local_group_overview) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         val args = requireArguments()

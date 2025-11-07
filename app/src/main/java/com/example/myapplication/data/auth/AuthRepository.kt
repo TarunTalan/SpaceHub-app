@@ -46,6 +46,8 @@ class AuthRepository(context: Context) {
                     // If backend returns a data field (temp token), expose it in Success.tempToken
                     if (body?.status == 200 || body?.status == 201) {
                         val dataStr = try { body.data } catch (_: Exception) { null }
+                        // Persist the temporary token so OTP endpoints automatically get Authorization header
+                        dataStr?.let { if (it.isNotBlank()) tokens.setAccessToken(it) }
                         return@safeApiCall AuthResult.Success(requiresVerification = true, tempToken = dataStr)
                     } else {
                         return@safeApiCall AuthResult.Error(body?.message ?: "Signup failed.")
@@ -57,15 +59,20 @@ class AuthRepository(context: Context) {
         )
     }
 
-    // Send or request signup OTP. The API uses the same endpoint for send/verify; treat a 200 status as success.
-    suspend fun sendSignupOtp(email: String): AuthResult {
+    // Now the flow requires presenting the temporary token (from signup) as Authorization header, so callers should
+    // pass the tempToken which will be saved temporarily into SharedPrefsTokenStore just for this call.
+    suspend fun sendSignupOtp(email: String, tempToken: String? = null): AuthResult {
+        // persist temp token if provided so TokenInterceptor will attach it
+        tempToken?.let { tokens.setAccessToken(it) }
+        val sessionTokenForBody = tempToken ?: tokens.getAccessToken() ?: ""
         return safeApiCall(
-            call = { api.sendSignupOtp(SigupOtpRequest(email = email, otp = null, type = "REGISTRATION")) },
+            call = {
+                api.sendSignupOtp(SigupOtpRequest(email = email, otp = null, type = "REGISTRATION", sessionToken = sessionTokenForBody))
+            },
             handle = { resp ->
                 if (resp.isSuccessful) {
                     val body = resp.body()
                     if (body?.status == 200) {
-                        // SignupOtpResponse has no `data` property (only status + message), so just return success
                         AuthResult.Success(requiresVerification = true)
                     }
                     else AuthResult.Error(body?.message ?: "Failed to send OTP.")
@@ -77,9 +84,12 @@ class AuthRepository(context: Context) {
     }
 
     // Resend signup OTP using temporary token returned by signup/OTP endpoints.
-    suspend fun resendSignupOtp(email: String, sessionToken: String): AuthResult {
+    suspend fun resendSignupOtp(email: String, sessionToken: String? = null): AuthResult {
+        // Persist the sessionToken so interceptor adds it to the request if present
+        sessionToken?.let { tokens.setAccessToken(it) }
+        val req = ResendSignupOtpRequest(email = email, sessionToken = sessionToken ?: "")
         return safeApiCall(
-            call = { api.resendSignupOtp(ResendSignupOtpRequest(email = email, sessionToken = sessionToken)) },
+            call = { api.resendSignupOtp(req) },
             handle = { resp ->
                 if (resp.isSuccessful) {
                     val body = resp.body()
@@ -90,7 +100,6 @@ class AuthRepository(context: Context) {
                         AuthResult.Success(requiresVerification = true)
                     }
                 } else {
-                    // Removed debug logging; return parsed server error
                     AuthResult.Error(ResponseParser.parseError(resp.errorBody()))
                 }
             }
@@ -98,19 +107,35 @@ class AuthRepository(context: Context) {
     }
 
     // Verify signup OTP. The same endpoint is used; success expected when status == 200
-    suspend fun verifySignup(email: String, otp: String): AuthResult {
-        return safeApiCall(
-            call = { api.sendSignupOtp(SigupOtpRequest(email = email, otp = otp, type = "REGISTRATION")) },
-            handle = { resp ->
-                if (resp.isSuccessful) {
-                    val body = resp.body()
-                    if (body?.status == 200) AuthResult.Success(requiresVerification = false)
-                    else AuthResult.Error(body?.message ?: "OTP verification failed.")
+    // On success the server returns final access/refresh tokens inside SignupOtpResponse.data
+    suspend fun verifySignup(email: String, otp: String, sessionToken: String? = null): AuthResult {
+        val sessionTokenForBody = sessionToken ?: tokens.getAccessToken() ?: ""
+        // If a sessionToken was provided explicitly, ensure it's persisted so interceptor attaches it
+        sessionToken?.let { tokens.setAccessToken(it) }
+
+        return try {
+            val resp = api.sendSignupOtp(SigupOtpRequest(email = email, otp = otp, type = "REGISTRATION", sessionToken = sessionTokenForBody), skipAuth = "1")
+            if (resp.isSuccessful) {
+                val body = resp.body()
+                if (body?.status == 200) {
+                    try {
+                        val otpBody = body
+                        val data = otpBody?.`data`
+                        val access = data?.accessToken
+                        val refresh = data?.refreshToken
+                        access?.let { tokens.setAccessToken(it) }
+                        refresh?.let { tokens.setRefreshToken(it) }
+                    } catch (_: Exception) { }
+                    AuthResult.Success(requiresVerification = false)
                 } else {
-                    AuthResult.Error(ResponseParser.parseError(resp.errorBody()))
+                    AuthResult.Error(body?.message ?: "OTP verification failed.")
                 }
+            } else {
+                AuthResult.Error(ResponseParser.parseError(resp.errorBody()))
             }
-        )
+        } catch (e: Exception) {
+            AuthResult.Error("Network error during OTP verification.")
+        }
     }
 
     // Forgot-password: request OTP for password reset

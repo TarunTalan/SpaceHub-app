@@ -21,10 +21,12 @@
             app:layout_constraintBottom_toBottomOf="@id/guideline_top">
 
         <ImageView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:src="@drawable/search_icon"
-                android:layout_marginHorizontal="20dp"
+                android:padding="10dp"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:src="@drawable/search_icon_"
+                android:contentDescription="@string/cd_search_icon"
+                android:layout_marginHorizontal="10dp"
                 app:layout_constraintStart_toStartOf="@id/etSearch"
                 app:layout_constraintBottom_toBottomOf="@id/etSearch"
                 app:layout_constraintTop_toTopOf="@id/etSearch"/>
@@ -34,13 +36,14 @@
                 android:layout_width="0dp"
                 android:layout_height="40dp"
                 android:inputType="text"
-                android:textSize="@dimen/input_text_size"
+                android:textSize="15sp"
                 android:paddingStart="50dp"
                 android:paddingEnd="25dp"
                 android:textColor="@color/white"
                 android:fontFamily="@font/roboto_regular"
-                android:hint="Search"
-                android:textColorHint="@color/white"
+                android:hint="@string/search_hint_generic"
+                android:autofillHints="username"
+                android:textColorHint="#B3FFFFFF"
                 android:background="@drawable/edit_text_outline"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
@@ -63,6 +66,44 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <!-- Friends list below toolbar -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_friends"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:clipToPadding="false"
+        android:padding="8dp"
+        app:layout_constraintTop_toBottomOf="@id/top_toolbar"
+        app:layout_constraintBottom_toTopOf="@id/illustration"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:listitem="@layout/item_friend_simple"
+        tools:itemCount="5"/>
+
+    <ProgressBar
+        android:id="@+id/progress"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- Add button at bottom right to open Search Friends -->
+    <ImageView
+        android:id="@+id/btn_add"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@drawable/add__icon"
+        android:padding="8dp"
+        android:background="@drawable/rect_button_bg_blue"
+        android:contentDescription="@string/cd_add_friend"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_margin="16dp"/>
+
+    <!-- Keep the existing illustration block and guidelines -->
     <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/illustration"
             android:layout_width="0dp"
@@ -77,6 +118,7 @@
                 android:layout_height="0dp"
                 android:padding="30dp"
                 android:src="@drawable/search_frnds_chat_illustr"
+                android:contentDescription="@string/cd_search_illustration"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="@id/guideline_top_2"
                 app:layout_constraintStart_toStartOf="parent"
@@ -104,7 +146,7 @@
                 android:textColor="@color/white"
                 android:gravity="center"
                 android:paddingHorizontal="4dp"
-                android:text="Invite your friends to chat together"
+                android:text="@string/invite_friends_subtitle"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="@+id/textView"
                 app:layout_constraintEnd_toEndOf="@id/textView"
@@ -157,7 +199,8 @@
             android:layout_height="wrap_content"
             android:adjustViewBounds="true"
             android:scaleType="fitCenter"
-            android:src="@drawable/ellipse_dull_2"
+            android:src="@drawable/ellipse_"
+            android:contentDescription="@null"
             android:layout_marginBottom="75dp"
             app:layout_constraintBottom_toBottomOf="@id/ellipse2"
             app:layout_constraintEnd_toEndOf="parent"
@@ -172,7 +215,8 @@
             android:layout_height="wrap_content"
             android:adjustViewBounds="true"
             android:scaleType="fitCenter"
-            android:src="@drawable/ellipse_dull_2"
+            android:src="@drawable/ellipse_"
+            android:contentDescription="@null"
             android:layout_marginBottom="75dp"
             app:layout_constraintBottom_toBottomOf="@+id/ellipse3"
             app:layout_constraintEnd_toEndOf="parent"
@@ -187,7 +231,8 @@
             android:layout_height="wrap_content"
             android:adjustViewBounds="true"
             android:scaleType="fitCenter"
-            android:src="@drawable/ellipse_dull_2"
+            android:src="@drawable/ellipse_"
+            android:contentDescription="@null"
             android:layout_marginBottom="30dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"

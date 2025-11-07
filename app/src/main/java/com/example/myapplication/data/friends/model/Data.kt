@@ -4,5 +4,6 @@ data class Data(
     val email: String,
     val firstName: String,
     val id: String,
-    val lastName: String
+    val lastName: String,
+    val avatarUrl: String? = null
 )

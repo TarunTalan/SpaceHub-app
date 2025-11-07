@@ -49,9 +49,9 @@ class UserSearchAdapter(
             tvBio.text = user.bio ?: ""
             tvBio.visibility = if (user.bio.isNullOrBlank()) View.GONE else View.VISIBLE
 
-            // Load avatar
+            // Load avatar using a context-bound RequestManager
             if (!user.avatarUrl.isNullOrBlank()) {
-                Glide.with(ivAvatar)
+                Glide.with(ivAvatar.context)
                     .load(user.avatarUrl)
                     .placeholder(R.drawable.default_profile)
                     .error(R.drawable.default_profile)
@@ -103,4 +103,3 @@ class UserSearchAdapter(
         holder.bind(getItem(position))
     }
 }
-

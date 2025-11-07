@@ -1,6 +1,10 @@
 package com.example.myapplication.data.network
 
 import com.example.myapplication.data.auth.model.*
+import com.example.myapplication.data.chat_room.model.CreateChatRoomResponse
+import com.example.myapplication.data.chat_room.model.DeleteChatRoomRequest
+import com.example.myapplication.data.chat_room.model.DeleteChatRoomResponse
+import com.example.myapplication.data.chat_room.model.GetAllChatRoomsResponse
 import com.example.myapplication.data.community.model.*
 import com.example.myapplication.data.dashboard.model.*
 import com.example.myapplication.data.friends.model.*
@@ -23,7 +27,7 @@ interface ApiService {
 
     // Send or verify OTP for registration via common request model
     @POST("validateregisterotp")
-    suspend fun sendSignupOtp(@Body body: SigupOtpRequest): Response<SignupOtpResponse>
+    suspend fun sendSignupOtp(@Body body: SigupOtpRequest, @Header("X-Skip-Auth") skipAuth: String? = null): Response<SignupOtpResponse>
 
     // Login with email/password; server returns tokens under data
     @POST("login")
@@ -210,15 +214,22 @@ interface ApiService {
         @Body body: JoinCommunityByLinkRequest
     ): Response<JoinCommunityByLinkResponse>
 
-    @POST("create")
+    @Multipart
+    @POST("new-chatroom/create")
     suspend fun createChatRoom(
-        @Body body: CreateChatRoomRequest
+        @Part("name") name: RequestBody,
+        @Part("chatRoomCode") chatRoomCode: RequestBody
     ): Response<CreateChatRoomResponse>
 
     @GET("rooms/all")
     suspend fun getAllChatRooms(
         @Query("email") email: String
     ): Response<GetAllChatRoomsResponse>
+
+    @POST("rooms/deleteRoom")
+    suspend fun deleteChatRoom(
+        @Body body: DeleteChatRoomRequest
+    ): Response<DeleteChatRoomResponse>
 
     @POST("friends/request")
     suspend fun sendFriendRequest(

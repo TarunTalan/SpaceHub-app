@@ -185,4 +185,13 @@
     <string name="request_wants_to_join_fmt">wants to join %1$s</string>
     <string name="profile_image">Profile image</string>
     <string name="delete">Remove</string>
+    <string name="search_hint_generic">Search</string>
+    <string name="invite_friends_subtitle">Invite your friends to chat together</string>
+    <string name="cd_add_friend">Add friend</string>
+    <string name="message_status">Message status</string>
+    <string name="send_message">Send</string>
+    <string name="typing_indicator">%s is typing...</string>
+    <string name="connected">Connected</string>
+    <string name="connecting">Connecting...</string>
+    <string name="disconnected">Disconnected</string>
 </resources>
