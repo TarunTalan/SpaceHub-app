@@ -1,6 +1,7 @@
 package com.example.myapplication.ui.common
 
 import android.app.Application
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
@@ -19,6 +20,10 @@ class ProfileSharedViewModel(app: Application) : AndroidViewModel(app) {
     private val _selectedContentUri = MutableLiveData<Uri?>()
     val selectedContentUri: LiveData<Uri?> = _selectedContentUri
 
+    // In-memory bitmap holder (no file caching) for camera / cropped images
+    private val _selectedBitmap = MutableLiveData<Bitmap?>()
+    val selectedBitmap: LiveData<Bitmap?> = _selectedBitmap
+
     // Store the URL returned by the server after uploading the profile
     private val _uploadedProfileUrl = MutableLiveData<String?>()
     val uploadedProfileUrl: LiveData<String?> = _uploadedProfileUrl
@@ -35,6 +40,8 @@ class ProfileSharedViewModel(app: Application) : AndroidViewModel(app) {
         if (path != null) _selectedDrawableRes.value = null
         // when we have a freshly written cached file from camera, clear original content Uri
         if (path != null) _selectedContentUri.value = null
+        // also clear any in-memory bitmap to avoid confusion
+        if (path != null) _selectedBitmap.value = null
     }
 
     fun setDrawableRes(resId: Int?) {
@@ -43,10 +50,24 @@ class ProfileSharedViewModel(app: Application) : AndroidViewModel(app) {
         if (resId != null) _selectedImagePath.value = null
         // clear content Uri as this is a resource-based selection
         if (resId != null) _selectedContentUri.value = null
+        // clear bitmap
+        if (resId != null) _selectedBitmap.value = null
     }
 
     fun setSelectedContentUri(uri: Uri?) {
         _selectedContentUri.value = uri
+        // clear bitmap when contentUri is used
+        if (uri != null) _selectedBitmap.value = null
+    }
+
+    fun setSelectedBitmap(bitmap: Bitmap?) {
+        _selectedBitmap.value = bitmap
+        if (bitmap != null) {
+            // clear other representations to avoid ambiguity
+            _selectedContentUri.value = null
+            _selectedImagePath.value = null
+            _selectedDrawableRes.value = null
+        }
     }
 
     fun setUploadedProfileUrl(url: String?) {
@@ -72,6 +93,7 @@ class ProfileSharedViewModel(app: Application) : AndroidViewModel(app) {
         _selectedDrawableRes.value = null
         _uploadedProfileUrl.value = null
         _selectedContentUri.value = null
+        _selectedBitmap.value = null
         _communityName.value = null
         _commDescription.value = null
     }

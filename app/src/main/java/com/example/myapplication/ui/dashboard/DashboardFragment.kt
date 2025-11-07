@@ -193,7 +193,7 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
             val addComm = view.findViewById<ImageView>(R.id.add_comm)
             addComm?.setOnClickListener {
                 try {
-                    findNavController().navigate(R.id.action_dashboardFragment_to_createCommunityFragment)
+                    findNavController().navigate(R.id.action_dashboardFragment_to_createCommunityOrGroupFragment)
                 } catch (_: Exception) {
                 }
             }

@@ -57,9 +57,8 @@ class ChangeProfilePicFragment : BaseFragment(R.layout.fragment_change_profile_p
 
         val targetSizePx = resources.getDimensionPixelSize(R.dimen.onboarding_logo_size)
         val picker = ImagePickerHelper(
-            fragment = this,
-            filename = "profile_pic.png",
-            targetSizePx = targetSizePx,
+            this,
+            targetSizePx,
             onBitmapCropped = { bmp: Bitmap ->
                 try {
                     // compress to bytes in-memory (no cache file persistence)

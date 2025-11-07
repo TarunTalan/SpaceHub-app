@@ -4,6 +4,12 @@ import com.example.myapplication.data.auth.model.*
 import com.example.myapplication.data.community.model.*
 import com.example.myapplication.data.dashboard.model.*
 import com.example.myapplication.data.friends.model.*
+import com.example.myapplication.data.groups.model.CreateLocalGroupResponse
+import com.example.myapplication.data.groups.model.DeleteLocalGroupRequest
+import com.example.myapplication.data.groups.model.DeleteLocalGroupResponse
+import com.example.myapplication.data.groups.model.GetAllLocalGroupsResponse
+import com.example.myapplication.data.groups.model.GetLocalGroupDetailsResponse
+import com.example.myapplication.data.groups.model.UpdateLocalGroupProfileResponse
 import com.example.myapplication.data.search.model.*
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
@@ -240,4 +246,50 @@ interface ApiService {
         @Query("page") page: Int = 0,
         @Query("size") size: Int = 20
     ): Response<SearchUsersResponse>
+
+    @Multipart
+    @POST("local-group/create")
+    suspend fun createLocalGroup(
+        @Part("name") name: RequestBody,
+        @Part("description") description: RequestBody,
+        @Part("creatorEmail") creatorEmail: RequestBody,
+        @Part imageFile: MultipartBody.Part? = null
+    ): Response<CreateLocalGroupResponse>
+
+
+    @GET("local-group/all")
+    suspend fun getAllLocalGroups(
+        @Query("requesterEmail") requesterEmail: String
+    ): Response<GetAllLocalGroupsResponse>
+
+    @GET("local-group/{groupId}")
+    suspend fun getLocalGroupDetails(
+        @Path("groupId") groupId: String
+    ): Response<GetLocalGroupDetailsResponse>
+
+    @DELETE("local-group/delete")
+    suspend fun deleteLocalGroup(
+        @Body body: DeleteLocalGroupRequest
+    ): Response<DeleteLocalGroupResponse>
+
+    @GET("local-group/{localGroupId}/members")
+    suspend fun getLocalGroupMembers(
+        @Path("localGroupId") localGroupId: String
+    ): Response<GetAllMembersResponse>
+
+    @Multipart
+    @POST("local-group/{localGroupId}/settings")
+    suspend fun updateLocalGroupSettings(
+        @Path("localGroupId") localGroupId: String,
+        @Part("requesterEmail") requesterEmail: RequestBody,
+        @Part("name") name: RequestBody,
+        @Part imageFile: MultipartBody.Part? = null
+    ): Response<UpdateLocalGroupProfileResponse>
+
+    @POST("local-group/join")
+    suspend fun requestToJoinLocalGroup(
+        @Body body: RequestJoinRequest
+    ): Response<RequestJoinResponse>
+
+
 }

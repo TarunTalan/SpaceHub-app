@@ -232,6 +232,8 @@
         <action android:id="@+id/action_dashboardFragment_to_searchFragment" app:destination="@id/searchFragment"/>
         <action android:id="@+id/action_dashboardFragment_to_createCommunityFragment"
                 app:destination="@id/createCommunityFragment"/>
+        <action android:id="@+id/action_dashboardFragment_to_createCommunityOrGroupFragment"
+                app:destination="@id/createCommunityOrGroupFragment"/>
         <!-- Action to navigate to onboarding and clear the auth graph back stack (used for logout) -->
         <action
                 android:id="@+id/action_dashboardFragment_to_onboardingFragment"
@@ -342,6 +344,24 @@
                 app:destination="@id/communityDescriptionFragment"/>
     </fragment>
 
+    <!-- Group name & picture flow (destination after create group) -->
+    <fragment
+            android:id="@+id/groupNamePicFragment"
+            android:name="com.example.myapplication.ui.group.GroupNamePicFragment"
+            android:label="GroupNamePicFragment"
+            tools:layout="@layout/fragment_group_name_pic" >
+        <action
+            android:id="@+id/action_groupNamePicFragment_to_groupDescriptionFragment"
+            app:destination="@id/groupDescriptionFragment" />
+    </fragment>
+
+    <!-- Group description destination (was missing) -->
+    <fragment
+            android:id="@+id/groupDescriptionFragment"
+            android:name="com.example.myapplication.ui.group.GroupDescriptionFragment"
+            android:label="GroupDescriptionFragment"
+            tools:layout="@layout/fragment_group_description" />
+
     <!-- Action used by CreateCommunityFragment (code references action_createCommunityFragment_to_communityNamePicFragment2) -->
     <action
             android:id="@+id/action_createCommunityFragment_to_communityNamePicFragment"
@@ -398,4 +418,9 @@
     <action
         android:id="@+id/action_communityDetail_to_members"
         app:destination="@id/membersFragment" />
+    <fragment
+            android:id="@+id/createCommunityOrGroupFragment"
+            android:name="com.example.myapplication.ui.group.CreateCommunityOrGroupFragment"
+            android:label="CreateCommunityOrGroupFragment"
+            tools:layout="@layout/fragment_create_community_or_group" />
 </navigation>
