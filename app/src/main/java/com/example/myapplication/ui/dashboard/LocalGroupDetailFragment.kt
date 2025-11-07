@@ -8,7 +8,7 @@ import com.bumptech.glide.Glide
 import com.example.myapplication.R
 import com.example.myapplication.ui.common.BaseFragment
 
-class LocalGroupDetailFragment : BaseFragment(R.layout.fragment_local_group_detail) {
+class LocalGroupDetailFragment : BaseFragment(R.layout.fragment_local_group_overview) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         val args = requireArguments()

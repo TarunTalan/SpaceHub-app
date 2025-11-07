@@ -248,7 +248,16 @@
                 app:destination="@id/communityDetailFragment"/>
         <action android:id="@+id/action_dashboardFragment_to_requestsInboxFragment"
                 app:destination="@id/requestsInboxFragment"/>
+        <action android:id="@+id/action_dashboardFragment_to_friendRequestsFragment"
+                app:destination="@id/friendRequestsFragment"/>
     </fragment>
+
+    <!-- Friend requests inbox screen -->
+    <fragment
+        android:id="@+id/friendRequestsFragment"
+        android:name="com.example.myapplication.ui.friends.FriendRequestsFragment"
+        android:label="Friend Requests"
+        tools:layout="@layout/fragment_friend_requests" />
 
     <fragment
             android:id="@+id/searchFragment"
@@ -310,9 +319,9 @@
     </fragment>
     <fragment
             android:id="@+id/chatRoomFragment"
-            android:name="com.example.myapplication.ui.dashboard.ChatRoomFragment"
-            android:label="ChatRoomFragment"
-            tools:layout="@layout/fragment_chat_room">
+            android:name="com.example.myapplication.ui.friends.SearchFriendsFragment"
+            android:label="Search Friends"
+            tools:layout="@layout/fragment_search_friends">
         <action android:id="@+id/action_chatRoomFragment_to_dashboardFragment" app:destination="@id/dashboardFragment"/>
         <action android:id="@+id/action_chatRoomFragment_to_searchFriendsFragment" app:destination="@id/searchFriendsFragment"/>
     </fragment>

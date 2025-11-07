@@ -58,7 +58,7 @@ class MainActivity : AppCompatActivity() {
                 else -> resetToolbarColor()
             }
             val bottomNavVisibleDestinations = setOf(
-                R.id.dashboardFragment, R.id.searchFragment, R.id.chatRoomFragment, R.id.profileFragment
+                R.id.dashboardFragment, R.id.searchFragment, R.id.searchFriendForChatFragment, R.id.profileFragment
             )
             val isVisible = destination.id in bottomNavVisibleDestinations
             binding.bottomNavView.visibility = if (isVisible) View.VISIBLE else View.GONE
@@ -106,7 +106,7 @@ class MainActivity : AppCompatActivity() {
                 return@addCallback
             }
             val bottomNavDestinations = setOf(
-                R.id.dashboardFragment, R.id.searchFragment, R.id.chatRoomFragment, R.id.profileFragment
+                R.id.dashboardFragment, R.id.searchFragment, R.id.searchFriendForChatFragment, R.id.profileFragment
             )
             if (currentId != null && currentId in bottomNavDestinations) {
                 if (currentId != R.id.dashboardFragment) {
@@ -219,7 +219,7 @@ class MainActivity : AppCompatActivity() {
         val position = when (menuItemId) {
             R.id.dashboardFragment -> 0
             R.id.searchFragment -> 1
-            R.id.chatRoomFragment -> 2
+            R.id.searchFriendForChatFragment -> 2
             R.id.profileFragment -> 3
             else -> 0
         }

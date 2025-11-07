@@ -2,13 +2,10 @@ package com.example.myapplication.data.friends.repository
 
 import android.content.Context
 import com.example.myapplication.data.friends.model.*
-import com.example.myapplication.data.friends.model.UserSearchResult
 import com.example.myapplication.data.network.NetworkModule
 import com.example.myapplication.data.user.UserDataManager
 
-// Type aliases for response data
-typealias Friend = Any
-typealias IncomingRequest = Any
+// Remove ambiguous Any alias; use concrete models
 
 class FriendsRepository private constructor(private val context: Context) {
 
@@ -42,23 +39,27 @@ class FriendsRepository private constructor(private val context: Context) {
         }
     }
 
-    suspend fun sendFriendRequest(friendEmail: String): Result<Unit> {
+    suspend fun sendFriendRequest(friendEmail: String): Result<String> {
         return try {
             val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
             val request = SendFriendRequest(friendEmail = friendEmail, userEmail = email)
             val response = api.sendFriendRequest(request)
 
-            if (response.isSuccessful && response.body()?.status in listOf(200, 201)) {
-                Result.success(Unit)
+            val body = response.body()
+            val message = body?.message ?: "Friend request sent"
+
+            if (response.isSuccessful && body?.status in listOf(200, 201)) {
+                Result.success(message)
             } else {
-                Result.failure(RuntimeException(response.body()?.message ?: "Failed to send friend request"))
+                val errMsg = body?.message ?: response.errorBody()?.string() ?: "Failed to send friend request"
+                Result.failure(RuntimeException(errMsg))
             }
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    suspend fun getFriendsList(): Result<List<Friend>> {
+    suspend fun getFriendsList(): Result<List<Data>> {
         return try {
             val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
             val request = FriendsListRequest(userEmail = email)
@@ -75,7 +76,7 @@ class FriendsRepository private constructor(private val context: Context) {
         }
     }
 
-    suspend fun getIncomingRequests(): Result<List<IncomingRequest>> {
+    suspend fun getIncomingRequests(): Result<List<IncomingFriendRequestItem>> {
         return try {
             val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
             val request = IncomingFriendRequest(userEmail = email)
@@ -85,7 +86,8 @@ class FriendsRepository private constructor(private val context: Context) {
                 val requests = response.body()?.data ?: emptyList()
                 Result.success(requests)
             } else {
-                Result.failure(RuntimeException(response.body()?.message ?: "Failed to get requests"))
+                val errMsg = response.body()?.message ?: response.errorBody()?.string() ?: "Failed to get requests"
+                Result.failure(RuntimeException(errMsg))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -112,4 +114,3 @@ class FriendsRepository private constructor(private val context: Context) {
         }
     }
 }
-

@@ -366,21 +366,28 @@ class CommunityRepository private constructor(private val context: Context) {
 
             val mapped: List<Community> = data.communities.mapNotNull { dto ->
                 try {
-                    val createdByEmail = dto.createdBy?.email
-                    val creatorIsMe = !createdByEmail.isNullOrBlank() && createdByEmail.equals(email, true)
                     val myRoleRaw = dto.communityUsers
                         ?.firstOrNull { cu -> cu.user.email.equals(email, true) }
                         ?.role
                         ?.trim()
                         ?.uppercase()
-                    val isOwner = creatorIsMe || myRoleRaw == "OWNER" || myRoleRaw == "CREATOR"
+
+                    val creatorEmail = dto.createdBy?.email
+                    val creatorIsMe = !creatorEmail.isNullOrBlank() && creatorEmail.equals(email, true)
+
+                    // Prefer role from server; fallback to createdBy==me only if role is missing
+                    val isOwner = when {
+                        myRoleRaw == "OWNER" || myRoleRaw == "CREATOR" -> true
+                        myRoleRaw == null && creatorIsMe -> true
+                        else -> false
+                    }
                     val isModerator = when {
                         myRoleRaw == null -> false
                         myRoleRaw.contains("ADMIN") -> true
                         myRoleRaw == "MODERATOR" || myRoleRaw == "MANAGER" || myRoleRaw == "OWNER" || myRoleRaw == "CREATOR" -> true
                         else -> false
                     }
-                    val isMember = true // API returns only communities I belong to
+                    val isMember = true // Server returns only communities I belong to
 
                     Community(
                         communityId = dto.communityId,
@@ -394,7 +401,7 @@ class CommunityRepository private constructor(private val context: Context) {
                         memberCount = 0,
                         postCount = 0,
                         isPrivate = false,
-                        creatorId = dto.createdBy?.email,
+                        creatorId = creatorEmail,
                         creatorName = dto.createdBy?.username,
                         createdAt = System.currentTimeMillis(),
                         updatedAt = System.currentTimeMillis(),

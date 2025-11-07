@@ -90,4 +90,8 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
 
     implementation("com.github.bumptech.glide:glide:4.14.2")
+    ksp("com.github.bumptech.glide:ksp:4.14.2")
+
+    // OkHttp integration for Glide (for authenticated requests)
+    implementation("com.github.bumptech.glide:okhttp3-integration:4.14.2")
 }

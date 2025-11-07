@@ -25,6 +25,9 @@ class SearchFriendsViewModel(app: Application) : AndroidViewModel(app) {
     private val _requestSent = MutableLiveData<String?>() // email of user request sent to
     val requestSent: LiveData<String?> = _requestSent
 
+    private val _toast = MutableLiveData<String?>()
+    val toast: LiveData<String?> = _toast
+
     fun searchUsers(query: String) {
         if (query.isBlank()) {
             _searchResults.value = emptyList()
@@ -51,15 +54,21 @@ class SearchFriendsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val result = repository.sendFriendRequest(userEmail)
 
-            result.onSuccess {
-                _requestSent.value = userEmail
+            result.onSuccess { message ->
+                val normalized = message.lowercase()
+                val isDuplicateOrFriends = normalized.contains("already exists") || normalized.contains("already friends")
+
+                if (isDuplicateOrFriends) {
+                    // Just toast the message, do not set error; also keep UI consistent (mark pending if desired)
+                    _toast.value = message
+                    _requestSent.value = userEmail
+                } else {
+                    _requestSent.value = userEmail
+                }
+
                 // Update the search results to mark this user as pending
                 _searchResults.value = _searchResults.value?.map { user ->
-                    if (user.email == userEmail) {
-                        user.copy(isPending = true)
-                    } else {
-                        user
-                    }
+                    if (user.email == userEmail) user.copy(isPending = true) else user
                 }
             }.onFailure { e ->
                 _error.value = e.message ?: "Failed to send friend request"
@@ -67,12 +76,7 @@ class SearchFriendsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun clearError() {
-        _error.value = null
-    }
-
-    fun clearRequestSent() {
-        _requestSent.value = null
-    }
+    fun clearError() { _error.value = null }
+    fun clearRequestSent() { _requestSent.value = null }
+    fun clearToast() { _toast.value = null }
 }
-

@@ -6,7 +6,6 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
-import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.View
@@ -77,27 +76,25 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
 
         ivNotification?.setOnClickListener {
             runCatching {
-                findNavController().navigate(R.id.action_dashboardFragment_to_requestsInboxFragment)
+                // Open friend requests inbox
+                findNavController().navigate(R.id.action_dashboardFragment_to_friendRequestsFragment)
             }
         }
 
-        // Load and display pending requests count
+        // Load and display incoming friend requests count
         fun updateBadge() {
             viewLifecycleOwner.lifecycleScope.launch {
                 try {
-                    val repo = com.example.myapplication.data.community.repository.CommunityRepository.getInstance(requireContext())
-                    val result = repo.getPendingRequestsCount()
-                    result.onSuccess { count ->
-                        if (count > 0) {
-                            tvBadge?.text = if (count > 99) "99+" else count.toString()
-                            tvBadge?.visibility = View.VISIBLE
-                        } else {
-                            tvBadge?.visibility = View.GONE
-                        }
-                    }.onFailure {
+                    val repo = com.example.myapplication.data.friends.repository.FriendsRepository.getInstance(requireContext())
+                    val res = repo.getIncomingRequests()
+                    val count = res.getOrNull()?.size ?: 0
+                    if (count > 0) {
+                        tvBadge?.text = if (count > 99) "99+" else count.toString()
+                        tvBadge?.visibility = View.VISIBLE
+                    } else {
                         tvBadge?.visibility = View.GONE
                     }
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     tvBadge?.visibility = View.GONE
                 }
             }
