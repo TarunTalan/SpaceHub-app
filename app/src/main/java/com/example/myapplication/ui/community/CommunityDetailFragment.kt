@@ -3,7 +3,6 @@ package com.example.myapplication.ui.community
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.DialogInterface
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
@@ -377,23 +376,29 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
 
         val adapter = RoomAdapter(
             onClick = { room ->
-                val ctx = requireContext()
-                val input = EditText(ctx)
-                input.hint = "New room name"
-                AlertDialog.Builder(ctx)
-                    .setTitle("Rename Room")
-                    .setView(input)
-                    .setPositiveButton("Rename") { d: DialogInterface, _ ->
-                        val newName = input.text?.toString()?.trim().orEmpty()
-                        if (newName.isNotEmpty()) {
-                            viewLifecycleOwner.lifecycleScope.launch { vm.renameRoom(room.id, newName) }
-                        } else {
-                            Toast.makeText(ctx, "Name required", Toast.LENGTH_SHORT).show()
-                        }
-                        d.dismiss()
+                // Navigate to RoomFragment with room and community data
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val repo = CommunityRepository.getInstance(requireContext())
+                    val comm = repo.getCommunityById(communityId)
+
+                    val bundle = Bundle().apply {
+                        putString("communityId", communityId)
+                        putString("roomId", room.id)
+                        // Pass explicit roomCode when available to make lookup deterministic
+                        putString("roomCode", room.roomCode)
+                        putString("roomName", room.name)
+                        putString("communityName", comm?.name ?: "Community")
+                        putString("communityImageUrl", comm?.profilePicUrl)
+                        putInt("memberCount", comm?.memberCount ?: 0)
+                        putInt("adminCount", 0) // Update if you have admin count available
                     }
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .show()
+
+                    try {
+                        findNavController().navigate(R.id.action_communityDetailFragment_to_roomFragment, bundle)
+                    } catch (e: Exception) {
+                        Toast.makeText(requireContext(), "Failed to open room: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
             },
             onLongClick = { room ->
                 val ctx = requireContext()

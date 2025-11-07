@@ -1,4 +1,4 @@
-package com.example.myapplication.data.community.model
+package com.example.myapplication.data.chat_room.model
 
 data class GetAllChatRoomsResponse(
     val `data`: List<DataChatRoom>,

@@ -66,7 +66,7 @@ class SignupViewModel(app: Application) : AndroidViewModel(app) {
                         _uiState.value = UiState.EmailSent(result.tempToken)
                     } else {
                         // Server didn't return a temp token in signup response – request it explicitly
-                        when (val otpResult = repo.sendSignupOtp(email)) {
+                        when (val otpResult = repo.sendSignupOtp(email, tempToken = null)) {
                             is AuthResult.Success -> {
                                 // store token if backend provided one, otherwise continue
                                 if (!otpResult.tempToken.isNullOrBlank()) _tempToken.value = otpResult.tempToken
@@ -85,18 +85,20 @@ class SignupViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun verifyOtp(email: String, otp: String) {
+    fun verifyOtp(email: String, otp: String, sessionToken: String? = null) {
         viewModelScope.launch {
-            performAuthCall({ repo.verifySignup(email, otp) })
+            // Pass temp token (if present) to verification so sessionToken is included
+            val session = sessionToken ?: _tempToken.value
+            performAuthCall({ repo.verifySignup(email, otp, sessionToken = session) })
         }
     }
 
     // Verify OTP and then perform login using provided password. This will store tokens if login succeeds.
-    fun verifyOtpAndLogin(email: String, otp: String, password: String) {
+    fun verifyOtpAndLogin(email: String, otp: String, password: String, sessionToken: String? = null) {
         _uiState.value = UiState.Loading
         viewModelScope.launch {
             // First verify the OTP
-            when (val verifyResult = repo.verifySignup(email, otp)) {
+            when (val verifyResult = repo.verifySignup(email, otp, sessionToken = sessionToken ?: _tempToken.value)) {
                 is AuthResult.Error -> {
                     _uiState.value = UiState.Error(verifyResult.message)
                     return@launch

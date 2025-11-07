@@ -66,6 +66,20 @@ object ProfileImageHelper {
                         s
                     }
 
+                    // Use Uri for URLs with query params (signed URLs) to preserve query string
+                    if (finalUrl.contains("?") || finalUrl.contains("X-Amz-")) {
+                        try {
+                            val uri = Uri.parse(finalUrl)
+                            Glide.with(context)
+                                .load(uri)
+                                .placeholder(R.drawable.default_profile)
+                                .error(R.drawable.default_profile)
+                                .circleCrop()
+                                .into(imageView)
+                            return
+                        } catch (_: Exception) { }
+                    }
+
                     if (finalUrl.startsWith("content://") || finalUrl.startsWith("file://")) {
                         val uri = try { finalUrl.toUri() } catch (_: Exception) { null }
                         if (uri != null) {
