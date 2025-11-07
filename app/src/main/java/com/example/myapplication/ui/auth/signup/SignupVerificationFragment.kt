@@ -547,10 +547,27 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                 val otp = etOtp.text?.toString()?.trim().orEmpty()
                 hideKeyboard()
                 val password = passwordArg ?: ""
+                // determine session token to pass (prefer nav-arg, then VM)
+                val sessionTokenArg = arguments?.getString("tempToken")
+                val vmToken = viewModel.tempToken.value
+                val tokenToUse = when {
+                    !sessionTokenArg.isNullOrBlank() -> sessionTokenArg
+                    !vmToken.isNullOrBlank() -> vmToken
+                    else -> null
+                }
                 if (password.isNotEmpty()) {
-                    viewModel.verifyOtpAndLogin(email, otp, password)
+                    // pass token to ViewModel so it will be included in verification request
+                    if (tokenToUse == null) {
+                        showOtpError(getString(R.string.missing_token))
+                        return@setOnClickListener
+                    }
+                    viewModel.verifyOtpAndLogin(email, otp, password, sessionToken = tokenToUse)
                 } else {
-                    viewModel.verifyOtp(email, otp)
+                    if (tokenToUse == null) {
+                        showOtpError(getString(R.string.missing_token))
+                        return@setOnClickListener
+                    }
+                    viewModel.verifyOtp(email, otp, sessionToken = tokenToUse)
                 }
             }
             tvResendOtp.apply {

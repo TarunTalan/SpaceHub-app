@@ -2,6 +2,7 @@ package com.example.myapplication.ui.common
 
 import android.content.Context
 import android.util.Log
+import android.net.Uri
 import com.bumptech.glide.Glide
 import com.bumptech.glide.Registry
 import com.bumptech.glide.annotation.GlideModule
@@ -22,32 +23,45 @@ class AuthenticatedGlideModule : AppGlideModule() {
         val client = OkHttpClient.Builder()
             .addInterceptor { chain ->
                 val original = chain.request()
-                val url = original.url.toString()
+                val url = original.url
+                val urlStr = url.toString()
 
-                Log.d("AuthGlideModule", "Intercepting request to: $url")
+                Log.d("AuthGlideModule", "Intercepting Glide request to: $urlStr")
 
-                // Only add auth header for our API endpoints
-                val needsAuth = url.contains("codewithketan.me") ||
-                                url.contains("/api/") ||
-                                url.contains("/avatars/") ||
-                                url.contains("/uploads/")
+                // Determine API host from BASE_URL (safe fallback to codewithketan.me)
+                val apiHost = try {
+                    Uri.parse(com.example.myapplication.BuildConfig.BASE_URL).host
+                } catch (_: Exception) {
+                    "codewithketan.me"
+                }
+
+                val requestHost = try { url.host } catch (_: Exception) { null }
+                val requestPath = try { url.encodedPath } catch (_: Exception) { "" }
+
+                // Only add auth header for our backend API host or requests under /api/ path
+                val needsAuth = when {
+                    requestHost == null -> false
+                    requestHost.contains(apiHost ?: "codewithketan.me", ignoreCase = true) -> true
+                    requestPath.startsWith("/api/") -> true
+                    else -> false
+                }
 
                 if (needsAuth) {
                     val token = SharedPrefsTokenStore(context).getAccessToken()
                     Log.d("AuthGlideModule", "URL needs auth: $needsAuth, Token present: ${!token.isNullOrEmpty()}")
 
                     val request = if (!token.isNullOrEmpty()) {
-                        Log.d("AuthGlideModule", "Adding Bearer token to request")
+                        Log.d("AuthGlideModule", "Adding Bearer token to Glide request for host=$requestHost")
                         original.newBuilder()
                             .header("Authorization", "Bearer $token")
                             .build()
                     } else {
-                        Log.w("AuthGlideModule", "No token available!")
+                        Log.w("AuthGlideModule", "No token available for Glide request")
                         original
                     }
                     chain.proceed(request)
                 } else {
-                    Log.d("AuthGlideModule", "URL does not need auth, proceeding normally")
+                    Log.d("AuthGlideModule", "URL does not need auth (skipping): host=$requestHost path=$requestPath")
                     chain.proceed(original)
                 }
             }
