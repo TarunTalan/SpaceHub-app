@@ -43,11 +43,27 @@ class ChatRepository private constructor(
                 handleIncomingMessage(wsMessage)
             }
         }
+        // Listen for server-sent history payloads and persist them
+        scope.launch {
+            try {
+                webSocketService.history.collect { hist ->
+                    try {
+                        // hist.messages is Array<DirectChatMessage>
+                        restoreConversationFromHistory(hist.chatWith, hist.messages.toList())
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to restore history for ${hist.chatWith}: ${e.message}")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "History collector failed: ${e.message}")
+            }
+        }
     }
 
     val connectionState = webSocketService.connectionState
 
     fun connectWebSocket() {
+        // Deprecated: don't auto-connect globally. Keep for backward compatibility.
         webSocketService.connect()
     }
 
@@ -115,6 +131,12 @@ class ChatRepository private constructor(
                 lastMessage = content,
                 lastMessageTime = timestamp
             ))
+
+            // Ensure WebSocket is connected for this sender/receiver pair. New API requires query params.
+            try {
+                // If not connected or using different pair, reconnect with query params
+                webSocketService.connect(senderEmail = myEmail, receiverEmail = recipientEmail)
+            } catch (_: Exception) {}
 
             // Send via WebSocket
             val success = webSocketService.sendMessage(
@@ -344,5 +366,93 @@ class ChatRepository private constructor(
 
         val sorted = listOf(e1, e2).sorted()
         return "${sorted[0]}_${sorted[1]}".replace("@", "_").replace(".", "_")
+    }
+
+    // Parse ISO timestamp strings and truncate extra fractional precision safely.
+    private fun parseTimestamp(ts: String?): Long {
+        if (ts.isNullOrBlank()) return System.currentTimeMillis()
+        return try {
+            val truncated = if (ts.contains('.')) {
+                val parts = ts.split('.')
+                if (parts.size >= 2) {
+                    val fractional = parts[1]
+                    val tzIndex = fractional.indexOfFirst { it == 'Z' || it == '+' || it == '-' }
+                    when {
+                        tzIndex > 3 -> {
+                            val millis = fractional.substring(0, 3)
+                            val tz = if (tzIndex > 0) fractional.substring(tzIndex) else "Z"
+                            "${parts[0]}.$millis$tz"
+                        }
+                        tzIndex == -1 && fractional.length > 3 -> "${parts[0]}.${fractional.substring(0, 3)}Z"
+                        else -> {
+                            if (ts.endsWith("Z") || ts.contains("+") || ts.contains("-")) ts else "${ts}Z"
+                        }
+                    }
+                } else ts
+            } else {
+                if (ts.endsWith("Z")) ts else "${ts}Z"
+            }
+            Instant.parse(truncated).toEpochMilli()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to parse timestamp '$ts', using current time. Error: ${e.message}")
+            System.currentTimeMillis()
+        }
+    }
+
+    // Restore conversation messages from websocket/history payload and persist locally.
+    suspend fun restoreConversationFromHistory(peerEmail: String, messages: List<com.example.myapplication.data.chat.websocket.DirectChatMessage>): Result<Unit> {
+        return try {
+            val myEmail = userDataManager.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
+            val conversationId = generateConversationId(myEmail, peerEmail)
+
+            val chatMessages = messages.map { ws ->
+                val ts = parseTimestamp(ws.timestamp)
+                val isFromMe = !myEmail.isNullOrBlank() && ws.senderEmail.equals(myEmail, ignoreCase = true) && !ws.receiverEmail.equals(myEmail, ignoreCase = true)
+                ChatMessage(
+                    id = ws.id ?: UUID.randomUUID().toString(),
+                    conversationId = conversationId,
+                    senderId = ws.senderEmail,
+                    senderName = ws.senderEmail,
+                    senderAvatar = null,
+                    recipientId = ws.receiverEmail,
+                    content = ws.content,
+                    timestamp = ts,
+                    status = MessageStatus.DELIVERED,
+                    isFromMe = isFromMe
+                )
+            }
+
+            // Persist messages in bulk if DAO supports it
+            try { chatDao.insertMessages(chatMessages) } catch (_: Exception) { chatMessages.forEach { chatDao.insertMessage(it) } }
+
+            // Update/insert conversation with latest message info
+            val last = chatMessages.maxByOrNull { it.timestamp }
+            val conv = Conversation(
+                id = conversationId,
+                peerEmail = peerEmail,
+                peerName = peerEmail,
+                peerAvatar = null,
+                lastMessage = last?.content,
+                lastMessageTime = last?.timestamp ?: System.currentTimeMillis(),
+                unreadCount = 0
+            )
+            chatDao.insertConversation(conv)
+
+            Result.success(Unit)
+        } catch (t: Throwable) {
+            Result.failure(t)
+        }
+    }
+
+    /** Connect websocket for a peer using my stored email (convenience). Runs asynchronously. */
+    fun connectForPeer(peerEmail: String) {
+        scope.launch {
+            try {
+                val myEmail = userDataManager.getEmail() ?: return@launch
+                webSocketService.connect(senderEmail = myEmail, receiverEmail = peerEmail)
+            } catch (e: Exception) {
+                Log.w(TAG, "connectForPeer failed: ${e.message}")
+            }
+        }
     }
 }
