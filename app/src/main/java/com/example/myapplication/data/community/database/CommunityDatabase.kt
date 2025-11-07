@@ -8,20 +8,24 @@ import com.example.myapplication.data.community.dao.CommunityDao
 import com.example.myapplication.data.community.dao.RoomDao
 import com.example.myapplication.data.community.model.Community
 import com.example.myapplication.data.community.model.RoomEntity
+import com.example.myapplication.data.chat.db.ChatDao
+import com.example.myapplication.data.chat.model.ChatMessage
+import com.example.myapplication.data.chat.model.Conversation
 
 /**
  * Room Database for storing community data.
  * Provides offline access and caching for communities.
  */
 @Database(
-    entities = [Community::class, RoomEntity::class],
-    version = 3,
+    entities = [Community::class, RoomEntity::class, ChatMessage::class, Conversation::class],
+    version = 4,
     exportSchema = false
 )
 abstract class CommunityDatabase : RoomDatabase() {
 
     abstract fun communityDao(): CommunityDao
     abstract fun roomDao(): RoomDao
+    abstract fun chatDao(): ChatDao
 
     companion object {
         @Volatile

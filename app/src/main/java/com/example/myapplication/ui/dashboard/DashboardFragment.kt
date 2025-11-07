@@ -28,6 +28,7 @@ import com.example.myapplication.ui.common.BaseFragment
 import com.example.myapplication.ui.community.adapter.YourCommunityAdapter
 import com.example.myapplication.ui.community.viewmodel.CommunityViewModel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 import com.google.android.material.navigation.NavigationView
 import androidx.core.content.edit
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -37,10 +38,10 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.example.myapplication.data.community.repository.CommunityRepository
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.core.content.ContextCompat
-import com.example.myapplication.data.dashboard.DashboardRepository
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.appcompat.app.AlertDialog
 import androidx.core.graphics.drawable.DrawableCompat
+import androidx.core.graphics.toColorInt
 
 class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
 
@@ -227,19 +228,39 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         val swipe = view.findViewById<SwipeRefreshLayout>(R.id.swipe_refresh_my_communities)
         swipe?.setOnRefreshListener {
             viewLifecycleOwner.lifecycleScope.launch {
-                val repo = CommunityRepository.getInstance(requireContext())
+                val communityRepo = CommunityRepository.getInstance(requireContext())
+                val friendsRepo = com.example.myapplication.data.friends.repository.FriendsRepository.getInstance(requireContext())
                 val email = com.example.myapplication.data.user.UserDataManager.getInstance(requireContext()).getEmail()
-                val res = repo.fetchMyCommunitiesRemote(email)
-                // stop spinner regardless of outcome
-                swipe.isRefreshing = false
-                res.onFailure { e ->
-                    try { android.widget.Toast.makeText(requireContext(), e.message ?: "Failed to refresh", android.widget.Toast.LENGTH_SHORT).show() } catch (_: Exception) {}
+
+                try {
+                    // Fetch all data in parallel
+                    val communitiesDeferred = async { communityRepo.fetchMyCommunitiesRemote(email) }
+                    val pendingRequestsDeferred = async { communityRepo.getMyPendingRequests() }
+                    val incomingFriendRequestsDeferred = async { friendsRepo.getIncomingRequests() }
+
+                    // Wait for all requests to complete
+                    val communitiesRes = communitiesDeferred.await()
+                    pendingRequestsDeferred.await() // Force execution
+                    incomingFriendRequestsDeferred.await() // Force execution
+
+                    // Update badge count after refreshing incoming friend requests
+                    updateBadge()
+
+                    // Show errors if any
+                    communitiesRes.onFailure { e ->
+                        android.widget.Toast.makeText(requireContext(), e.message ?: "Failed to refresh communities", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    android.widget.Toast.makeText(requireContext(), "Failed to refresh: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                } finally {
+                    // Stop spinner regardless of outcome
+                    swipe.isRefreshing = false
                 }
             }
         }
 
         // Prepare swipe visuals (red bg + leave icon)
-        val swipeBgPaint = Paint().apply { color = Color.parseColor("#E53935") }
+        val swipeBgPaint = Paint().apply { color = "#E53935".toColorInt() }
         val leaveIcon = ResourcesCompat.getDrawable(resources, R.drawable.leave, null)
         fun dpToPx(dp: Int): Int = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp.toFloat(), resources.displayMetrics).toInt()
 
@@ -293,7 +314,7 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
 
                     // Background role backfill: if some communities appear as joined but we might be admin,
                     // fetch members for a few of them once to update relationship flags in Room.
-                    val repo = com.example.myapplication.data.community.repository.CommunityRepository.getInstance(requireContext())
+                    val repo = CommunityRepository.getInstance(requireContext())
                     val unknowns = joinedCommunities
                         .asSequence()
                         .filter { !roleBackfilled.contains(it.communityId) }

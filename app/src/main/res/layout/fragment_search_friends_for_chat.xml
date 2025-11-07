@@ -80,18 +80,6 @@
         tools:listitem="@layout/item_friend_simple"
         tools:itemCount="5"/>
 
-    <TextView
-        android:id="@+id/empty_text"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/empty_list"
-        android:textColor="@android:color/white"
-        android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@id/top_toolbar"
-        app:layout_constraintBottom_toTopOf="@id/illustration"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
-
     <ProgressBar
         android:id="@+id/progress"
         android:layout_width="40dp"

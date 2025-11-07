@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.widget.ImageView
 import com.bumptech.glide.Glide
+import com.example.myapplication.BuildConfig
 import com.example.myapplication.R
 import java.io.File
 import androidx.core.net.toUri
@@ -52,8 +53,21 @@ object ProfileImageHelper {
                 }
                 is String -> {
                     val s = image.trim()
-                    if (s.startsWith("content://") || s.startsWith("file://")) {
-                        val uri = try { s.toUri() } catch (_: Exception) { null }
+
+                    // Handle relative URLs from API (e.g., "avatars/user_email/profile.png")
+                    val finalUrl = if (s.isNotBlank() && !s.startsWith("http") && !s.startsWith("content://") && !s.startsWith("file://") && !s.contains("/")) {
+                        // This is a relative path, prepend base URL
+                        "${BuildConfig.BASE_URL}/$s".replace("//", "/").replace(":/", "://")
+                    } else if (s.startsWith("avatars/") || s.startsWith("/avatars/")) {
+                        // This is a relative avatar path
+                        val cleanPath = s.trimStart('/')
+                        "${BuildConfig.BASE_URL}/$cleanPath"
+                    } else {
+                        s
+                    }
+
+                    if (finalUrl.startsWith("content://") || finalUrl.startsWith("file://")) {
+                        val uri = try { finalUrl.toUri() } catch (_: Exception) { null }
                         if (uri != null) {
                             Glide.with(context)
                                 .load(uri)
@@ -65,7 +79,7 @@ object ProfileImageHelper {
                         }
                     }
                     try {
-                        val f = File(s)
+                        val f = File(finalUrl)
                         if (f.exists()) {
                             Glide.with(context)
                                 .load(f)
@@ -78,7 +92,7 @@ object ProfileImageHelper {
                     } catch (_: Exception) {}
 
                     Glide.with(context)
-                        .load(s.ifBlank { null } ?: R.drawable.default_profile)
+                        .load(finalUrl.ifBlank { null } ?: R.drawable.default_profile)
                         .placeholder(R.drawable.default_profile)
                         .error(R.drawable.default_profile)
                         .circleCrop()
@@ -86,8 +100,15 @@ object ProfileImageHelper {
                 }
                 else -> {
                     val s = image.toString()
+                    val finalUrl = if (s.startsWith("avatars/") || s.startsWith("/avatars/")) {
+                        val cleanPath = s.trimStart('/')
+                        "${BuildConfig.BASE_URL}/$cleanPath"
+                    } else {
+                        s
+                    }
+
                     Glide.with(context)
-                        .load(s.ifBlank { null } ?: R.drawable.default_profile)
+                        .load(finalUrl.ifBlank { null } ?: R.drawable.default_profile)
                         .placeholder(R.drawable.default_profile)
                         .error(R.drawable.default_profile)
                         .circleCrop()

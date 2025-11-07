@@ -34,7 +34,6 @@ class SearchFriendForChatFragment: BaseFragment(R.layout.fragment_search_friends
 
         val rv = view.findViewById<RecyclerView>(R.id.rv_friends)
         val progress = view.findViewById<ProgressBar>(R.id.progress)
-        val empty = view.findViewById<TextView>(R.id.empty_text)
         val addBtn = view.findViewById<ImageView>(R.id.btn_add)
         val illustration = view.findViewById<View>(R.id.illustration)
 
@@ -70,7 +69,6 @@ class SearchFriendForChatFragment: BaseFragment(R.layout.fragment_search_friends
             adapter.submitList(list)
             val hasData = list.isNotEmpty()
             rv.visibility = if (hasData) View.VISIBLE else View.GONE
-            empty.visibility = if (hasData) View.GONE else View.VISIBLE
             illustration?.visibility = if (hasData) View.GONE else View.VISIBLE
         }
         vm.loading.observe(viewLifecycleOwner) { isLoading ->

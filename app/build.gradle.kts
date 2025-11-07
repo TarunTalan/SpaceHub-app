@@ -94,4 +94,8 @@ dependencies {
 
     // OkHttp integration for Glide (for authenticated requests)
     implementation("com.github.bumptech.glide:okhttp3-integration:4.14.2")
+
+    // WebSocket for real-time chat with SockJS and STOMP support
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.java-websocket:Java-WebSocket:1.5.4")
 }
