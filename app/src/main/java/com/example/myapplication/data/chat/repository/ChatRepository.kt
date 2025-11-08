@@ -43,6 +43,21 @@ class ChatRepository private constructor(
                 handleIncomingMessage(wsMessage)
             }
         }
+        // Listen for server-sent history payloads and persist them
+        scope.launch {
+            try {
+                webSocketService.history.collect { hist ->
+                    try {
+                        // hist.messages is Array<DirectChatMessage>
+                        restoreConversationFromHistory(hist.chatWith, hist.messages.toList())
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to restore history for ${hist.chatWith}: ${e.message}")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "History collector failed: ${e.message}")
+            }
+        }
     }
 
     val connectionState = webSocketService.connectionState

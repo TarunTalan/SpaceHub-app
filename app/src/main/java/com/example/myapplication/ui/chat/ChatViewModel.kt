@@ -10,7 +10,9 @@ import com.example.myapplication.data.chat.model.ChatMessage
 import com.example.myapplication.data.chat.model.Conversation
 import com.example.myapplication.data.chat.repository.ChatRepository
 import com.example.myapplication.data.chat.websocket.DirectChatWebSocketService
+import com.example.myapplication.data.chat.websocket.DirectChatMessage
 import com.example.myapplication.data.community.database.CommunityDatabase
+import com.example.myapplication.data.user.UserDataManager
 import kotlinx.coroutines.launch
 
 class ChatViewModel(app: Application) : AndroidViewModel(app) {
@@ -19,7 +21,6 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private val chatRepo = ChatRepository.getInstance(app, chatDao)
 
     private val _currentConversation = MutableLiveData<Conversation?>()
-    @Suppress("unused")
     val currentConversation: LiveData<Conversation?> = _currentConversation
 
     private val _messages = MutableLiveData<List<ChatMessage>>(emptyList())
@@ -29,7 +30,6 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     val connectionState: LiveData<DirectChatWebSocketService.ConnectionState> = _connectionState
 
     private val _sendingMessage = MutableLiveData<Boolean>(false)
-    @Suppress("unused")
     val sendingMessage: LiveData<Boolean> = _sendingMessage
 
     private var conversationId: String? = null
@@ -49,6 +49,20 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun loadConversation(peerEmail: String, peerName: String, peerAvatar: String?) {
         viewModelScope.launch {
+            // Ensure websocket is connected for this conversation (sender=my email, receiver=peerEmail)
+            try {
+                // Resolve email from DataStore then connect directly to WebSocket service
+                val userData = UserDataManager.getInstance(getApplication())
+                val myEmail = userData.getEmail()
+                if (!myEmail.isNullOrBlank()) {
+                    DirectChatWebSocketService
+                        .getInstance(getApplication())
+                        .connect(senderEmail = myEmail, receiverEmail = peerEmail)
+                }
+            } catch (e: Exception) {
+                Log.w("ChatViewModel", "Failed to connect WS for peer: ${e.message}")
+            }
+
             try {
                 val conversation = chatRepo.getOrCreateConversation(peerEmail, peerName, peerAvatar)
                 _currentConversation.postValue(conversation)
@@ -102,13 +116,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun sendTypingIndicator() {
         val conversation = _currentConversation.value ?: return
         viewModelScope.launch {
-            try {
-                val recipientEmail = conversation.peerEmail ?: return@launch
-                chatRepo.sendTypingIndicator(recipientEmail)
-            } catch (e: Exception) {
-                // non-fatal
-                Log.w("ChatViewModel", "Failed to send typing indicator", e)
-            }
+            chatRepo.sendTypingIndicator(conversation.peerEmail)
         }
     }
 
@@ -124,8 +132,30 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Restore conversation history received from websocket (or server) for a given peer.
+     * Messages should be a list of DirectChatMessage objects (as received over WS).
+     */
+    fun restoreHistory(chatWith: String, messages: List<DirectChatMessage>) {
+        viewModelScope.launch {
+            try {
+                val res = chatRepo.restoreConversationFromHistory(chatWith, messages)
+                if (res.isSuccess) {
+                    // Reload the conversation so UI observes persisted messages
+                    loadConversation(chatWith, chatWith, null)
+                } else {
+                    Log.e("ChatViewModel", "Failed to restore history: ${res.exceptionOrNull()?.message}")
+                }
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Exception while restoring history", e)
+            }
+        }
+    }
+
     override fun onCleared() {
-        // Intentionally do not disconnect WebSocket here: it is shared across the app
         super.onCleared()
+        // Don't disconnect WebSocket here as it's shared across the app
+        // It will be managed by the Application lifecycle
     }
 }
+
