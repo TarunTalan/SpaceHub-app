@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="64dp"
+    android:layout_height="64dp"
+    android:foregroundGravity="center"
+    android:clipToPadding="false"
+    android:padding="4dp">
+
+    <ImageView
+        android:id="@+id/iv_center_add"
+        android:layout_width="40dp"
+        android:layout_height="35dp"
+        android:layout_gravity="center"
+        android:scaleType="fitCenter"
+        android:src="@drawable/add_menu_bg"
+        android:elevation="8dp"
+        android:contentDescription="Add" />
+</FrameLayout>

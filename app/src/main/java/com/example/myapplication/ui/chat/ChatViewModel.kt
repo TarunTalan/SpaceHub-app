@@ -70,10 +70,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
                 // Connect the websocket for this sender/receiver pair (use stored repo method)
                 val myEmail = com.example.myapplication.data.user.UserDataManager.getInstance(getApplication()).getEmail()
-                if (!myEmail.isNullOrBlank()) {
-                    val myEmailNonNull = myEmail
+                myEmail?.takeIf { it.isNotBlank() }?.let { email ->
                     try {
-                        chatRepo.connectWebSocket(myEmailNonNull, peerEmail)
+                        chatRepo.connectWebSocket(email, peerEmail)
                     } catch (e: Exception) {
                         Log.w("ChatViewModel", "Failed to connect websocket", e)
                     }
@@ -115,8 +114,11 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun sendTypingIndicator() {
         val conversation = _currentConversation.value ?: return
-        viewModelScope.launch {
-            chatRepo.sendTypingIndicator(conversation.peerEmail)
+        // Only call sendTypingIndicator if peerEmail is non-null
+        conversation.peerEmail?.let { email ->
+            viewModelScope.launch {
+                chatRepo.sendTypingIndicator(email)
+            }
         }
     }
 
@@ -158,4 +160,3 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         // It will be managed by the Application lifecycle
     }
 }
-

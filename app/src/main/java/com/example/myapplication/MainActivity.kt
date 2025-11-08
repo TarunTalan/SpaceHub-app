@@ -29,7 +29,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         try {
             WindowCompat.setDecorFitsSystemWindows(window, true)
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         defaultToolbarColor = ContextCompat.getColor(this, R.color.dashboard_toolbar)
@@ -37,7 +38,8 @@ class MainActivity : AppCompatActivity() {
         binding.toolbar.setBackgroundColor(defaultToolbarColor)
         try {
             binding.toolbar.backgroundTintList = ColorStateList.valueOf(defaultToolbarColor)
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
         // Set transparent dark status bar
         window.statusBarColor = 0x80000000.toInt() // 50% black
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
@@ -58,7 +60,11 @@ class MainActivity : AppCompatActivity() {
                 else -> resetToolbarColor()
             }
             val bottomNavVisibleDestinations = setOf(
-                R.id.dashboardFragment, R.id.searchFragment, R.id.searchFriendForChatFragment, R.id.profileFragment
+                R.id.dashboardFragment,
+                R.id.searchFragment,
+                R.id.createCommunityOrGroupFragment,
+                R.id.searchFriendForChatFragment,
+                R.id.profileFragment
             )
             val isVisible = destination.id in bottomNavVisibleDestinations
             binding.bottomNavView.visibility = if (isVisible) View.VISIBLE else View.GONE
@@ -75,15 +81,62 @@ class MainActivity : AppCompatActivity() {
         val bottomNav = binding.bottomNavView
         NavigationUI.setupWithNavController(bottomNav, navController)
 
+        // Wire the center overlay ImageView to select the center menu item
+        try {
+            val centerOverlay = findViewById<View>(R.id.center_add_overlay)
+            android.util.Log.d("MainActivity", "center_add_overlay found=${centerOverlay != null}")
+            android.util.Log.d("MainActivity", "center_add_overlay initialVisibility=${centerOverlay?.visibility}")
+            val iv = findViewById<android.widget.ImageView>(R.id.iv_center_add)
+            android.util.Log.d("MainActivity", "center overlay iv found=${iv != null}")
+            android.util.Log.d("MainActivity", "center overlay iv drawable=${iv?.drawable}")
+            centerOverlay?.setOnClickListener { try { bottomNav.selectedItemId = R.id.createCommunityOrGroupFragment } catch (_: Exception) {} }
+            // Hide overlay when bottom nav is not visible
+            navController.addOnDestinationChangedListener { _, destination, _ ->
+                val bottomVisible = destination.id in setOf(
+                    R.id.dashboardFragment, R.id.searchFragment, R.id.createCommunityOrGroupFragment, R.id.searchFriendForChatFragment, R.id.profileFragment
+                )
+                centerOverlay?.visibility = if (bottomVisible) View.VISIBLE else View.GONE
+            }
+            // Ensure the overlay is on top of the BottomNavigationView and not clipped
+            bottomNav.post {
+                try {
+                    centerOverlay?.bringToFront()
+                    centerOverlay?.translationZ = 64f
+                    centerOverlay?.elevation = 64f
+                    centerOverlay?.requestLayout()
+                    iv?.requestLayout()
+                    bottomNav.invalidate()
+                } catch (_: Exception) {}
+            }
+            // Extra safety: ensure overlay is front after whole root is laid out
+            binding.root.post {
+                try {
+                    centerOverlay?.bringToFront()
+                    centerOverlay?.translationZ = 96f
+                    centerOverlay?.elevation = 96f
+                    centerOverlay?.visibility = View.VISIBLE
+                    centerOverlay?.requestLayout()
+                    bottomNav.invalidate()
+                } catch (_: Exception) {}
+            }
+        } catch (_: Exception) {}
         // Setup animated indicator bar
         setupBottomNavIndicator()
         if (!token.isNullOrEmpty()) {
             val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
             val lastScreen = prefs.getString("last_screen", null)
             when (lastScreen) {
-                "dashboard" -> { navController.navigate(R.id.dashboardFragment); return }
-                "choose_profile" -> { navController.navigate(R.id.chooseProfilePicFragment); return }
-                "username" -> { navController.navigate(R.id.usernameFragment); return }
+                "dashboard" -> {
+                    navController.navigate(R.id.dashboardFragment); return
+                }
+
+                "choose_profile" -> {
+                    navController.navigate(R.id.chooseProfilePicFragment); return
+                }
+
+                "username" -> {
+                    navController.navigate(R.id.usernameFragment); return
+                }
             }
             val username = prefs.getString("username", null)
             val uploadedProfileUrl = prefs.getString("uploaded_profile_url", null)
@@ -106,7 +159,11 @@ class MainActivity : AppCompatActivity() {
                 return@addCallback
             }
             val bottomNavDestinations = setOf(
-                R.id.dashboardFragment, R.id.searchFragment, R.id.searchFriendForChatFragment, R.id.profileFragment
+                R.id.dashboardFragment,
+                R.id.searchFragment,
+                R.id.createCommunityOrGroupFragment,
+                R.id.searchFriendForChatFragment,
+                R.id.profileFragment
             )
             if (currentId != null && currentId in bottomNavDestinations) {
                 if (currentId != R.id.dashboardFragment) {
@@ -169,14 +226,17 @@ class MainActivity : AppCompatActivity() {
         binding.toolbar.setBackgroundColor(color)
         try {
             binding.toolbar.backgroundTintList = ColorStateList.valueOf(color)
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
         window.statusBarColor = color
     }
+
     fun resetToolbarColor() {
         binding.toolbar.setBackgroundColor(defaultToolbarColor)
         try {
             binding.toolbar.backgroundTintList = ColorStateList.valueOf(defaultToolbarColor)
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
         window.statusBarColor = defaultStatusBarColor
     }
 
@@ -219,8 +279,9 @@ class MainActivity : AppCompatActivity() {
         val position = when (menuItemId) {
             R.id.dashboardFragment -> 0
             R.id.searchFragment -> 1
-            R.id.searchFriendForChatFragment -> 2
-            R.id.profileFragment -> 3
+            R.id.createCommunityOrGroupFragment -> 2
+            R.id.searchFriendForChatFragment -> 3
+            R.id.profileFragment -> 4
             else -> 0
         }
 
@@ -236,4 +297,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            try {
+                val centerOverlay = findViewById<View>(R.id.center_add_overlay)
+                centerOverlay?.bringToFront()
+                centerOverlay?.translationZ = 120f
+                centerOverlay?.elevation = 120f
+                centerOverlay?.requestLayout()
+                android.util.Log.d("MainActivity", "onWindowFocusChanged: centerOverlay visible=${centerOverlay?.visibility}")
+            } catch (_: Exception) {}
+        }
+    }
 }

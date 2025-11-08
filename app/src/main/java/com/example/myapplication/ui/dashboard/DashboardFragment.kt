@@ -206,17 +206,6 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         } catch (_: Exception) {
         }
 
-        // Wire the add community button to navigate to CreateCommunityFragment
-        try {
-            val addComm = view.findViewById<ImageView>(R.id.add_comm)
-            addComm?.setOnClickListener {
-                try {
-                    findNavController().navigate(R.id.action_dashboardFragment_to_createCommunityOrGroupFragment)
-                } catch (_: Exception) {
-                }
-            }
-        } catch (_: Exception) {
-        }
 
         // Setup Your Communities Recycler
         val rvYourCommunities = view.findViewById<RecyclerView>(R.id.rv_your_communities)

@@ -43,21 +43,6 @@ class ChatRepository private constructor(
                 handleIncomingMessage(wsMessage)
             }
         }
-        // Listen for server-sent history payloads and persist them
-        scope.launch {
-            try {
-                webSocketService.history.collect { hist ->
-                    try {
-                        // hist.messages is Array<DirectChatMessage>
-                        restoreConversationFromHistory(hist.chatWith, hist.messages.toList())
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed to restore history for ${hist.chatWith}: ${e.message}")
-                    }
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "History collector failed: ${e.message}")
-            }
-        }
     }
 
     val connectionState = webSocketService.connectionState
@@ -67,6 +52,7 @@ class ChatRepository private constructor(
         webSocketService.connect(senderEmail, receiverEmail)
     }
 
+    @Suppress("unused")
     fun disconnectWebSocket() {
         webSocketService.disconnect()
     }
@@ -313,5 +299,72 @@ class ChatRepository private constructor(
 
         val sorted = listOf(e1, e2).sorted()
         return "${sorted[0]}_${sorted[1]}".replace("@", "_").replace(".", "_")
+    }
+
+    /**
+     * Persist a list of DirectChatMessage objects received from server/websocket as conversation history.
+     * The parameter chatWith is the peer email for which the history belongs.
+     */
+    suspend fun restoreConversationFromHistory(chatWith: String, messages: List<com.example.myapplication.data.chat.websocket.DirectChatMessage>): Result<Unit> {
+        return try {
+            val myEmail = userDataManager.getEmail() ?: return Result.failure(IllegalStateException("No local user email set"))
+            val conversationId = generateConversationId(myEmail, chatWith)
+
+            var latestTs = 0L
+
+            messages.forEach { ws ->
+                try {
+                    // parse timestamp (ISO or epoch millis)
+                    val ts = try {
+                        java.time.Instant.parse(ws.timestamp).toEpochMilli()
+                    } catch (_: Exception) {
+                        try { ws.timestamp.toLong() } catch (_: Exception) { System.currentTimeMillis() }
+                    }
+
+                    latestTs = maxOf(latestTs, ts)
+
+                    val isFromMe = !myEmail.isNullOrBlank() && ws.senderEmail.equals(myEmail, ignoreCase = true)
+
+                    val msg = ChatMessage(
+                        id = ws.id ?: java.util.UUID.randomUUID().toString(),
+                        conversationId = conversationId,
+                        senderId = ws.senderEmail,
+                        senderName = ws.senderEmail,
+                        senderAvatar = null,
+                        recipientId = ws.receiverEmail,
+                        content = ws.content ?: "",
+                        timestamp = ts,
+                        status = MessageStatus.DELIVERED,
+                        isFromMe = isFromMe
+                    )
+
+                    // Insert message (DAO should handle conflicts appropriately)
+                    chatDao.insertMessage(msg)
+                } catch (inner: Exception) {
+                    Log.w(TAG, "Failed to persist history message: ${inner.message}")
+                }
+            }
+
+            // Update or insert conversation record
+            val conv = chatDao.getConversation(conversationId)
+            if (conv != null) {
+                chatDao.updateConversation(conv.copy(lastMessage = messages.lastOrNull()?.content, lastMessageTime = if (latestTs>0) latestTs else System.currentTimeMillis()))
+            } else {
+                chatDao.insertConversation(Conversation(
+                    id = conversationId,
+                    peerEmail = chatWith,
+                    peerName = chatWith,
+                    peerAvatar = null,
+                    lastMessage = messages.lastOrNull()?.content,
+                    lastMessageTime = if (latestTs>0) latestTs else System.currentTimeMillis(),
+                    unreadCount = 0
+                ))
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "restoreConversationFromHistory failed", e)
+            Result.failure(e)
+        }
     }
 }
