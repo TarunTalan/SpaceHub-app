@@ -8,10 +8,8 @@ import android.os.Bundle
 import android.view.View
 import android.widget.EditText
 import android.widget.ImageView
-import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
@@ -32,7 +30,6 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
 
     private val vm: CommunityDetailViewModel by viewModels()
-    private var isFirstResume = true
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -69,38 +66,20 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                                 Toast.makeText(requireContext(), "Missing communityId", Toast.LENGTH_SHORT).show()
                                 return@setOnMenuItemClickListener true
                             }
-                            // Call repo to create link and show
+                            // Call repo to create link and show using central dialog helpers
                             viewLifecycleOwner.lifecycleScope.launch {
                                 val repo = CommunityRepository.getInstance(requireContext())
-                                val progress = ProgressBar(requireContext())
-                                val dlg = AlertDialog.Builder(requireContext())
-                                    .setTitle("Creating invite link...")
-                                    .setView(progress)
-                                    .setCancelable(false)
-                                    .create()
-                                try {
-                                    dlg.show()
-                                } catch (_: Exception) {}
+                                val dlg = com.example.myapplication.ui.common.AppDialogHelper.createProgressDialog(requireContext(), title = "Creating invite link...", cancelable = false)
+                                try { dlg.show() } catch (_: Exception) {}
 
                                 val res = repo.createInviteLink(communityId)
                                 try { dlg.dismiss() } catch (_: Exception) {}
                                 res.onSuccess { data ->
                                     val link = data.inviteLink
-                                    val msg = "Invite link:\n$link"
-                                    AlertDialog.Builder(requireContext())
-                                        .setTitle("Invite link")
-                                        .setMessage(msg)
-                                        .setPositiveButton("Copy") { d, _ ->
-                                            copyToClipboard(requireContext(), link)
-                                            Toast.makeText(requireContext(), "Copied", Toast.LENGTH_SHORT).show()
-                                            d.dismiss()
-                                        }
-                                        .setNegativeButton("Share") { d, _ ->
-                                            shareText(link)
-                                            d.dismiss()
-                                        }
-                                        .setNeutralButton(android.R.string.ok, null)
-                                        .show()
+                                    com.example.myapplication.ui.common.AppDialogHelper.showInviteLinkDialog(requireContext(), link = link, onCopy = {
+                                        copyToClipboard(requireContext(), link)
+                                        Toast.makeText(requireContext(), "Copied", Toast.LENGTH_SHORT).show()
+                                    }, onShare = { shareText(link) })
                                 }.onFailure { e ->
                                     Toast.makeText(requireContext(), "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
                                 }
@@ -122,11 +101,13 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                                 Toast.makeText(requireContext(), "Missing communityId", Toast.LENGTH_SHORT).show()
                                 return@setOnMenuItemClickListener true
                             }
-                            AlertDialog.Builder(requireContext())
-                                .setTitle("Leave Community")
-                                .setMessage("Are you sure you want to leave this community?")
-                                .setPositiveButton("Leave") { _, _ ->
-                                    // We need communityName for API; get it from repo
+                            com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(
+                                requireContext(),
+                                R.string.leave_confirm_title, // add strings if not present fallback to inline strings otherwise
+                                R.string.leave_confirm_message,
+                                positiveRes = R.string.leave_confirm_yes,
+                                negativeRes = android.R.string.cancel,
+                                onPositive = {
                                     viewLifecycleOwner.lifecycleScope.launch {
                                         val repo = CommunityRepository.getInstance(requireContext())
                                         val comm = repo.getCommunityById(communityId)
@@ -144,19 +125,13 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                                         }
                                     }
                                 }
-                                .setNegativeButton(android.R.string.cancel, null)
-                                .show()
-                            true
+                            )
+                             true
                         }
                         R.id.action_delete_community -> {
                             val ctx = requireContext()
-                            AlertDialog.Builder(ctx)
-                                .setTitle("Delete Community")
-                                .setMessage("Are you sure you want to delete this community?")
-                                .setPositiveButton("Delete") { _, _ -> vm.deleteCommunity() }
-                                .setNegativeButton(android.R.string.cancel, null)
-                                .show()
-                            true
+                            com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(requireContext(), R.string.delete_confirm_title, R.string.delete_confirm_message, positiveRes = R.string.delete_confirm_yes, negativeRes = android.R.string.cancel, onPositive = { vm.deleteCommunity() })
+                             true
                         }
                         R.id.action_add_room -> {
                             try {
@@ -172,9 +147,7 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                                         .setView(dialogView)
                                         .create()
                                 } catch (_: Exception) {
-                                    AlertDialog.Builder(requireContext())
-                                        .setView(dialogView)
-                                        .create()
+                                    com.example.myapplication.ui.common.AppDialogHelper.createViewDialog(requireContext(), title = null, customView = dialogView, positiveText = null, negativeText = null, cancelable = true)
                                 }
 
                                 fun setLoading(loading: Boolean) {
@@ -209,7 +182,7 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                                 }
                                 btnCancel.setOnClickListener { dialog.dismiss() }
                                 dialog.show()
-                            } catch (e: Exception) {
+                            } catch (_: Exception) {
                                 try { Toast.makeText(requireContext(), "Failed to open dialog", Toast.LENGTH_SHORT).show() } catch (_: Exception) {}
                             }
                             true
@@ -246,33 +219,17 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                             }
                             viewLifecycleOwner.lifecycleScope.launch {
                                 val repo = CommunityRepository.getInstance(requireContext())
-                                val progress = ProgressBar(requireContext())
-                                val dlg = AlertDialog.Builder(requireContext())
-                                    .setTitle("Creating invite link...")
-                                    .setView(progress)
-                                    .setCancelable(false)
-                                    .create()
+                                val dlg = com.example.myapplication.ui.common.AppDialogHelper.createProgressDialog(requireContext(), title = "Creating invite link...", cancelable = false)
                                 try { dlg.show() } catch (_: Exception) {}
 
                                 val res = repo.createInviteLink(communityId)
                                 try { dlg.dismiss() } catch (_: Exception) {}
                                 res.onSuccess { data ->
                                     val link = data.inviteLink
-                                    val msg = "Invite link:\n$link"
-                                    AlertDialog.Builder(requireContext())
-                                        .setTitle("Invite link")
-                                        .setMessage(msg)
-                                        .setPositiveButton("Copy") { d, _ ->
-                                            copyToClipboard(requireContext(), link)
-                                            Toast.makeText(requireContext(), "Copied", Toast.LENGTH_SHORT).show()
-                                            d.dismiss()
-                                        }
-                                        .setNegativeButton("Share") { d, _ ->
-                                            shareText(link)
-                                            d.dismiss()
-                                        }
-                                        .setNeutralButton(android.R.string.ok, null)
-                                        .show()
+                                    com.example.myapplication.ui.common.AppDialogHelper.showInviteLinkDialog(requireContext(), link = link, onCopy = {
+                                        copyToClipboard(requireContext(), link)
+                                        Toast.makeText(requireContext(), "Copied", Toast.LENGTH_SHORT).show()
+                                    }, onShare = { shareText(link) })
                                 }.onFailure { e ->
                                     Toast.makeText(requireContext(), "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
                                 }
@@ -294,10 +251,13 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                                 Toast.makeText(requireContext(), "Missing communityId", Toast.LENGTH_SHORT).show()
                                 return@setOnMenuItemClickListener true
                             }
-                            AlertDialog.Builder(requireContext())
-                                .setTitle("Leave Community")
-                                .setMessage("Are you sure you want to leave this community?")
-                                .setPositiveButton("Leave") { _, _ ->
+                            com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(
+                                requireContext(),
+                                R.string.leave_confirm_title, // add strings if not present fallback to inline strings otherwise
+                                R.string.leave_confirm_message,
+                                positiveRes = R.string.leave_confirm_yes,
+                                negativeRes = android.R.string.cancel,
+                                onPositive = {
                                     viewLifecycleOwner.lifecycleScope.launch {
                                         val repo = CommunityRepository.getInstance(requireContext())
                                         val comm = repo.getCommunityById(communityId)
@@ -315,18 +275,12 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                                         }
                                     }
                                 }
-                                .setNegativeButton(android.R.string.cancel, null)
-                                .show()
+                            )
                             true
                         }
                         R.id.action_delete_community -> {
                             val ctx = requireContext()
-                            AlertDialog.Builder(ctx)
-                                .setTitle("Delete Community")
-                                .setMessage("Are you sure you want to delete this community?")
-                                .setPositiveButton("Delete") { _, _ -> vm.deleteCommunity() }
-                                .setNegativeButton(android.R.string.cancel, null)
-                                .show()
+                            com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(requireContext(), R.string.delete_confirm_title, R.string.delete_confirm_message, positiveRes = R.string.delete_confirm_yes, negativeRes = android.R.string.cancel, onPositive = { vm.deleteCommunity() })
                             true
                         }
                         R.id.action_add_room -> {
@@ -343,9 +297,7 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                                         .setView(dialogView)
                                         .create()
                                 } catch (_: Exception) {
-                                    AlertDialog.Builder(requireContext())
-                                        .setView(dialogView)
-                                        .create()
+                                    com.example.myapplication.ui.common.AppDialogHelper.createViewDialog(requireContext(), title = null, customView = dialogView, positiveText = null, negativeText = null, cancelable = true)
                                 }
 
                                 fun setLoading(loading: Boolean) {
@@ -469,7 +421,8 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                         putString("communityName", comm?.name ?: "Community")
                         putString("communityImageUrl", comm?.profilePicUrl)
                         putInt("memberCount", comm?.memberCount ?: 0)
-                        putInt("adminCount", 0) // Update if you have admin count available
+                        putInt("adminCount", 0 // Update if you have admin count available
+                        )
                     }
 
                     try {
@@ -481,14 +434,9 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
             },
             onLongClick = { room ->
                 val ctx = requireContext()
-                AlertDialog.Builder(ctx)
-                    .setTitle("Delete Room")
-                    .setMessage("Are you sure you want to delete this room?")
-                    .setPositiveButton("Delete") { _, _ ->
-                        viewLifecycleOwner.lifecycleScope.launch { vm.deleteRoom(room.id) }
-                    }
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .show()
+                com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(ctx, "Delete Room", "Are you sure you want to delete this room?", positiveText = "Delete", negativeText = ctx.getString(android.R.string.cancel), onPositive = {
+                    viewLifecycleOwner.lifecycleScope.launch { vm.deleteRoom(room.id) }
+                })
             }
         )
         rv.layoutManager = LinearLayoutManager(requireContext())
@@ -514,22 +462,18 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
 
         view.findViewById<View>(R.id.fab_create_room)?.setOnClickListener {
             val ctx = requireContext()
-            val input = EditText(ctx)
-            input.hint = "Room name"
-            AlertDialog.Builder(ctx)
-                .setTitle("Create Room")
-                .setView(input)
-                .setPositiveButton("Create") { d, _ ->
-                    val name = input.text?.toString()?.trim().orEmpty()
-                    if (name.isNotEmpty()) {
-                        viewLifecycleOwner.lifecycleScope.launch { vm.createRoom(name) }
-                    } else {
-                        Toast.makeText(ctx, "Name required", Toast.LENGTH_SHORT).show()
+            val input = EditText(ctx).apply { hint = "Room name" }
+            val dlg = com.example.myapplication.ui.common.AppDialogHelper.createViewDialog(ctx, title = "Create Room", customView = input, positiveText = "Create", negativeText = ctx.getString(android.R.string.cancel), onPositive = {
+                val name = input.text?.toString()?.trim().orEmpty()
+                if (name.isNotEmpty()) {
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        vm.createRoom(name)
                     }
-                    d.dismiss()
+                } else {
+                    Toast.makeText(ctx, "Name required", Toast.LENGTH_SHORT).show()
                 }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
+            }, cancelable = true)
+            try { dlg.show() } catch (_: Exception) {}
         }
 
         // Long-press member count to open Members list (quick entry point)
@@ -554,99 +498,95 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
     }
 
     private fun showMembersDialog(communityId: String) {
-        viewLifecycleOwner.lifecycleScope.launch {
-            val ctx = requireContext()
-            val repo = CommunityRepository.getInstance(ctx)
-            val progress = ProgressBar(ctx)
-            val dlg = AlertDialog.Builder(ctx)
-                .setTitle("Members")
-                .setView(progress)
-                .setCancelable(true)
-                .create()
-            try { dlg.show() } catch (_: Exception) {}
+         viewLifecycleOwner.lifecycleScope.launch {
+             val ctx = requireContext()
+             val repo = CommunityRepository.getInstance(ctx)
+             val dlg = com.example.myapplication.ui.common.AppDialogHelper.createProgressDialog(ctx, title = "Members", cancelable = true)
+             try { dlg.show() } catch (_: Exception) {}
 
-            val res = repo.fetchMembers(communityId)
-            if (res.isFailure) {
-                try { dlg.dismiss() } catch (_: Exception) {}
-                Toast.makeText(ctx, res.exceptionOrNull()?.message ?: "Failed to load members", Toast.LENGTH_SHORT).show()
-                return@launch
-            }
+             val res = repo.fetchMembers(communityId)
+             if (res.isFailure) {
+                 try { dlg.dismiss() } catch (_: Exception) {}
+                 Toast.makeText(ctx, res.exceptionOrNull()?.message ?: "Failed to load members", Toast.LENGTH_SHORT).show()
+                 return@launch
+             }
 
-            val members = res.getOrNull().orEmpty()
-            val currentEmail = UserDataManager.getInstance(ctx).getEmail()
-            val currentIsAdmin = members.any { m ->
-                m.email.equals(currentEmail, true) && (m.role.equals("ADMIN", true) || m.role.equals("OWNER", true))
-            }
+             val members = res.getOrNull().orEmpty()
+             val currentEmail = UserDataManager.getInstance(ctx).getEmail()
+             val currentIsAdmin = members.any { m ->
+                 m.email.equals(currentEmail, true) && (m.role.equals("ADMIN", true) || m.role.equals("OWNER", true))
+             }
 
-            val rv = RecyclerView(ctx)
-            rv.layoutManager = LinearLayoutManager(ctx)
-            rv.addItemDecoration(DividerItemDecoration(ctx, DividerItemDecoration.VERTICAL))
+             val rv = RecyclerView(ctx)
+             rv.layoutManager = LinearLayoutManager(ctx)
+             rv.addItemDecoration(DividerItemDecoration(ctx, DividerItemDecoration.VERTICAL))
 
-            val adapter = MemberAdapter(
-                isAdmin = currentIsAdmin,
-                onChangeRole = { member, newRole ->
-                    viewLifecycleOwner.lifecycleScope.launch {
-                        val result = repo.changeMemberRole(communityId, member.email, newRole)
-                        result.onSuccess {
-                            Toast.makeText(ctx, "Role updated", Toast.LENGTH_SHORT).show()
-                            // refresh list
-                            showMembersDialog(communityId)
-                        }.onFailure { e ->
-                            Toast.makeText(ctx, e.message ?: "Failed", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                },
-                onRemove = { member ->
-                    AlertDialog.Builder(ctx)
-                        .setTitle("Remove member")
-                        .setMessage("Remove ${member.username}?")
-                        .setPositiveButton("Remove") { d, _ ->
-                            d.dismiss()
-                            viewLifecycleOwner.lifecycleScope.launch {
-                                val result = repo.removeMember(communityId, member.email)
-                                result.onSuccess {
-                                    Toast.makeText(ctx, "Removed", Toast.LENGTH_SHORT).show()
-                                    // refresh list
-                                    showMembersDialog(communityId)
-                                }.onFailure { e ->
-                                    Toast.makeText(ctx, e.message ?: "Failed", Toast.LENGTH_SHORT).show()
-                                }
+             val adapter = MemberAdapter(
+                 isAdmin = currentIsAdmin,
+                 onChangeRole = { member, newRole ->
+                     viewLifecycleOwner.lifecycleScope.launch {
+                         val result = repo.changeMemberRole(communityId, member.email, newRole)
+                         result.onSuccess {
+                             Toast.makeText(ctx, "Role updated", Toast.LENGTH_SHORT).show()
+                             // refresh list
+                             showMembersDialog(communityId)
+                         }.onFailure { e ->
+                             Toast.makeText(ctx, e.message ?: "Failed", Toast.LENGTH_SHORT).show()
+                         }
+                     }
+                 },
+                 onRemove = { member ->
+                     com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(ctx, "Remove member", "Remove ${member.username ?: member.email}?", positiveText = "Remove", negativeText = ctx.getString(android.R.string.cancel), onPositive = {
+                        viewLifecycleOwner.lifecycleScope.launch {
+                            val result = repo.removeMemberAndRefresh(communityId, member.email)
+                            result.onSuccess {
+                                Toast.makeText(ctx, "Removed", Toast.LENGTH_SHORT).show()
+                                // refresh list
+                                showMembersDialog(communityId)
+                            }.onFailure { e ->
+                                Toast.makeText(ctx, e.message ?: "Failed", Toast.LENGTH_SHORT).show()
                             }
                         }
-                        .setNegativeButton(android.R.string.cancel, null)
-                        .show()
-                }
-            )
-            rv.adapter = adapter
-            adapter.submitList(members)
+                     })
+                 }
+             )
 
-            dlg.setView(rv)
-        }
-    }
+             rv.adapter = adapter
+             adapter.submitList(members)
+
+             // Dismiss the loading dialog and show the members list in a themed view dialog
+             try { dlg.dismiss() } catch (_: Exception) {}
+
+             val listDlg = com.example.myapplication.ui.common.AppDialogHelper.createViewDialog(
+                 ctx,
+                 title = "Members",
+                 customView = rv,
+                 positiveText = null,
+                 negativeText = ctx.getString(android.R.string.cancel),
+                 cancelable = true
+             )
+             try { listDlg.show() } catch (_: Exception) {}
+         }
+     }
 
     private fun copyToClipboard(ctx: Context, text: String) {
-        val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        cm.setPrimaryClip(ClipData.newPlainText("invite_link", text))
-    }
+         try {
+            val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            cm.setPrimaryClip(ClipData.newPlainText("invite_link", text))
+            Toast.makeText(ctx, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+         } catch (_: Exception) {}
+     }
 
-    private fun shareText(text: String) {
-        val sendIntent: Intent = Intent().apply {
-            action = Intent.ACTION_SEND
-            putExtra(Intent.EXTRA_TEXT, text)
-            type = "text/plain"
-        }
-        val shareIntent = Intent.createChooser(sendIntent, null)
-        startActivity(shareIntent)
-    }
+     private fun shareText(text: String) {
+         try {
+             val sendIntent: Intent = Intent().apply {
+                 action = Intent.ACTION_SEND
+                 putExtra(Intent.EXTRA_TEXT, text)
+                 type = "text/plain"
+             }
+             val shareIntent = Intent.createChooser(sendIntent, null)
+             startActivity(shareIntent)
+         } catch (_: Exception) {}
+     }
 
-    override fun onResume() {
-        super.onResume()
-        // Only refresh on subsequent resumes (e.g., after returning from create room screen)
-        // Skip the first resume to avoid duplicate API calls during initial load
-        if (isFirstResume) {
-            isFirstResume = false
-        } else {
-            vm.refreshRooms()
-        }
-    }
 }

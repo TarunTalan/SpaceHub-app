@@ -5,7 +5,6 @@ import android.view.View
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.widget.AppCompatButton
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.navigation.fragment.findNavController
 import com.example.myapplication.R
 import com.example.myapplication.ui.common.BaseFragment
 
@@ -26,7 +25,7 @@ class CreateGroupFragment : BaseFragment(R.layout.fragment_create_group) {
                             selectedBtn = child
                         } catch (_: Exception) { }
                         try {
-                            findNavController().navigate(R.id.groupNamePicFragment)
+                            navigateWithDelay(R.id.groupNamePicFragment)
                         } catch (_: Exception) { }
                     }
                 }
@@ -38,7 +37,7 @@ class CreateGroupFragment : BaseFragment(R.layout.fragment_create_group) {
             joinBtn?.setOnClickListener {
                 try {
                     // Navigate to joinGroupFragment (group-specific join flow)
-                    findNavController().navigate(R.id.joinGroupFragment)
+                    navigateWithDelay(R.id.joinGroupFragment)
                 } catch (_: Exception) { }
             }
         } catch (_: Exception) { }

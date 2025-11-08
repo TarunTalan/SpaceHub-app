@@ -5,7 +5,6 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.ImageView
 import android.widget.ProgressBar
-import android.widget.TextView
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -50,7 +49,7 @@ class SearchFriendForChatFragment: BaseFragment(R.layout.fragment_search_friends
             }
 
             runCatching {
-                findNavController().navigate(R.id.action_searchFriendForChatFragment_to_directChatFragment, Bundle().apply {
+                navigateWithDelay(R.id.action_searchFriendForChatFragment_to_directChatFragment, Bundle().apply {
                     putString("peerEmail", friend.email)
                     putString("peerName", "${friend.firstName} ${friend.lastName}".trim())
                     putString("peerAvatarUrl", avatarUrl)
@@ -62,7 +61,7 @@ class SearchFriendForChatFragment: BaseFragment(R.layout.fragment_search_friends
 
         addBtn?.setOnClickListener {
             // Navigate to search friends screen to add new friends
-            runCatching { findNavController().navigate(R.id.searchFriendsFragment) }
+            runCatching { navigateWithDelay(R.id.searchFriendsFragment) }
         }
 
         vm.friends.observe(viewLifecycleOwner) { list ->

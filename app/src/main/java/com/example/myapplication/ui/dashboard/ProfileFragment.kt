@@ -24,6 +24,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import android.text.InputFilter
 import androidx.core.widget.addTextChangedListener
+import com.example.myapplication.data.dashboard.model.UpdateProfileRequest
 
 class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
     private val dobFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
@@ -74,13 +75,22 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
-                    userDataManager.firstNameFlow.collect { first -> if (!etFirst.hasFocus()) first?.takeIf { it.isNotBlank() }?.let { etFirst.setText(it) } }
+                    userDataManager.firstNameFlow.collect { first ->
+                        try { android.util.Log.d("ProfileFragment", "firstNameFlow emitted: $first") } catch (_: Exception) {}
+                        if (!etFirst.hasFocus()) first?.takeIf { it.isNotBlank() }?.let { etFirst.setText(it) }
+                    }
                 }
                 launch {
-                    userDataManager.lastNameFlow.collect { last -> if (!etLast.hasFocus()) last?.takeIf { it.isNotBlank() }?.let { etLast.setText(it) } }
+                    userDataManager.lastNameFlow.collect { last ->
+                        try { android.util.Log.d("ProfileFragment", "lastNameFlow emitted: $last") } catch (_: Exception) {}
+                        if (!etLast.hasFocus()) last?.takeIf { it.isNotBlank() }?.let { etLast.setText(it) }
+                    }
                 }
                 launch {
-                    userDataManager.usernameFlow.collect { uname -> if (!etUser.hasFocus()) uname?.takeIf { it.isNotBlank() }?.let { etUser.setText(it) } }
+                    userDataManager.usernameFlow.collect { uname ->
+                        try { android.util.Log.d("ProfileFragment", "usernameFlow emitted: $uname") } catch (_: Exception) {}
+                        if (!etUser.hasFocus()) uname?.takeIf { it.isNotBlank() }?.let { etUser.setText(it) }
+                    }
                 }
                 launch {
                     userDataManager.dateOfBirthFlow.collect { dob -> if (!etDob.hasFocus()) dob?.takeIf { it.isNotBlank() }?.let { etDob.setText(it) } }
@@ -89,7 +99,10 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
                     userDataManager.bioFlow.collect { bio -> if (!etBio.hasFocus()) bio?.takeIf { it.isNotBlank() }?.let { etBio.setText(it) } }
                 }
                 launch {
-                    userDataManager.profileImageUrlFlow.collect { url -> ProfileImageHelper.loadProfileImageIntoView(requireContext(), imgView, url) }
+                    userDataManager.profileImageUrlFlow.collect { url ->
+                        try { android.util.Log.d("ProfileFragment", "profileImageUrlFlow emitted: $url") } catch (_: Exception) {}
+                        ProfileImageHelper.loadProfileImageIntoView(requireContext(), imgView, url)
+                    }
                 }
             }
         }
@@ -97,8 +110,8 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
         etDob.apply { isFocusable = false; isClickable = true; isCursorVisible = false; setOnClickListener { showMaterialDatePicker(this) } }
 
         view.findViewById<ImageView>(R.id.back)?.setOnClickListener { runCatching { findNavController().popBackStack() } }
-        view.findViewById<TextView>(R.id.tvChangeProfilePicture)?.setOnClickListener { runCatching { findNavController().navigate(R.id.action_profileFragment_to_changeProfilePicFragment) } }
-        imgView.setOnClickListener { runCatching { findNavController().navigate(R.id.action_profileFragment_to_changeProfilePicFragment) } }
+        view.findViewById<TextView>(R.id.tvChangeProfilePicture)?.setOnClickListener { runCatching { navigateWithDelay(R.id.action_profileFragment_to_changeProfilePicFragment) } }
+        imgView.setOnClickListener { runCatching { navigateWithDelay(R.id.action_profileFragment_to_changeProfilePicFragment) } }
 
         // Save action
         view.findViewById<TextView>(R.id.tv_save)?.setOnClickListener {
@@ -138,33 +151,48 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
                 DateTimeFormatter.ISO_LOCAL_DATE.format(local)
             } else ""
 
-            val req = com.example.myapplication.data.dashboard.model.UpdateProfileRequest(
+            val req = UpdateProfileRequest(
+                bio = bioVal,
+                currentPassword = "",
+                dateOfBirth = apiDob,
                 firstName = firstVal,
                 lastName = lastVal,
-                bio = bioVal,
-                location = "",
-                website = "",
-                isPrivate = false,
-                username = usernameVal,
+                newEmail = "",
+                newPassword = "",
+                username = usernameVal
             )
 
             setLoaderVisible(true)
             viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
                 val repo = com.example.myapplication.data.dashboard.DashboardRepository(requireContext())
                 val success = runCatching { repo.updateProfile(req) }.getOrDefault(false)
+                if (success) {
+                    // Refresh profile from server to ensure DataStore has the latest avatar/preview URL
+                    try { kotlinx.coroutines.withContext(Dispatchers.IO) { repo.getProfile() } } catch (_: Exception) {}
+                }
                 launch(Dispatchers.Main) {
                     setLoaderVisible(false)
                     Toast.makeText(requireContext(), if (success) getString(R.string.saved) else getString(R.string.update_failed), Toast.LENGTH_SHORT).show()
                 }
             }
         }
+
+        // Ensure initial focus isn't on an EditText (so collectors can update them on start).
+        try {
+            view.isFocusableInTouchMode = true
+            view.requestFocus()
+            android.util.Log.d("ProfileFragment", "Requested focus on root view to allow DataStore updates")
+        } catch (_: Exception) {}
     }
 
     override fun onResume() {
         super.onResume()
         // Fetch fresh profile only when Profile screen is visible
         viewLifecycleOwner.lifecycleScope.launch {
-            runCatching { val repo = com.example.myapplication.data.dashboard.DashboardRepository(requireContext()); repo.getProfile() }
+            try {
+                val repo = com.example.myapplication.data.dashboard.DashboardRepository(requireContext())
+                try { kotlinx.coroutines.withContext(Dispatchers.IO) { repo.getProfile() } } catch (_: Exception) {}
+            } catch (_: Exception) {}
         }
     }
 

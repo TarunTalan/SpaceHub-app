@@ -7,7 +7,7 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
-import androidx.fragment.app.Fragment
+import com.example.myapplication.ui.common.BaseFragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
@@ -26,7 +26,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 
-class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
+class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
     // Use activity-scoped VM so other fragments (members) can share the same instance
     private val vm: GroupDetailViewModel by activityViewModels()
     // ViewModel to manage chat rooms inside this local group
@@ -97,14 +97,14 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
         val roomsAdapter = RoomAdapter(onClick = { room ->
             // Navigate to chat room screen, passing chatRoomCode, chatRoomName and group image
             try {
-                val code = if (room.roomCode.isNotBlank()) room.roomCode else room.id
+                val code = room.roomCode.ifBlank { room.id }
                 val groupImage = try { vm.group.value?.imageUrl as? String } catch (_: Exception) { null }
                 val args = Bundle().apply {
                     putString("chatRoomCode", code)
                     putString("chatRoomName", room.name)
                     putString("communityImageUrl", groupImage ?: passedImage)
                 }
-                findNavController().navigate(R.id.chatRoomFragment, args)
+                this@GroupDetailFragment.navigateWithDelay(R.id.chatRoomFragment, args)
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "Failed to open chat: ${e.message}", Toast.LENGTH_SHORT).show()
             }
@@ -131,7 +131,7 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
 
         // Observe chat rooms from roomsVm and update adapter (collected below from lifecycleScope)
         vm.group.observe(viewLifecycleOwner) { data ->
-            data?.let {
+            data?.let { it ->
                 // DataXX fields are non-nullable in the model: name:String, totalMembers:Int
                 grpName?.text = it.name
                 memberCountTv?.text = it.totalMembers.toString()
@@ -159,7 +159,7 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
             viewLifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 roomsVm.chatRooms.collect { chatList ->
                     val mapped = chatList.map { c ->
-                        DataRoom(id = if (c.chatRoomCode.isNotBlank()) c.chatRoomCode else c.id, name = c.name, roomCode = c.chatRoomCode)
+                        DataRoom(id = c.chatRoomCode.ifBlank { c.id }, name = c.name, roomCode = c.chatRoomCode)
                     }
                     if (mapped.isEmpty()) {
                         emptyRoomsView?.visibility = View.VISIBLE
@@ -188,8 +188,8 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
                     val nav = findNavController()
                     val entry = nav.getBackStackEntry(R.id.dashboardFragment)
                     // tell dashboard to refresh and also send the deleted group's id so UI can remove it immediately
-                    entry.savedStateHandle.set("refresh_local_groups", true)
-                    entry.savedStateHandle.set("local_group_deleted_id", groupId)
+                    entry.savedStateHandle["refresh_local_groups"] = true
+                    entry.savedStateHandle["local_group_deleted_id"] = groupId
                 } catch (_: Exception) {}
                 try { findNavController().navigateUp() } catch (_: Exception) {}
                 // clear the deleted flag after handling to avoid stale state
@@ -209,9 +209,9 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
                         // Navigate to edit group fragment, passing the group id
                         try {
                             val args = Bundle().apply { putString("communityId", groupId) }
-                            findNavController().navigate(R.id.action_localGroupDetail_to_editGroup, args)
-                        } catch (e: Exception) {
-                            Toast.makeText(requireContext(), "Failed to open editor: ${e.message}", Toast.LENGTH_SHORT).show()
+                            this@GroupDetailFragment.navigateWithDelay(R.id.action_localGroupDetail_to_editGroup, args)
+                        } catch (_: Exception) {
+                            Toast.makeText(requireContext(), "Failed to open editor", Toast.LENGTH_SHORT).show()
                         }
                         true
                     }
@@ -244,7 +244,7 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
                                 com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
                                     .setView(dialogView)
                                     .create()
-                            } catch (e: Exception) {
+                            } catch (_: Exception) {
                                 // Fallback to AppCompat dialog if Material dialog creation fails (theme missing on some devices)
                                 androidx.appcompat.app.AlertDialog.Builder(ctx)
                                     .setView(dialogView)
@@ -278,7 +278,7 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
                                         try {
                                             com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to create chat room", com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE)
                                                 .setAction("Retry") {
-                                                    btnCreate?.let { it.performClick() }
+                                                    btnCreate.performClick()
                                                 }.show()
                                         } catch (_: Exception) {
                                             Toast.makeText(ctx, "Failed to create chat room", Toast.LENGTH_SHORT).show()
@@ -288,7 +288,7 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
                             }
                             btnCancel?.setOnClickListener { dialog.dismiss() }
                             dialog.show()
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             try { Toast.makeText(requireContext(), "Failed to open create room dialog", Toast.LENGTH_SHORT).show() } catch (_: Exception) {}
                         }
                         true
@@ -297,9 +297,9 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
                         // Navigate to members screen (pass group id)
                         try {
                             val args = Bundle().apply { putString("communityId", groupId) }
-                            findNavController().navigate(R.id.action_localGroupDetailFragment_to_groupMembersFragment, args)
-                        } catch (e: Exception) {
-                            Toast.makeText(requireContext(), "Failed to open members: ${e.message}", Toast.LENGTH_SHORT).show()
+                            this@GroupDetailFragment.navigateWithDelay(R.id.action_localGroupDetailFragment_to_groupMembersFragment, args)
+                        } catch (_: Exception) {
+                            Toast.makeText(requireContext(), "Failed to open members", Toast.LENGTH_SHORT).show()
                         }
                         true
                     }
@@ -308,12 +308,7 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
                         true
                     }
                     R.id.action_delete_community -> {
-                        androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                            .setTitle("Delete Group")
-                            .setMessage("Are you sure you want to delete this group?")
-                            .setPositiveButton("Delete") { _, _ -> vm.deleteGroup() }
-                            .setNegativeButton(android.R.string.cancel, null)
-                            .show()
+                        com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(requireContext(), R.string.delete_confirm_title, R.string.delete_confirm_message, positiveRes = R.string.delete_confirm_yes, negativeRes = android.R.string.cancel, onPositive = { vm.deleteGroup() })
                         true
                     }
                     else -> false
@@ -326,14 +321,18 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
             if (data == null) return@observe
             try {
                 // Prefer full inviteLink, fallback to inviteCode
-                val link = if (data.inviteLink.isNotBlank()) data.inviteLink else data.inviteCode
+                val link = data.inviteLink.ifBlank { data.inviteCode }
 
                 // Show dialog with the link and actions: Share / Copy / Close
                 try {
-                    val builder = androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                    builder.setTitle("Invite Link")
-                    builder.setMessage(link)
-                    builder.setPositiveButton("Share") { _, _ ->
+                    com.example.myapplication.ui.common.AppDialogHelper.showInviteLinkDialog(requireContext(), link = link, onCopy = {
+                        try {
+                            val cb = requireContext().getSystemService(android.content.ClipboardManager::class.java)
+                            val clip = android.content.ClipData.newPlainText("invite", link)
+                            cb.setPrimaryClip(clip)
+                            Toast.makeText(requireContext(), "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                        } catch (_: Exception) {}
+                    }, onShare = {
                         try {
                             val send = android.content.Intent().apply {
                                 action = android.content.Intent.ACTION_SEND
@@ -342,19 +341,8 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
                             }
                             startActivity(android.content.Intent.createChooser(send, "Share invite"))
                         } catch (_: Exception) {}
-                    }
-                    builder.setNeutralButton("Copy") { _, _ ->
-                        try {
-                            val cb = requireContext().getSystemService(android.content.ClipboardManager::class.java)
-                            val clip = android.content.ClipData.newPlainText("invite", link)
-                            cb.setPrimaryClip(clip)
-                            Toast.makeText(requireContext(), "Copied to clipboard", Toast.LENGTH_SHORT).show()
-                        } catch (_: Exception) {}
-                    }
-                    builder.setNegativeButton(android.R.string.cancel, null)
-                    builder.show()
+                    })
                 } catch (_: Exception) {
-                    // fallback: show toast and copy
                     try { Toast.makeText(requireContext(), link, Toast.LENGTH_LONG).show() } catch (_: Exception) {}
                 }
 

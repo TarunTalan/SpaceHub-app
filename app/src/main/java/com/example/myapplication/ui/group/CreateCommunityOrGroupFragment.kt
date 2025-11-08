@@ -5,7 +5,6 @@ import android.view.View
 import android.widget.Toast
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.widget.AppCompatButton
-import androidx.navigation.fragment.findNavController
 import com.example.myapplication.ui.common.BaseFragment
 import com.example.myapplication.R
 
@@ -64,12 +63,12 @@ class CreateCommunityOrGroupFragment: BaseFragment(R.layout.fragment_create_comm
             when (selectedBtn) {
                 createGroupBtn -> {
                     try {
-                        findNavController().navigate(R.id.action_createCommunityOrGroupFragment_to_createGroupFragment)
+                        navigateWithDelay(R.id.action_createCommunityOrGroupFragment_to_createGroupFragment)
                     } catch (_: Exception) {}
                 }
                 createCommBtn -> {
                     try {
-                        findNavController().navigate(R.id.action_createCommunityOrGroupFragment_to_createCommunityFragment)
+                        navigateWithDelay(R.id.action_createCommunityOrGroupFragment_to_createCommunityFragment)
                     } catch (_: Exception) {}
                 }
                 else -> {

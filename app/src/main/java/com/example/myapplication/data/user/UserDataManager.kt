@@ -110,6 +110,11 @@ class UserDataManager private constructor(context: Context) {
         isPrivate: Boolean? = null
     ) {
         scope.launch {
+            // Log what we're about to write for easier debugging
+            try {
+                android.util.Log.d("UserDataManager", "updateProfile: username=$username firstName=$firstName lastName=$lastName email=$email avatarUrl=$avatarUrl")
+            } catch (_: Exception) {}
+
             dataStore.edit { prefs ->
                 username?.let { prefs[PrefsKeys.USERNAME] = it }
                 firstName?.let { prefs[PrefsKeys.FIRST_NAME] = it }
@@ -127,6 +132,44 @@ class UserDataManager private constructor(context: Context) {
                 followingCount?.let { prefs[PrefsKeys.FOLLOWING_COUNT] = it }
                 isPrivate?.let { prefs[PrefsKeys.IS_PRIVATE] = it }
             }
+        }
+    }
+
+    /**
+     * Synchronous update variant that can be called from suspend contexts to ensure DataStore
+     * is updated before the caller continues. Useful for repository flows that want immediacy.
+     */
+    suspend fun updateProfileBlocking(
+        username: String? = null,
+        firstName: String? = null,
+        lastName: String? = null,
+        email: String? = null,
+        bio: String? = null,
+        dateOfBirth: String? = null,
+        location: String? = null,
+        website: String? = null,
+        avatarUrl: String? = null,
+        coverPhotoUrl: String? = null,
+        followersCount: Int? = null,
+        followingCount: Int? = null,
+        isPrivate: Boolean? = null
+    ) {
+        dataStore.edit { prefs ->
+            username?.let { prefs[PrefsKeys.USERNAME] = it }
+            firstName?.let { prefs[PrefsKeys.FIRST_NAME] = it }
+            lastName?.let { prefs[PrefsKeys.LAST_NAME] = it }
+            email?.let { prefs[PrefsKeys.EMAIL] = it }
+            bio?.let { prefs[PrefsKeys.BIO] = it }
+            dateOfBirth?.let { prefs[PrefsKeys.DOB] = it }
+            location?.let { prefs[PrefsKeys.LOCATION] = it }
+            website?.let { prefs[PrefsKeys.WEBSITE] = it }
+
+            avatarUrl?.let { prefs[PrefsKeys.PROFILE_IMAGE_URL] = it }
+            coverPhotoUrl?.let { prefs[PrefsKeys.COVER_PHOTO_URL] = it }
+
+            followersCount?.let { prefs[PrefsKeys.FOLLOWERS_COUNT] = it }
+            followingCount?.let { prefs[PrefsKeys.FOLLOWING_COUNT] = it }
+            isPrivate?.let { prefs[PrefsKeys.IS_PRIVATE] = it }
         }
     }
 

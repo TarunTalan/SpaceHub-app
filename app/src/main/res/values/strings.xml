@@ -198,4 +198,10 @@
     <string name="connecting">Connecting...</string>
     <string name="disconnected">Disconnected</string>
     <string name="joining">joinig.</string>
+    <string name="leave_confirm_title">Leave community</string>
+    <string name="leave_confirm_message">Are you sure you want to leave this community?</string>
+    <string name="leave_confirm_yes">Leave</string>
+    <string name="delete_confirm_title">Delete</string>
+    <string name="delete_confirm_message">Are you sure you want to delete?</string>
+    <string name="delete_confirm_yes">Delete</string>
 </resources>

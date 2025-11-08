@@ -40,9 +40,9 @@ import com.example.myapplication.data.community.repository.CommunityRepository
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.ItemTouchHelper
-import androidx.appcompat.app.AlertDialog
 import androidx.core.graphics.drawable.DrawableCompat
 import androidx.core.graphics.toColorInt
+import com.example.myapplication.data.user.UserDataManager
 import com.example.myapplication.ui.dashboard.adapter.CommunityListAdapter
 import com.example.myapplication.ui.dashboard.adapter.CommunityUi
 import com.example.myapplication.ui.group.LocalGroupsViewModel
@@ -90,7 +90,7 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         ivNotification?.setOnClickListener {
             runCatching {
                 // Open unified notifications inbox (friend + group join requests)
-                findNavController().navigate(R.id.action_dashboardFragment_to_notificationsFragment)
+                navigateWithDelay(R.id.action_dashboardFragment_to_notificationsFragment)
             }
         }
 
@@ -104,7 +104,7 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
                     val friendCount = friendRes.getOrNull()?.size ?: 0
 
                     // local community join requests (pending join requests)
-                    val commRepo = com.example.myapplication.data.community.repository.CommunityRepository.getInstance(requireContext())
+                    val commRepo = CommunityRepository.getInstance(requireContext())
                     val joinRes = commRepo.getMyPendingRequests()
                     val joinCount = joinRes.getOrNull()?.size ?: 0
 
@@ -132,7 +132,7 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         val profileImgView = headerView.findViewById<ImageView>(R.id.nav_header_profile_iv)
 
         // Use UserDataManager for centralized, reactive data access
-        val userDataManager = com.example.myapplication.data.user.UserDataManager.getInstance(requireContext())
+        val userDataManager = UserDataManager.getInstance(requireContext())
 
         // Observe username and profile image via UserDataManager flows so nav header updates immediately.
         viewLifecycleOwner.lifecycleScope.launch {
@@ -163,9 +163,7 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         // Handle navigation view item clicks
         navView.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
-                R.id.nav_settings -> {}
                 R.id.nav_logout -> {
-                    // Ask for confirmation before logging out
                     try {
                         com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(
                             requireContext(),
@@ -215,10 +213,10 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         val tvMyCommunitiesHeader = view.findViewById<TextView>(R.id.tv_my_communities)
         val tvJoinedCommunitiesHeader = view.findViewById<TextView>(R.id.tv_joined_communities)
         val yourAdapter = YourCommunityAdapter { item ->
-            runCatching { findNavController().navigate(R.id.action_dashboardFragment_to_communityDetailFragment, Bundle().apply { putString("communityId", item.communityId) }) }
+            runCatching { navigateWithDelay(R.id.action_dashboardFragment_to_communityDetailFragment, Bundle().apply { putString("communityId", item.communityId) }) }
         }
         val joinedAdapter = YourCommunityAdapter { item ->
-            runCatching { findNavController().navigate(R.id.action_dashboardFragment_to_communityDetailFragment, Bundle().apply { putString("communityId", item.communityId) }) }
+            runCatching { navigateWithDelay(R.id.action_dashboardFragment_to_communityDetailFragment, Bundle().apply { putString("communityId", item.communityId) }) }
         }
         rvYourCommunities?.layoutManager = LinearLayoutManager(requireContext())
         rvYourCommunities?.adapter = yourAdapter
@@ -396,61 +394,43 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
                                 !m.email.equals(myEmail, true) && (m.role.equals("ADMIN", true) || m.role.equals("OWNER", true))
                             }
                             if (!othersAdmin) {
-                                AlertDialog.Builder(ctx)
-                                    .setTitle("Can't leave as sole admin")
-                                    .setMessage("Change community admin before leaving.")
-                                    .setPositiveButton(android.R.string.ok) { _, _ ->
-                                        // reset swipe
-                                        adapter.notifyItemChanged(pos)
-                                    }
-                                    .setOnCancelListener { adapter.notifyItemChanged(pos) }
-                                    .show()
+                                com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(ctx, "Can't leave as sole admin", "Change community admin before leaving.", positiveText = ctx.getString(android.R.string.ok), negativeText = "", onPositive = {
+                                    adapter.notifyItemChanged(pos)
+                                })
                                 return@launch
                             }
                             // Show confirmation even if other admins exist
-                            AlertDialog.Builder(ctx)
-                                .setTitle("Leave community")
-                                .setMessage("You are an admin. Leave community?")
-                                .setPositiveButton("Leave") { _, _ ->
-                                    viewLifecycleOwner.lifecycleScope.launch {
-                                        val res = repo.leaveCommunity(item.communityId, item.name)
-                                        if (res.isSuccess) {
-                                            // Refresh my communities
-                                            runCatching {
-                                                val email = com.example.myapplication.data.user.UserDataManager.getInstance(ctx).getEmail()
-            									repo.fetchMyCommunitiesRemote(email)
-                                            }
-                                        } else {
-                                            android.widget.Toast.makeText(ctx, "Failed to leave", android.widget.Toast.LENGTH_SHORT).show()
-                                            adapter.notifyItemChanged(pos)
+                            com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(ctx, "Leave community", "You are an admin. Leave community?", positiveText = "Leave", negativeText = ctx.getString(android.R.string.cancel), onPositive = {
+                                viewLifecycleOwner.lifecycleScope.launch {
+                                    val res = repo.leaveCommunity(item.communityId, item.name)
+                                    if (res.isSuccess) {
+                                        // Refresh my communities
+                                        runCatching {
+                                            val email = com.example.myapplication.data.user.UserDataManager.getInstance(ctx).getEmail()
+                                            repo.fetchMyCommunitiesRemote(email)
                                         }
+                                    } else {
+                                        android.widget.Toast.makeText(ctx, "Failed to leave", android.widget.Toast.LENGTH_SHORT).show()
+                                        adapter.notifyItemChanged(pos)
                                     }
                                 }
-                                .setNegativeButton(android.R.string.cancel) { _, _ -> adapter.notifyItemChanged(pos) }
-                                .setOnCancelListener { adapter.notifyItemChanged(pos) }
-                                .show()
+                            })
                         } else {
                             // Normal member: confirm leave
-                            AlertDialog.Builder(ctx)
-                                .setTitle("Leave community")
-                                .setMessage("Do you want to leave ${item.name}?")
-                                .setPositiveButton("Leave") { _, _ ->
-                                    viewLifecycleOwner.lifecycleScope.launch {
-                                        val res = repo.leaveCommunity(item.communityId, item.name)
-                                        if (res.isSuccess) {
-                                            runCatching {
-                                                val email = com.example.myapplication.data.user.UserDataManager.getInstance(ctx).getEmail()
-                                                repo.fetchMyCommunitiesRemote(email)
-                                            }
-                                        } else {
-                                            android.widget.Toast.makeText(ctx, "Failed to leave", android.widget.Toast.LENGTH_SHORT).show()
-                                            adapter.notifyItemChanged(pos)
+                            com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(ctx, "Leave community", "Do you want to leave ${item.name}?", positiveText = "Leave", negativeText = ctx.getString(android.R.string.cancel), onPositive = {
+                                viewLifecycleOwner.lifecycleScope.launch {
+                                    val res = repo.leaveCommunity(item.communityId, item.name)
+                                    if (res.isSuccess) {
+                                        runCatching {
+                                            val email = com.example.myapplication.data.user.UserDataManager.getInstance(ctx).getEmail()
+                                            repo.fetchMyCommunitiesRemote(email)
                                         }
+                                    } else {
+                                        android.widget.Toast.makeText(ctx, "Failed to leave", android.widget.Toast.LENGTH_SHORT).show()
+                                        adapter.notifyItemChanged(pos)
                                     }
                                 }
-                                .setNegativeButton(android.R.string.cancel) { _, _ -> adapter.notifyItemChanged(pos) }
-                                .setOnCancelListener { adapter.notifyItemChanged(pos) }
-                                .show()
+                            })
                         }
                     }
                 }
@@ -493,7 +473,7 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
                     if (res.isSuccess) {
                         val data = res.getOrNull()
                         Log.d(TAG, "getLocalGroupDetails success: $data")
-                        findNavController().navigate(
+                        navigateWithDelay(
                             R.id.localGroupDetailFragment,
                              Bundle().apply {
                                  putString("communityId", data?.id)

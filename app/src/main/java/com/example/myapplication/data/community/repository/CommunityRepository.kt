@@ -14,7 +14,9 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParseException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -28,6 +30,12 @@ class CommunityRepository private constructor(private val context: Context) {
     private val api = NetworkModule.createApiService(context)
     private val userData = UserDataManager.getInstance(context)
     private val roomDao = CommunityDatabase.getInstance(context).roomDao()
+
+    // In-flight dedupe and small TTL cache for fetchMembers to prevent duplicate network calls
+    private val _memberRequestsLock = Any()
+    private val _memberInFlight = mutableMapOf<String, kotlinx.coroutines.Deferred<Result<List<Member>>>>()
+    private val _memberCache = mutableMapOf<String, Pair<Result<List<Member>>, Long>>() // Pair(result, timestampMs)
+    private val memberRequestScope = CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
 
     companion object {
         @Volatile
@@ -125,29 +133,71 @@ class CommunityRepository private constructor(private val context: Context) {
     suspend fun deleteAllCommunities() { communityDao.deleteAllCommunities() }
 
     suspend fun fetchMembers(communityId: String): Result<List<Member>> {
-        return try {
-            val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
-            val resp = api.getAllMembers(GetAllMembersRequest(communityId = communityId, requesterEmail = email))
-            if (resp.isSuccessful) {
-                val body = resp.body()
-                val list = body?.data?.members ?: emptyList()
-                // Update relationship flags locally based on my role (handle synonyms)
-                val myRole = list.firstOrNull { it.email.equals(email, true) }?.role?.trim()?.uppercase()
-                val isOwner = myRole == "OWNER" || myRole == "CREATOR"
-                val isModerator = when {
-                    myRole == null -> false
-                    myRole.contains("ADMIN") -> true // ADMIN or ADMINISTRATOR
-                    myRole == "MODERATOR" || myRole == "MANAGER" || myRole == "OWNER" || myRole == "CREATOR" -> true
-                    else -> false
-                }
-                val isMember = list.any { it.email.equals(email, true) }
-                runCatching { communityDao.updateRelationship(communityId, isOwner, isMember, isModerator) }
-                Result.success(list)
-            } else {
-                Result.failure(RuntimeException("HTTP ${resp.code()}"))
+        // First, check in the short TTL cache
+        synchronized(_memberRequestsLock) {
+            val cached = _memberCache[communityId]
+            val now = System.currentTimeMillis()
+            val isExpired = cached?.let { (it.second + 5 * 60 * 1000) < now } ?: true // 5 minutes TTL
+            if (!isExpired) {
+                // Return cached result immediately if not expired
+                return cached.first
             }
+        }
+
+        // If expired or not present in cache, proceed with network request
+        val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
+
+        try {
+            // If there is already an in-flight request, await and return its result
+            val existingDeferred = synchronized(_memberRequestsLock) { _memberInFlight[communityId] }
+            if (existingDeferred != null) {
+                return existingDeferred.await()
+            }
+
+            // Create new in-flight request
+            val newDeferred = memberRequestScope.async<Result<List<Member>>> {
+                try {
+                    val resp = api.getAllMembers(GetAllMembersRequest(communityId = communityId, requesterEmail = email))
+                    if (resp.isSuccessful) {
+                        val body = resp.body()
+                        val list = body?.data?.members ?: emptyList()
+                        // Update relationship flags locally based on my role (handle synonyms)
+                        val myRole = list.firstOrNull { it.email.equals(email, true) }?.role?.trim()?.uppercase()
+                        val isOwner = myRole == "OWNER" || myRole == "CREATOR"
+                        val isModerator = when {
+                            myRole == null -> false
+                            myRole.contains("ADMIN") -> true
+                            myRole == "MODERATOR" || myRole == "MANAGER" || myRole == "OWNER" || myRole == "CREATOR" -> true
+                            else -> false
+                        }
+                        val isMember = list.any { it.email.equals(email, true) }
+                        runCatching { communityDao.updateRelationship(communityId, isOwner, isMember, isModerator) }
+                        // Persist member count so dashboard and other UI can reflect accurate totals
+                        runCatching { communityDao.updateMemberCount(communityId, list.size) }
+                        // Cache the result with the current timestamp
+                        synchronized(_memberRequestsLock) {
+                            _memberCache[communityId] = Result.success(list) to System.currentTimeMillis()
+                        }
+                        Result.success(list)
+                    } else {
+                        Result.failure(RuntimeException("HTTP ${resp.code()}"))
+                    }
+                } catch (t: Throwable) {
+                    Result.failure(t)
+                } finally {
+                    // Remove from in-flight map after completion
+                    synchronized(_memberRequestsLock) {
+                        _memberInFlight.remove(communityId)
+                    }
+                }
+            }
+
+            synchronized(_memberRequestsLock) { _memberInFlight[communityId] = newDeferred }
+
+            val result = newDeferred.await()
+            return result
         } catch (t: Throwable) {
-            Result.failure(t)
+            return Result.failure(t)
         }
     }
 
@@ -167,6 +217,27 @@ class CommunityRepository private constructor(private val context: Context) {
             if (resp.isSuccessful && resp.body()?.status in listOf(200, 201)) Result.success(Unit)
             else Result.failure(RuntimeException("Failed: ${resp.code()}"))
         } catch (t: Throwable) { Result.failure(t) }
+    }
+
+    // Enhanced removeMember that also refreshes member list and updates member count. Use this for UI actions.
+    suspend fun removeMemberAndRefresh(communityId: String, targetUserEmail: String?): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val email = userData.getEmail() ?: return@withContext Result.failure(IllegalStateException("Email not set"))
+                val resp = api.removeMember(RemoveMemberRequest(communityId, email, targetUserEmail))
+                if (resp.isSuccessful && resp.body()?.status in listOf(200, 201)) {
+                    // Refresh members list and update member count in DB
+                    val membersRes = runCatching { fetchMembers(communityId) }.getOrNull()
+                    val members = membersRes?.getOrNull() ?: emptyList()
+                    runCatching { communityDao.updateMemberCount(communityId, members.size) }
+                    Result.success(Unit)
+                } else {
+                    Result.failure(RuntimeException("Failed: ${resp.code()}"))
+                }
+            } catch (t: Throwable) {
+                Result.failure(t)
+            }
+        }
     }
 
     suspend fun leaveCommunity(communityId: String, communityName: String): Result<Unit> {
@@ -273,12 +344,42 @@ class CommunityRepository private constructor(private val context: Context) {
     suspend fun deleteRoom(communityId: String, roomId: String): Result<Unit> {
         return try {
             val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
-            val resp = api.deleteRoom(communityId, roomId, email)
+
+            // First attempt: try deleting with provided roomId
+            var resp = api.deleteRoom(communityId, roomId, email)
             if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
-                // Refresh only this community’s rooms
                 runCatching { refreshRooms(communityId) }
-                Result.success(Unit)
-            } else Result.failure(RuntimeException("HTTP ${resp.code()}"))
+                return Result.success(Unit)
+            }
+
+            // If server returned not found / bad request, try to resolve actual server-side id by fetching rooms
+            val bodyMsg = try { resp.body()?.message } catch (_: Exception) { null }
+            val statusCode = resp.code()
+            if (statusCode == 400 || statusCode == 404 || (bodyMsg?.contains("not found", true) == true)) {
+                try {
+                    val allResp = api.getAllRooms(communityId)
+                    if (allResp.isSuccessful) {
+                        val list = allResp.body()?.data ?: emptyList()
+                        // find room by roomCode or by matching effective id
+                        val match = list.firstOrNull { r -> r.roomCode == roomId || r.id == roomId }
+                        val actualId = match?.id
+                        if (!actualId.isNullOrBlank() && actualId != roomId) {
+                            resp = api.deleteRoom(communityId, actualId, email)
+                            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
+                                runCatching { refreshRooms(communityId) }
+                                return Result.success(Unit)
+                            }
+                        }
+                    }
+                } catch (_: Exception) {
+                    // ignore and fallthrough to return original failure
+                }
+            }
+
+            // If we reach here, deletion failed
+            val code = resp.code()
+            val msg = try { resp.body()?.message } catch (_: Exception) { null }
+            Result.failure(RuntimeException(msg ?: "HTTP $code"))
         } catch (t: Throwable) { Result.failure(t) }
     }
 
@@ -305,13 +406,16 @@ class CommunityRepository private constructor(private val context: Context) {
 
     suspend fun fetchMemberCount(communityId: String): Result<Int> {
         return try {
-            val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
-            val resp = api.getAllMembers(GetAllMembersRequest(communityId = communityId, requesterEmail = email))
-            if (resp.isSuccessful) {
-                val body = resp.body()
-                val count = body?.data?.totalMembers ?: body?.data?.members?.size ?: 0
+            val membersRes = fetchMembers(communityId)
+            if (membersRes.isSuccess) {
+                val list = membersRes.getOrNull().orEmpty()
+                val count = list.size
                 Result.success(count)
-            } else Result.failure(RuntimeException("HTTP ${resp.code()}"))
+            } else {
+                // If fetching full members failed, fall back to calling lightweight count endpoint (if any)
+                // For now, return failure using the original error
+                Result.failure(membersRes.exceptionOrNull() ?: RuntimeException("Failed to fetch members"))
+            }
         } catch (t: Throwable) { Result.failure(t) }
     }
 

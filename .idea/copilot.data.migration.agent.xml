@@ -76,6 +76,7 @@
               <option value="01d075c3-0967-4a51-a554-73c5333e0482" />
               <option value="01dfc045-378f-4698-84dc-6a041675ae54" />
               <option value="062b14df-e070-4b38-800c-271a424cca5b" />
+              <option value="0a6af42c-6da1-46b4-afef-dc3b4fee6879" />
               <option value="0ee09b67-c128-4c17-94b8-a28d536087c7" />
               <option value="1527372d-cf24-419b-a167-21ae971fb894" />
               <option value="1f081d1e-d86b-44ef-8c56-96fa8a2f6c46" />
@@ -89,6 +90,7 @@
               <option value="46f8c10d-0737-4b35-8ffc-51992f2c4794" />
               <option value="47865c81-fdf9-445d-8703-182aac2eb85b" />
               <option value="527464b8-e19c-45f6-9901-03fb473f51d2" />
+              <option value="53aa55a0-b28e-495b-bb3f-cb8045605e52" />
               <option value="548ebdde-77bb-43bd-9ef2-dd9554c3cc35" />
               <option value="571095f3-38c5-4be6-913d-230542c76466" />
               <option value="57f1f910-e8d8-44b8-9f34-873a52a1adc4" />
@@ -421,25 +423,9 @@
       <entry key="4b1d682d-98c8-49fa-9bf8-42ca29d3ce2e" />
       <entry key="4e8bd3d4-a77e-4abb-ae79-7797e962ccfc">
         <set>
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/chat/websocket/DirectChatWebSocketService.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/chat/repository/ChatRepository.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/chat/ChatViewModel.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_dashboard.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/DashboardFragment.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/activity_main.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/menu/menu_bottom_nav.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/MainActivity.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/drawable/add_menu_bg.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/drawable/ic_add_white.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/menu_center_icon.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/drawable/add_button_bg.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/group/CreateCommunityOrGroupFragment.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_create_community_or_group.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/dialog_create_chat_room.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/drawable/dialog_card_bg.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/group/GroupDetailFragment.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/RoomFragment.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/CommunityDetailFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/auth/AuthRepository.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/adapter/MemberAdapter.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/MembersFragment.kt" />
         </set>
       </entry>
       <entry key="51ddf032-a05c-455c-b844-098efdaf2341" />

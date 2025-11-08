@@ -55,15 +55,16 @@ object ProfileImageHelper {
                     val s = image.trim()
 
                     // Handle relative URLs from API (e.g., "avatars/user_email/profile.png")
-                    val finalUrl = if (s.isNotBlank() && !s.startsWith("http") && !s.startsWith("content://") && !s.startsWith("file://") && !s.contains("/")) {
-                        // This is a relative path, prepend base URL
-                        "${BuildConfig.BASE_URL}/$s".replace("//", "/").replace(":/", "://")
-                    } else if (s.startsWith("avatars/") || s.startsWith("/avatars/")) {
-                        // This is a relative avatar path
-                        val cleanPath = s.trimStart('/')
-                        "${BuildConfig.BASE_URL}/$cleanPath"
-                    } else {
-                        s
+                    val base = BuildConfig.BASE_URL.trimEnd('/')
+                    val finalUrl = when {
+                        s.isBlank() -> s
+                        s.startsWith("http://", ignoreCase = true) || s.startsWith("https://", ignoreCase = true) -> s
+                        s.startsWith("content://") || s.startsWith("file://") -> s
+                        else -> {
+                            // treat as relative path
+                            val clean = s.trimStart('/')
+                            "$base/$clean"
+                        }
                     }
 
                     // Use Uri for URLs with query params (signed URLs) to preserve query string

@@ -7,7 +7,6 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
@@ -123,7 +122,7 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
         chatRoomsAdapter = RoomAdapter(
             onClick = { chatRoom ->
                 try {
-                    val code = if (chatRoom.roomCode.isNotBlank()) chatRoom.roomCode else chatRoom.id
+                    val code = chatRoom.roomCode.ifBlank { chatRoom.id }
                     val args = Bundle().apply {
                         putString("chatRoomCode", code)
                         putString("chatRoomName", chatRoom.name)
@@ -135,15 +134,10 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
                 }
             },
             onLongClick = { chatRoom ->
-                // Show delete dialog
-                AlertDialog.Builder(requireContext())
-                    .setTitle("Delete Chat Room")
-                    .setMessage("Are you sure you want to delete '${chatRoom.name}'?")
-                    .setPositiveButton("Delete") { _, _ ->
-                        deleteChatRoom(chatRoom)
-                    }
-                    .setNegativeButton("Cancel", null)
-                    .show()
+                // Show delete dialog using AppDialogHelper
+                com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(requireContext(), "Delete Chat Room", "Are you sure you want to delete '${chatRoom.name}'?", positiveText = "Delete", negativeText = "Cancel", onPositive = {
+                    deleteChatRoom(chatRoom)
+                })
             }
         )
 
@@ -243,10 +237,8 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
                 .setView(dialogView)
                 .create()
         } catch (_: Exception) {
-            // Fallback if MaterialAlertDialogBuilder can't be created due to theme issues
-            AlertDialog.Builder(requireContext())
-                .setView(dialogView)
-                .create()
+            // Fallback to central createViewDialog which applies theme safely
+            com.example.myapplication.ui.common.AppDialogHelper.createViewDialog(requireContext(), title = null, customView = dialogView, positiveText = null, negativeText = null, cancelable = true)
         }
 
         fun setLoading(loading: Boolean) {
@@ -270,7 +262,7 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
                     val res = repo.createChatRoom(currentCommunityId ?: return@launch, currentRoomId ?: return@launch, name)
                     val created = res.getOrNull()
                     if (created != null) {
-                        val effectiveId = if (created.chatRoomCode.isNotBlank()) created.chatRoomCode else created.id
+                        val effectiveId = created.chatRoomCode.ifBlank { created.id }
                         val newRoom = DataRoom(id = effectiveId, name = created.name.ifBlank { name }, roomCode = created.chatRoomCode)
                         chatRooms.add(0, newRoom)
                         updateChatRoomsUI()

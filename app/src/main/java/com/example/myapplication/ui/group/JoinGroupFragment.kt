@@ -49,7 +49,7 @@ class JoinGroupFragment: BaseFragment(R.layout.fragment_join_group) {
                 result.onSuccess {
                     Toast.makeText(requireContext(), "Joined group", Toast.LENGTH_SHORT).show()
                     val args = Bundle().apply { putString("id", groupId) }
-                    findNavController().navigate(R.id.localGroupDetailFragment, args)
+                    navigateWithDelay(R.id.localGroupDetailFragment, args)
                 }.onFailure { e ->
                     Toast.makeText(requireContext(), "Failed to join group: ${e.message}", Toast.LENGTH_LONG).show()
                 }

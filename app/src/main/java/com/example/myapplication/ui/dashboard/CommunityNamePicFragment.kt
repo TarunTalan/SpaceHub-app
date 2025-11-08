@@ -99,13 +99,8 @@ class CommunityNamePicFragment : BaseFragment(R.layout.fragment_community_name_p
                 val pad = (8 * resources.displayMetrics.density).toInt()
                 setPadding(pad, pad, pad, pad)
             }
-            AlertDialog.Builder(requireContext())
-                .setTitle(R.string.create_your_community)
-                .setView(previewIv)
-                .setPositiveButton(android.R.string.ok) { _, _ -> onUse(preview) }
-                .setNegativeButton(R.string.skip) { _, _ -> onRetake() }
-                .setCancelable(true)
-                .show()
+            val dlg = com.example.myapplication.ui.common.AppDialogHelper.createViewDialog(requireContext(), title = getString(R.string.create_your_community), customView = previewIv, positiveText = getString(android.R.string.ok), negativeText = getString(R.string.skip), onPositive = { onUse(preview) }, onNegative = { onRetake() })
+            try { dlg.show() } catch (_: Exception) {}
         }
 
         // apply cropped bitmap to the preview and set selectedContentUri in sharedVm
@@ -163,16 +158,12 @@ class CommunityNamePicFragment : BaseFragment(R.layout.fragment_community_name_p
         // wire clicks to open chooser
         val openPicker = {
             val items = arrayOf("Take Photo", "Choose from Gallery")
-            AlertDialog.Builder(requireContext())
-                .setTitle(R.string.create_your_community)
-                .setItems(items) { _, which ->
-                    when (which) {
-                        0 -> cameraPreviewLauncher.launch(null)
-                        1 -> galleryLauncher.launch("image/*")
-                    }
+            com.example.myapplication.ui.common.AppDialogHelper.showItemsDialog(requireContext(), title = getString(R.string.create_your_community), items = items, onSelected = { which ->
+                when (which) {
+                    0 -> cameraPreviewLauncher.launch(null)
+                    1 -> galleryLauncher.launch("image/*")
                 }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
+            }, negativeText = getString(android.R.string.cancel))
         }
 
         commPicFrame?.setOnClickListener { openPicker() }
@@ -190,7 +181,7 @@ class CommunityNamePicFragment : BaseFragment(R.layout.fragment_community_name_p
                 // Image is already stored in sharedVm.selectedContentUri from picker
                 // Just navigate to description fragment
                 try {
-                    findNavController().navigate(R.id.action_communityNamePicFragment_to_communityDescriptionFragment)
+                    navigateWithDelay(R.id.action_communityNamePicFragment_to_communityDescriptionFragment)
                 } catch (_: Exception) {}
             }
         } catch (_: Exception) {}

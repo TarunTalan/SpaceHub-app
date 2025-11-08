@@ -162,7 +162,7 @@ class GroupDescriptionFragment : BaseFragment(R.layout.fragment_group_descriptio
                         val popped = findNavController().popBackStack(R.id.dashboardFragment, false)
                         if (!popped) {
                             val navOptions = NavOptions.Builder().setPopUpTo(R.id.auth_nav_graph, true).build()
-                            findNavController().navigate(R.id.dashboardFragment, null, navOptions)
+                            navigateWithDelay(R.id.dashboardFragment, null, navOptions = navOptions)
                         }
                     }
                 } else {

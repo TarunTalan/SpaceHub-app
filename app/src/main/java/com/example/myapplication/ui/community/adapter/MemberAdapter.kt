@@ -18,6 +18,7 @@ class MemberAdapter(
     private val isAdmin: Boolean,
     private val onChangeRole: (Member, String) -> Unit,
     private val onRemove: (Member) -> Unit,
+    private val onLongClick: (Member) -> Unit = {}
 ) : ListAdapter<Member, MemberAdapter.VH>(Diff) {
 
     object Diff : DiffUtil.ItemCallback<Member>() {
@@ -61,6 +62,14 @@ class MemberAdapter(
                 onChangeRole(item, next)
             }
             btnRemove.setOnClickListener { onRemove(item) }
+
+            // Long-press to open role change dialog (UI should also ensure only admins see this action)
+            itemView.setOnLongClickListener {
+                if (isAdmin) {
+                    onLongClick(item)
+                    true
+                } else false
+            }
         }
     }
 

@@ -1,5 +1,7 @@
 package com.example.myapplication
 
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
 import android.content.res.ColorStateList
 import android.graphics.Rect
 import android.os.Bundle
@@ -15,8 +17,13 @@ import androidx.core.view.WindowCompat
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.NavigationUI
+import android.content.Context
 import com.example.myapplication.data.network.SharedPrefsTokenStore
 import com.example.myapplication.databinding.ActivityMainBinding
+import androidx.lifecycle.ViewModelProvider
+import com.example.myapplication.data.chat.websocket.DirectChatWebSocketService
+import com.example.myapplication.data.chat.websocket.ChatWebSocketService
+import com.example.myapplication.ui.common.ProfileSharedViewModel
 
 class MainActivity : AppCompatActivity() {
 
@@ -69,6 +76,16 @@ class MainActivity : AppCompatActivity() {
             val isVisible = destination.id in bottomNavVisibleDestinations
             binding.bottomNavView.visibility = if (isVisible) View.VISIBLE else View.GONE
             binding.bottomNavIndicator.visibility = if (isVisible) View.VISIBLE else View.GONE
+            // Ensure the center add overlay is hidden when bottom nav is hidden
+            try {
+                binding.centerAddOverlay.visibility = if (isVisible) View.VISIBLE else View.GONE
+            } catch (_: Exception) {
+                // fallback: try findViewById
+                try {
+                    val overlay = findViewById<View>(R.id.center_add_overlay)
+                    overlay?.visibility = if (isVisible) View.VISIBLE else View.GONE
+                } catch (_: Exception) {}
+            }
         }
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         val token = SharedPrefsTokenStore(this).getAccessToken()
@@ -122,6 +139,11 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {}
         // Setup animated indicator bar
         setupBottomNavIndicator()
+        // Register logout receiver so app can cleanup runtime state when SessionManager broadcasts logout
+        try {
+            val filter = IntentFilter("com.example.myapplication.ACTION_LOGOUT")
+            registerReceiver(logoutReceiver, filter)
+        } catch (_: Exception) {}
         if (!token.isNullOrEmpty()) {
             val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
             val lastScreen = prefs.getString("last_screen", null)
@@ -309,5 +331,40 @@ class MainActivity : AppCompatActivity() {
                 android.util.Log.d("MainActivity", "onWindowFocusChanged: centerOverlay visible=${centerOverlay?.visibility}")
             } catch (_: Exception) {}
         }
+    }
+
+    // Register a receiver to respond to logout events (clears runtime state)
+    private val logoutReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: android.content.Intent?) {
+            try {
+                // Disconnect websockets
+                try { DirectChatWebSocketService.getInstance(applicationContext).disconnect() } catch (_: Exception) {}
+                try { ChatWebSocketService.getInstance(applicationContext).disconnect() } catch (_: Exception) {}
+
+                // Clear any in-memory shared viewmodels (profile image / selection)
+                try {
+                    val vm = ViewModelProvider(this@MainActivity).get(ProfileSharedViewModel::class.java)
+                    vm.clear()
+                } catch (_: Exception) {}
+
+                // Close and delete databases to ensure clean state
+                try { com.example.myapplication.data.community.database.CommunityDatabase.clearAndClose(applicationContext) } catch (_: Exception) {}
+                try { com.example.myapplication.data.groups.database.GroupsDatabase.clearAndClose(applicationContext) } catch (_: Exception) {}
+
+                // Optionally, clear navigation backstack and navigate to onboarding
+                try {
+                    val nav = navController
+                    val navOptions = androidx.navigation.NavOptions.Builder().setPopUpTo(R.id.auth_nav_graph, true).build()
+                    nav.navigate(R.id.action_dashboardFragment_to_onboardingFragment, null, navOptions)
+                } catch (_: Exception) { }
+            } catch (_: Exception) {}
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            unregisterReceiver(logoutReceiver)
+        } catch (_: Exception) {}
     }
 }

@@ -7,7 +7,6 @@ import android.os.Bundle
 import android.view.View
 import android.widget.ProgressBar
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.drawable.DrawableCompat
 import androidx.core.graphics.toColorInt
@@ -51,19 +50,44 @@ class MembersFragment : Fragment(R.layout.fragment_members) {
                         // Reload members after role change using captured RecyclerView + ProgressBar
                         loadMembers(communityId, rv, progress)
                     } else {
-                        Toast.makeText(requireContext(), "Failed", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(requireContext(), "Failed to change role", Toast.LENGTH_SHORT).show()
                     }
                 }
             },
             onRemove = { member ->
                 lifecycleScope.launch {
-                    val res = CommunityRepository.getInstance(requireContext()).removeMember(communityId, member.email)
+                    val repo = CommunityRepository.getInstance(requireContext())
+                    val res = repo.removeMemberAndRefresh(communityId, member.email)
                     if (res.isSuccess) {
                         // Reload members after removal using captured RecyclerView + ProgressBar
                         loadMembers(communityId, rv, progress)
+                        Toast.makeText(requireContext(), "Member removed", Toast.LENGTH_SHORT).show()
                     } else {
-                        Toast.makeText(requireContext(), "Failed", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(requireContext(), res.exceptionOrNull()?.message ?: "Failed to remove member", Toast.LENGTH_SHORT).show()
                     }
+                }
+            },
+            onLongClick = { member ->
+                // Show role selection dialog: Admin or Member
+                val ctx = requireContext()
+                val options = arrayOf("ADMIN", "MEMBER")
+                try {
+                    com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+                        .setTitle("Change role for ${member.username ?: member.email}")
+                        .setItems(options) { dialog, which ->
+                            val newRole = options[which]
+                            lifecycleScope.launch {
+                                val res = CommunityRepository.getInstance(ctx).changeMemberRole(communityId, member.email, newRole)
+                                if (res.isSuccess) {
+                                    Toast.makeText(ctx, "Role updated", Toast.LENGTH_SHORT).show()
+                                    loadMembers(communityId, rv, progress)
+                                } else {
+                                    Toast.makeText(ctx, res.exceptionOrNull()?.message ?: "Failed to update role", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                        .show()
+                } catch (_: Exception) {
                 }
             }
         )
@@ -111,10 +135,12 @@ class MembersFragment : Fragment(R.layout.fragment_members) {
                     rv.adapter?.notifyItemChanged(position)
                     return
                 }
-                AlertDialog.Builder(requireContext())
-                    .setTitle("Remove member")
-                    .setMessage("Remove ${item.username ?: email}?")
-                    .setPositiveButton("Remove") { _, _ ->
+                com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(requireContext(),
+                    R.string.delete_confirm_title,
+                    R.string.delete_confirm_message,
+                    positiveRes = R.string.delete_confirm_yes,
+                    negativeRes = android.R.string.cancel,
+                    onPositive = {
                         lifecycleScope.launch {
                             val res = CommunityRepository.getInstance(requireContext()).removeMember(communityId, email)
                             val progress = view?.findViewById<ProgressBar>(R.id.progress)
@@ -126,11 +152,7 @@ class MembersFragment : Fragment(R.layout.fragment_members) {
                             }
                         }
                     }
-                    .setNegativeButton(android.R.string.cancel) { _, _ ->
-                        rv.adapter?.notifyItemChanged(position)
-                    }
-                    .setOnCancelListener { rv.adapter?.notifyItemChanged(position) }
-                    .show()
+                )
             }
             override fun onChildDraw(c: Canvas, rv: RecyclerView, vh: RecyclerView.ViewHolder, dX: Float, dY: Float, actionState: Int, isCurrentlyActive: Boolean) {
                 // Foreground container (present in item_member layout)

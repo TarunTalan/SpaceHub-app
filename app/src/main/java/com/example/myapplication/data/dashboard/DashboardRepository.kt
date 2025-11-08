@@ -16,6 +16,7 @@ import retrofit2.Response
 import java.io.File
 import java.io.IOException
 import com.example.myapplication.data.user.UserDataManager
+import com.example.myapplication.data.dashboard.model.GetProfileResponse
 
 sealed class DashboardResult {
     data class Success(val username: String): DashboardResult()
@@ -27,6 +28,7 @@ data class UploadResult(val success: Boolean, val downloadUrl: String?)
 
 class DashboardRepository(private val context: Context) {
     private val api = NetworkModule.createApiService(context)
+    private val TAG = "DashboardRepo"
 
     private suspend inline fun <T> safeApiCall(
         crossinline call: suspend () -> Response<T>,
@@ -138,7 +140,8 @@ class DashboardRepository(private val context: Context) {
             try {
                 val resp = api.getProfile(email)
                 if (resp.isSuccessful) {
-                    val preview = resp.body()?.avatarPreviewUrl
+                    val envelope = resp.body()
+                    val preview: String? = envelope?.data?.avatarPreviewUrl
                     if (!preview.isNullOrBlank()) return preview
                 }
             } catch (_: Exception) {
@@ -232,13 +235,26 @@ class DashboardRepository(private val context: Context) {
                     try {
                         val body = resp.body()
                         val avatarUrl = body?.avatarUrl
+                        android.util.Log.d(TAG, "updateProfile: resp.body avatarUrl=$avatarUrl, coverPhotoUrl=${body?.coverPhotoUrl}")
 
-                        val isCompleteUrl = avatarUrl?.let {
-                            it.startsWith("http://", ignoreCase = true) ||
-                            it.startsWith("https://", ignoreCase = true)
-                        } ?: false
-
+                        // Resolve relative avatar paths to a usable finalUrl (handles signed URLs and preview URLs)
                         val userDataManager = UserDataManager.getInstance(context)
+                        val finalAvatarUrl: String? = try {
+                            if (avatarUrl.isNullOrBlank()) {
+                                null
+                            } else if (avatarUrl.startsWith("http://", ignoreCase = true) || avatarUrl.startsWith("https://", ignoreCase = true)) {
+                                avatarUrl
+                            } else {
+                                // Use body.email if available, else fallback to emailStr
+                                val ownerEmail = body?.email ?: emailStr
+                                resolveAvatarUrl(ownerEmail, avatarUrl) ?: (com.example.myapplication.BuildConfig.BASE_URL.trimEnd('/') + "/" + avatarUrl.trimStart('/'))
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.w(TAG, "Failed to resolve avatar url: ${e.message}")
+                            null
+                        }
+
+                        android.util.Log.d(TAG, "updateProfile: finalAvatarUrl=$finalAvatarUrl")
                         userDataManager.updateProfile(
                             username = body?.username,
                             firstName = body?.firstName,
@@ -246,19 +262,30 @@ class DashboardRepository(private val context: Context) {
                             email = body?.email,
                             bio = body?.bio,
                             dateOfBirth = body?.dateOfBirth,
-                            location = body?.location,
-                            website = body?.website,
-                            avatarUrl = if (isCompleteUrl) avatarUrl else null,
-                            coverPhotoUrl = body?.coverPhotoUrl,
+                            location = body?.location?.toString(),
+                            website = body?.website?.toString(),
+                            avatarUrl = finalAvatarUrl,
+                            coverPhotoUrl = body?.coverPhotoUrl?.toString(),
                             followersCount = body?.followersCount,
                             followingCount = body?.followingCount,
                             isPrivate = body?.isPrivate
                         )
+                        // Also store into app_prefs for backward-compatible UIs
+                        try {
+                            finalAvatarUrl?.let { url ->
+                                val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                                prefs.edit().putString("uploaded_profile_url", url).apply()
+                            }
+                        } catch (_: Exception) {}
+
+                        // API call succeeded; return true
                         return@withContext true
                     } catch (_: Exception) {
+                        // If parsing or persisting failed, still treat API success as true
                         return@withContext true
                     }
                 }
+                // resp was not successful
                 return@withContext false
             } catch (_: Exception) {
                 return@withContext false
@@ -274,33 +301,79 @@ class DashboardRepository(private val context: Context) {
                 val resp = api.getProfile(emailStr)
                 if (!resp.isSuccessful) return@withContext false
 
-                val body = resp.body()
-                val avatarPreview = body?.avatarPreviewUrl
-                val fullAvatarUrl = if (!avatarPreview.isNullOrBlank()) {
-                    val s = avatarPreview.trim()
-                    if (s.startsWith("http://", ignoreCase = true) || s.startsWith("https://", ignoreCase = true)) s
-                    else {
-                        val baseUrl = com.example.myapplication.BuildConfig.BASE_URL.trimEnd('/') + "/"
-                        "${baseUrl}uploads/${s.trimStart('/')}"
+                // The API returns an envelope: { status, message, data }
+                val envelope = resp.body()
+                // Also log raw response for debugging parsing issues
+                val rawBodyString: String? = try { resp.raw().peekBody(1024 * 1024).string() } catch (_: Exception) { null }
+                try { android.util.Log.d(TAG, "getProfile: rawResponse=$rawBodyString") } catch (_: Exception) {}
+
+                // If Retrofit's parsing produced a null .data (some responses may vary), attempt a Gson fallback
+                var body: GetProfileResponse? = envelope?.data
+                if (body == null && !rawBodyString.isNullOrBlank()) {
+                    try {
+                        val gson = com.google.gson.Gson()
+                        val env = gson.fromJson(rawBodyString, com.example.myapplication.data.dashboard.model.GetProfileEnvelope::class.java)
+                        body = env?.data
+                        try { android.util.Log.d(TAG, "getProfile: parsed via gson fallback: profile.firstName=${body?.firstName} profile.lastName=${body?.lastName}") } catch (_: Exception) {}
+                    } catch (_: Exception) {
+                        // ignore
                     }
-                } else null
+                } else {
+                    try { android.util.Log.d(TAG, "getProfile: envelope.status=${envelope?.status} envelope.message=${envelope?.message} profile.firstName=${body?.firstName} profile.lastName=${body?.lastName} avatarPreviewUrl=${body?.avatarPreviewUrl} avatarKey=${body?.avatarKey}") } catch (_: Exception) {}
+                }
+
+                // If parsing failed and body is null, do not overwrite DataStore with null values
+                if (body == null) {
+                    try { android.util.Log.w(TAG, "getProfile: parsed profile is null - skipping DataStore update") } catch (_: Exception) {}
+                    return@withContext true
+                }
+
+                // avatarPreviewUrl may be a signed full URL; avatarKey is a storage key
+                val avatarPreview = body.avatarPreviewUrl?.takeIf { it.isNotBlank() }
+                val avatarKey = body.avatarKey?.takeIf { it.isNotBlank() }
+                val base = com.example.myapplication.BuildConfig.BASE_URL.trimEnd('/')
+                val fullAvatarUrl = when {
+                    avatarPreview != null -> {
+                        val s = avatarPreview.trim()
+                        if (s.startsWith("http://", ignoreCase = true) || s.startsWith("https://", ignoreCase = true)) s
+                        else "$base/uploads/${s.trimStart('/')}"
+                    }
+                    avatarKey != null -> "$base/uploads/${avatarKey.trimStart('/')}"
+                    else -> null
+                }
 
                 val userDataManager = UserDataManager.getInstance(context)
-                userDataManager.updateProfile(
-                    username = body?.username,
-                    firstName = body?.firstName,
-                    lastName = body?.lastName,
-                    email = body?.email,
-                    bio = body?.bio,
-                    dateOfBirth = body?.dateOfBirth,
-                    location = body?.location,
-                    website = body?.website,
-                    avatarUrl = fullAvatarUrl,
-                    coverPhotoUrl = body?.coverPreviewUrl,
-                    followersCount = null,
-                    followingCount = null,
-                    isPrivate = body?.isPrivate
-                )
+                try {
+                    // Update DataStore synchronously from IO coroutine so collectors see the change before we return
+                    userDataManager.updateProfileBlocking(
+                        username = body.username,
+                        firstName = body.firstName,
+                        lastName = body.lastName,
+                        email = body.email,
+                        bio = body.bio?.toString(),
+                        dateOfBirth = body.dateOfBirth?.toString(),
+                        avatarUrl = fullAvatarUrl
+                    )
+                } catch (_: Exception) {
+                    // Fallback to async update if blocking call fails
+                    userDataManager.updateProfile(
+                        username = body.username,
+                        firstName = body.firstName,
+                        lastName = body.lastName,
+                        email = body.email,
+                        bio = body.bio?.toString(),
+                        dateOfBirth = body.dateOfBirth?.toString(),
+                        avatarUrl = fullAvatarUrl
+                    )
+                }
+
+                try {
+                    fullAvatarUrl?.let { url ->
+                        val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                        prefs.edit().putString("uploaded_profile_url", url).apply()
+                    }
+                } catch (_: Exception) {}
+
                 return@withContext true
             } catch (_: Exception) {
                 return@withContext false

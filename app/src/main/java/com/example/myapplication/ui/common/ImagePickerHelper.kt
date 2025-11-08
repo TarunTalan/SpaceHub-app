@@ -40,16 +40,12 @@ class ImagePickerHelper(
 
     fun pickImageChooser() {
         val items = arrayOf("Take Photo", "Choose from Gallery")
-        AlertDialog.Builder(context)
-            .setTitle(R.string.select_image)
-            .setItems(items) { _, which ->
-                when (which) {
-                    0 -> cameraPreviewLauncher.launch(null)
-                    1 -> galleryLauncher.launch("image/*")
-                }
+        com.example.myapplication.ui.common.AppDialogHelper.showItemsDialog(context, title = context.getString(R.string.select_image), items = items, onSelected = { which ->
+            when (which) {
+                0 -> cameraPreviewLauncher.launch(null)
+                1 -> galleryLauncher.launch("image/*")
             }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        }, negativeText = context.getString(android.R.string.cancel))
     }
 
     private fun centerCropBitmap(src: Bitmap, targetSize: Int): Bitmap {

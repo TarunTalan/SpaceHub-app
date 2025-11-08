@@ -108,7 +108,7 @@ class GroupNamePicFragment : BaseFragment(R.layout.fragment_group_name_pic) {
                 return@setOnClickListener
             }
             sharedVm.setCommunityName(name)
-            try { findNavController().navigate(R.id.action_groupNamePicFragment_to_groupDescriptionFragment) } catch (_: Exception) {}
+            try { navigateWithDelay(R.id.action_groupNamePicFragment_to_groupDescriptionFragment) } catch (_: Exception) {}
         }
     }
 }

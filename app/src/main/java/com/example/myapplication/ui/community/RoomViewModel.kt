@@ -24,7 +24,7 @@ class RoomViewModel(app: Application) : AndroidViewModel(app) {
     fun startResolve(communityId: String, roomId: String) {
         viewModelScope.launch {
             try {
-                // Try local first
+                // Try local first only; do not perform remote fetch here to avoid duplicate network calls.
                 val local = try { repo.getLocalRooms(communityId) } catch (_: Exception) { emptyList() }
                 val localMatch = local.firstOrNull { r -> r.id == roomId || r.roomCode == roomId || r.name == roomId }
                 if (localMatch != null && localMatch.roomCode.isNotBlank()) {
@@ -32,15 +32,9 @@ class RoomViewModel(app: Application) : AndroidViewModel(app) {
                     return@launch
                 }
 
-                // Fallback network (repo performs retries)
-                val remoteRes = try { repo.getAllRooms(communityId) } catch (_: Exception) { Result.failure<List<com.example.myapplication.data.community.model.DataRoom>>(Exception("network-failure")) }
-                val list = remoteRes.getOrNull() ?: emptyList()
-                val match = list.firstOrNull { r -> r.id == roomId || r.roomCode == roomId || r.name == roomId }
-                if (match != null && match.roomCode.isNotBlank()) {
-                    _resolvedRoomCode.value = match.roomCode
-                } else {
-                    _resolvedRoomCode.value = null
-                }
+                // If not found locally, leave resolvedRoomCode as null. The Fragment will trigger a network fetch
+                // via loadChatRoomsForCommunity which will perform the remote call once.
+                _resolvedRoomCode.value = null
             } catch (_: Exception) {
                 _resolvedRoomCode.value = null
             }
@@ -61,7 +55,7 @@ class RoomViewModel(app: Application) : AndroidViewModel(app) {
                 if (match != null) {
                     // If server provided nested chat rooms in `newChatRooms`, use them
                     val nested = match.newChatRooms
-                    android.util.Log.d("RoomViewModel", "Found parent room in community response: id=${match.id}, roomCode=${match.roomCode}, newChatRooms=${nested?.size ?: 0}")
+                    android.util.Log.d("RoomViewModel", "Found parent room in community response: id=${'$'}{match.id}, roomCode=${'$'}{match.roomCode}, newChatRooms=${'$'}{nested?.size ?: 0}")
                     if (!nested.isNullOrEmpty()) {
                         _chatRooms.value = nested
                         return@launch
@@ -75,20 +69,18 @@ class RoomViewModel(app: Application) : AndroidViewModel(app) {
                         _chatRooms.value = summaryRes.getOrDefault(emptyList())
                         return@launch
                     } else {
-                        android.util.Log.w("RoomViewModel", "getChatRoomSummary failed: ${summaryRes.exceptionOrNull()?.message}")
+                        android.util.Log.w("RoomViewModel", "getChatRoomSummary failed: ${'$'}{summaryRes.exceptionOrNull()?.message}")
                     }
                 }
 
                 // As a fallback, directly request the chat-room summary for the requested roomId
-                android.util.Log.d("RoomViewModel", "Parent room not found in community rooms; attempting getChatRoomSummary for lookupKey=$roomId")
                 val summaryRes = withContext(Dispatchers.IO) { repo.getChatRoomSummary(roomId) }
                 if (summaryRes.isSuccess) {
                     _chatRooms.value = summaryRes.getOrDefault(emptyList())
                 } else {
-                    android.util.Log.w("RoomViewModel", "getChatRoomSummary fallback failed: ${summaryRes.exceptionOrNull()?.message}")
                 }
-            } catch (t: Throwable) {
-                android.util.Log.w("RoomViewModel", "loadChatRoomsForCommunity failed: ${t.message}")
+            } catch (_: Throwable) {
+                android.util.Log.w("RoomViewModel", "loadChatRoomsForCommunity failed")
             }
         }
     }

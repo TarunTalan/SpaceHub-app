@@ -46,5 +46,23 @@ abstract class CommunityDatabase : RoomDatabase() {
                 .fallbackToDestructiveMigration() // For development; use migrations in production
                 .build()
         }
+
+        /**
+         * Clear all tables and close the database instance. Safe to call from a background thread.
+         * This will set the singleton INSTANCE to null so the DB can be recreated cleanly.
+         */
+        fun clearAndClose(context: Context) {
+            synchronized(this) {
+                try {
+                    val inst = INSTANCE ?: run { getInstance(context) }
+                    try { inst.clearAllTables() } catch (_: Exception) {}
+                    try { inst.close() } catch (_: Exception) {}
+                } catch (_: Exception) {
+                    // ignore
+                } finally {
+                    INSTANCE = null
+                }
+            }
+        }
     }
 }

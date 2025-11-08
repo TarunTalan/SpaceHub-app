@@ -48,7 +48,7 @@ class JoinCommunityFragment: BaseFragment(R.layout.fragment_join_community) {
                 result.onSuccess {
                     Toast.makeText(requireContext(), "Joined community", Toast.LENGTH_SHORT).show()
                     val args = Bundle().apply { putString("communityId", communityId) }
-                    findNavController().navigate(R.id.communityDetailFragment, args)
+                    navigateWithDelay(R.id.communityDetailFragment, args)
                 }.onFailure { e ->
                     Toast.makeText(requireContext(), "Failed to join: ${e.message}", Toast.LENGTH_LONG).show()
                 }

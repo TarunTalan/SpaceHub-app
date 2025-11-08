@@ -27,7 +27,7 @@ class CreateCommunityFragment : BaseFragment(R.layout.fragment_create_community)
                             selectedBtn = child
                         } catch (_: Exception) { }
                         try {
-                            findNavController().navigate(R.id.action_createCommunityFragment_to_communityNamePicFragment)
+                            navigateWithDelay(R.id.action_createCommunityFragment_to_communityNamePicFragment)
                         } catch (_: Exception) { }
                     }
                 }
@@ -38,7 +38,7 @@ class CreateCommunityFragment : BaseFragment(R.layout.fragment_create_community)
             val joinBtn = view.findViewById<AppCompatButton?>(R.id.btn_join_community)
             joinBtn?.setOnClickListener {
                 try {
-                    findNavController().navigate(R.id.action_createCommunityFragment_to_joinCommunityFragment)
+                    navigateWithDelay(R.id.action_createCommunityFragment_to_joinCommunityFragment)
                 } catch (_: Exception) { }
             }
         } catch (_: Exception) { }

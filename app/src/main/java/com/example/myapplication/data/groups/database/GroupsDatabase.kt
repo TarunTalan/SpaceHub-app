@@ -31,5 +31,21 @@ abstract class GroupsDatabase : RoomDatabase() {
                 "groups_database"
             ).fallbackToDestructiveMigration().build()
         }
+
+        /**
+         * Clear all tables and close the database instance. Safe to call from background thread.
+         */
+        fun clearAndClose(context: Context) {
+            synchronized(this) {
+                try {
+                    val inst = INSTANCE ?: run { getInstance(context) }
+                    try { inst.clearAllTables() } catch (_: Exception) {}
+                    try { inst.close() } catch (_: Exception) {}
+                } catch (_: Exception) {
+                } finally {
+                    INSTANCE = null
+                }
+            }
+        }
     }
 }

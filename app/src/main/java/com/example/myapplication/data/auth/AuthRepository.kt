@@ -237,25 +237,29 @@ class AuthRepository(context: Context) {
                         try {
                             val profileResp = api.getProfile(email)
                             if (profileResp.isSuccessful) {
-                                val profileBody = profileResp.body()
-                                profileBody?.let { p ->
+                                val envelope = profileResp.body()
+                                val p = envelope?.data
+                                p?.let {
                                     try {
+                                        // Map available fields from GetProfileResponse (all nullable now)
                                         userDataManager.updateProfile(
-                                            username = p.username.takeIf { it.isNotBlank() },
-                                            firstName = p.firstName.takeIf { it.isNotBlank() },
-                                            lastName = p.lastName.takeIf { it.isNotBlank() },
-                                            email = p.email,
-                                            bio = p.bio,
-                                            dateOfBirth = p.dateOfBirth,
-                                            location = p.location,
-                                            website = p.website,
-                                            avatarUrl = p.avatarPreviewUrl,
-                                            coverPhotoUrl = p.coverPreviewUrl,
-                                            isPrivate = p.isPrivate
+                                            username = it.username?.takeIf { v -> v.isNotBlank() },
+                                            firstName = it.firstName?.takeIf { v -> v.isNotBlank() },
+                                            lastName = it.lastName?.takeIf { v -> v.isNotBlank() },
+                                            email = it.email,
+                                            bio = it.bio,
+                                            dateOfBirth = it.dateOfBirth,
+                                            location = null,
+                                            website = null,
+                                            avatarUrl = it.avatarPreviewUrl?.takeIf { v -> v.isNotBlank() } ?: it.avatarKey?.takeIf { v -> v.isNotBlank() },
+                                            coverPhotoUrl = null,
+                                            followersCount = null,
+                                            followingCount = null,
+                                            isPrivate = null
                                         )
 
                                         // Also set profile image explicitly (convenience)
-                                        userDataManager.updateProfileImage(p.avatarPreviewUrl)
+                                        userDataManager.updateProfileImage(it.avatarPreviewUrl ?: it.avatarKey)
                                     } catch (_: Exception) { /* ignore persistence errors */ }
                                 }
                             }

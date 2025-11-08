@@ -50,13 +50,13 @@ class CommunityTabFragment : BaseFragment(R.layout.fragment_tab_community) {
                 val alreadyMember = item.isMember || item.isOwner || item.isAdmin
                 if (alreadyMember) {
                     // Navigate to full community detail for members
-                    findNavController().navigate(
+                    navigateWithDelay(
                         R.id.action_searchFragment_to_communityDetailFragment,
                         Bundle().apply { putString("communityId", item.communityId) }
                     )
                 } else {
                     // Navigate to overview for non-members
-                    findNavController().navigate(
+                    navigateWithDelay(
                         R.id.action_searchFragment_to_communityOverviewFragment,
                         Bundle().apply {
                             putString("communityId", item.communityId)

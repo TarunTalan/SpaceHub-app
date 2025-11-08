@@ -92,11 +92,11 @@ interface ApiService {
         @Part file: MultipartBody.Part? = null
     ): Response<UpdateProfilePicResponse>
 
-    // Get user profile data
+    // Get user profile data (enveloped response: { status, message, data })
     @GET("profile/getProfile")
     suspend fun getProfile(
         @Query("email") email: String
-    ): Response<GetProfileResponse>
+    ): Response<GetProfileEnvelope>
 
     // -------- Communities: Members / Roles / Remove / Leave / Update / Delete --------
 
@@ -317,5 +317,3 @@ interface ApiService {
 
 
 }
-
-

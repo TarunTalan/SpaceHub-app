@@ -198,27 +198,18 @@ class ChooseProfilePicFragment : BaseFragment(R.layout.fragment_choose_profile_p
             setPadding(pad, pad, pad, pad)
         }
 
-        AlertDialog.Builder(requireContext())
-            .setTitle(R.string.choose_profile_pic)
-            .setView(previewIv)
-            .setPositiveButton(android.R.string.ok) { _, _ -> onUse(preview) }
-            .setNegativeButton(R.string.skip) { _, _ -> onRetake() }
-            .setCancelable(true)
-            .show()
+        val dlg = com.example.myapplication.ui.common.AppDialogHelper.createViewDialog(requireContext(), title = getString(R.string.choose_profile_pic), customView = previewIv, positiveText = getString(android.R.string.ok), negativeText = getString(R.string.skip), onPositive = { onUse(preview) }, onNegative = { onRetake() })
+        try { dlg.show() } catch (_: Exception) {}
     }
 
     private fun showImageSourceDialog() {
         val items = arrayOf("Take Photo", "Choose from Gallery")
-        AlertDialog.Builder(requireContext())
-            .setTitle("Select image")
-            .setItems(items) { _, which ->
-                when (which) {
-                    0 -> createImageContentUri()?.let { cameraLauncher.launch(it) }
-                    1 -> galleryLauncher.launch("image/*")
-                }
+        com.example.myapplication.ui.common.AppDialogHelper.showItemsDialog(requireContext(), title = "Select image", items = items, onSelected = { which ->
+            when (which) {
+                0 -> createImageContentUri()?.let { cameraLauncher.launch(it) }
+                1 -> galleryLauncher.launch("image/*")
             }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        }, negativeText = getString(android.R.string.cancel))
     }
 
     // ==================== Apply Image ====================
@@ -515,4 +506,3 @@ class ChooseProfilePicFragment : BaseFragment(R.layout.fragment_choose_profile_p
         return regex.find(text)?.value
     }
 }
-

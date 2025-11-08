@@ -147,6 +147,14 @@ class ChangeProfilePicFragment : BaseFragment(R.layout.fragment_change_profile_p
                         selectedFilename = null
                         try { sharedVm.clear() } catch (_: Exception) {}
 
+                        // Ensure DataStore has latest profile by fetching profile from server
+                        try { kotlinx.coroutines.withContext(Dispatchers.IO) { repo.getProfile() } } catch (_: Exception) {}
+                        // Persist uploaded url into SharedPreferences as fallback for any UI still reading prefs
+                        try {
+                            val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                            prefs.edit().putString("uploaded_profile_url", result.downloadUrl).apply()
+                        } catch (_: Exception) {}
+
                         // Navigate back; UI updates via DataStore observers
                         withContext(Dispatchers.Main) {
                             findNavController().popBackStack()
