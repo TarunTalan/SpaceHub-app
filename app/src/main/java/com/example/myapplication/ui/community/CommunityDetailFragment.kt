@@ -159,19 +159,59 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                             true
                         }
                         R.id.action_add_room -> {
-                            val ctx = requireContext()
-                            val input = EditText(ctx).apply { hint = "Room name" }
-                            AlertDialog.Builder(ctx)
-                                .setTitle("Add room")
-                                .setView(input)
-                                .setPositiveButton("Create") { d, _ ->
-                                    val name = input.text?.toString()?.trim().orEmpty()
-                                    if (name.isNotEmpty()) viewLifecycleOwner.lifecycleScope.launch { vm.createRoom(name) }
-                                    else Toast.makeText(ctx, "Name required", Toast.LENGTH_SHORT).show()
-                                    d.dismiss()
+                            try {
+                                val inflater = layoutInflater
+                                val dialogView = inflater.inflate(R.layout.dialog_create_chat_room, null)
+                                val etName = dialogView.findViewById<EditText>(R.id.et_room_name)
+                                val tvError = dialogView.findViewById<TextView>(R.id.dialog_error)
+                                val btnCreate = dialogView.findViewById<android.widget.Button>(R.id.btn_create)
+                                val btnCancel = dialogView.findViewById<android.widget.Button>(R.id.btn_cancel)
+
+                                val dialog = try {
+                                    com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                                        .setView(dialogView)
+                                        .create()
+                                } catch (_: Exception) {
+                                    AlertDialog.Builder(requireContext())
+                                        .setView(dialogView)
+                                        .create()
                                 }
-                                .setNegativeButton(android.R.string.cancel, null)
-                                .show()
+
+                                fun setLoading(loading: Boolean) {
+                                    btnCreate.isEnabled = !loading
+                                    btnCancel.isEnabled = !loading
+                                    etName.isEnabled = !loading
+                                }
+
+                                btnCreate.setOnClickListener {
+                                    val name = etName.text?.toString()?.trim().orEmpty()
+                                    if (name.isEmpty()) {
+                                        tvError.text = "Name is required"
+                                        tvError.visibility = View.VISIBLE
+                                        return@setOnClickListener
+                                    }
+                                    tvError.visibility = View.GONE
+                                    setLoading(true)
+                                    viewLifecycleOwner.lifecycleScope.launch {
+                                        try {
+                                            // Call VM to create room (VM handles API and DB updates)
+                                            vm.createRoom(name)
+                                            Toast.makeText(requireContext(), "Chat room created: $name", Toast.LENGTH_SHORT).show()
+                                            dialog.dismiss()
+                                        } catch (e: Exception) {
+                                            com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to create room: ${e.message}", com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE)
+                                                .setAction("Retry") { btnCreate.performClick() }
+                                                .show()
+                                        } finally {
+                                            setLoading(false)
+                                        }
+                                    }
+                                }
+                                btnCancel.setOnClickListener { dialog.dismiss() }
+                                dialog.show()
+                            } catch (e: Exception) {
+                                try { Toast.makeText(requireContext(), "Failed to open dialog", Toast.LENGTH_SHORT).show() } catch (_: Exception) {}
+                            }
                             true
                         }
                         else -> false
@@ -290,19 +330,58 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                             true
                         }
                         R.id.action_add_room -> {
-                            val ctx = requireContext()
-                            val input = EditText(ctx).apply { hint = "Room name" }
-                            AlertDialog.Builder(ctx)
-                                .setTitle("Add room")
-                                .setView(input)
-                                .setPositiveButton("Create") { d, _ ->
-                                    val name = input.text?.toString()?.trim().orEmpty()
-                                    if (name.isNotEmpty()) viewLifecycleOwner.lifecycleScope.launch { vm.createRoom(name) }
-                                    else Toast.makeText(ctx, "Name required", Toast.LENGTH_SHORT).show()
-                                    d.dismiss()
+                            try {
+                                val inflater = layoutInflater
+                                val dialogView = inflater.inflate(R.layout.dialog_create_chat_room, null)
+                                val etName = dialogView.findViewById<EditText>(R.id.et_room_name)
+                                val tvError = dialogView.findViewById<TextView>(R.id.dialog_error)
+                                val btnCreate = dialogView.findViewById<android.widget.Button>(R.id.btn_create)
+                                val btnCancel = dialogView.findViewById<android.widget.Button>(R.id.btn_cancel)
+
+                                val dialog = try {
+                                    com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                                        .setView(dialogView)
+                                        .create()
+                                } catch (_: Exception) {
+                                    AlertDialog.Builder(requireContext())
+                                        .setView(dialogView)
+                                        .create()
                                 }
-                                .setNegativeButton(android.R.string.cancel, null)
-                                .show()
+
+                                fun setLoading(loading: Boolean) {
+                                    btnCreate.isEnabled = !loading
+                                    btnCancel.isEnabled = !loading
+                                    etName.isEnabled = !loading
+                                }
+
+                                btnCreate.setOnClickListener {
+                                    val name = etName.text?.toString()?.trim().orEmpty()
+                                    if (name.isEmpty()) {
+                                        tvError.text = "Name is required"
+                                        tvError.visibility = View.VISIBLE
+                                        return@setOnClickListener
+                                    }
+                                    tvError.visibility = View.GONE
+                                    setLoading(true)
+                                    viewLifecycleOwner.lifecycleScope.launch {
+                                        try {
+                                            vm.createRoom(name)
+                                            Toast.makeText(requireContext(), "Chat room created: $name", Toast.LENGTH_SHORT).show()
+                                            dialog.dismiss()
+                                        } catch (e: Exception) {
+                                            com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to create room: ${e.message}", com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE)
+                                                .setAction("Retry") { btnCreate.performClick() }
+                                                .show()
+                                        } finally {
+                                            setLoading(false)
+                                        }
+                                    }
+                                }
+                                btnCancel.setOnClickListener { dialog.dismiss() }
+                                dialog.show()
+                            } catch (_: Exception) {
+                                try { Toast.makeText(requireContext(), "Failed to open dialog", Toast.LENGTH_SHORT).show() } catch (_: Exception) {}
+                            }
                             true
                         }
                         else -> false

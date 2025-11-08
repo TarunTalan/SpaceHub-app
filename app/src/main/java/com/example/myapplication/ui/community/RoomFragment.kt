@@ -231,49 +231,66 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
     }
 
     private fun showCreateChatRoomDialog() {
-        val input = EditText(requireContext()).apply {
-            hint = "Chat room name"
+        val inflater = layoutInflater
+        val dialogView = inflater.inflate(R.layout.dialog_create_chat_room, null)
+        val etName = dialogView.findViewById<EditText>(R.id.et_room_name)
+        val tvError = dialogView.findViewById<TextView>(R.id.dialog_error)
+        val btnCreate = dialogView.findViewById<android.widget.Button>(R.id.btn_create)
+        val btnCancel = dialogView.findViewById<android.widget.Button>(R.id.btn_cancel)
+
+        val dialog = try {
+            com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setView(dialogView)
+                .create()
+        } catch (_: Exception) {
+            // Fallback if MaterialAlertDialogBuilder can't be created due to theme issues
+            AlertDialog.Builder(requireContext())
+                .setView(dialogView)
+                .create()
         }
 
-        AlertDialog.Builder(requireContext())
-            .setTitle("Create Chat Room")
-            .setView(input)
-            .setPositiveButton("Create") { dialog, _ ->
-                val name = input.text?.toString()?.trim()
-                if (!name.isNullOrBlank()) {
-                    // call createChatRoom via repository
-                    val commId = currentCommunityId
-                    val rId = currentRoomId
-                    if (commId.isNullOrBlank() || rId.isNullOrBlank()) {
-                        Toast.makeText(requireContext(), "Missing room information", Toast.LENGTH_SHORT).show()
-                    } else {
-                        viewLifecycleOwner.lifecycleScope.launch {
-                            try {
-                                val repo = CommunityRepository.getInstance(requireContext())
-                                val res = repo.createChatRoom(commId, rId, name)
-                                val created = res.getOrNull()
-                                if (created != null) {
-                                    val effectiveId = if (created.chatRoomCode.isNotBlank()) created.chatRoomCode else created.id
-                                    val newRoom = DataRoom(id = effectiveId, name = created.name.ifBlank { name }, roomCode = created.chatRoomCode)
-                                    chatRooms.add(0, newRoom)
-                                    updateChatRoomsUI()
-                                    Toast.makeText(requireContext(), "Chat room '${created.name}' created", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    val err = res.exceptionOrNull()
-                                    Toast.makeText(requireContext(), err?.message ?: "Failed to create chat room", Toast.LENGTH_SHORT).show()
-                                }
-                            } catch (e: Exception) {
-                                Toast.makeText(requireContext(), "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    }
-                } else {
-                    Toast.makeText(requireContext(), "Name is required", Toast.LENGTH_SHORT).show()
-                }
-                dialog.dismiss()
+        fun setLoading(loading: Boolean) {
+            btnCreate.isEnabled = !loading
+            btnCancel.isEnabled = !loading
+            etName.isEnabled = !loading
+        }
+
+        btnCreate.setOnClickListener {
+            val name = etName.text?.toString()?.trim().orEmpty()
+            if (name.isEmpty()) {
+                tvError.text = "Name is required"
+                tvError.visibility = View.VISIBLE
+                return@setOnClickListener
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+            tvError.visibility = View.GONE
+            setLoading(true)
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    val repo = CommunityRepository.getInstance(requireContext())
+                    val res = repo.createChatRoom(currentCommunityId ?: return@launch, currentRoomId ?: return@launch, name)
+                    val created = res.getOrNull()
+                    if (created != null) {
+                        val effectiveId = if (created.chatRoomCode.isNotBlank()) created.chatRoomCode else created.id
+                        val newRoom = DataRoom(id = effectiveId, name = created.name.ifBlank { name }, roomCode = created.chatRoomCode)
+                        chatRooms.add(0, newRoom)
+                        updateChatRoomsUI()
+                        Toast.makeText(requireContext(), "Chat room '${created.name}' created", Toast.LENGTH_SHORT).show()
+                        dialog.dismiss()
+                    } else {
+                        val err = res.exceptionOrNull()
+                        com.google.android.material.snackbar.Snackbar.make(requireView(), err?.message ?: "Failed to create chat room", com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE)
+                            .setAction("Retry") { btnCreate.performClick() }
+                            .show()
+                    }
+                } catch (e: Exception) {
+                    com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed: ${e.message}", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show()
+                } finally {
+                    setLoading(false)
+                }
+            }
+        }
+        btnCancel.setOnClickListener { dialog.dismiss() }
+        dialog.show()
     }
 
 

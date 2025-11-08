@@ -2,6 +2,7 @@ package com.example.myapplication.ui.group
 
 import android.os.Bundle
 import android.view.View
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -224,34 +225,72 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
                         true
                     }
                     R.id.action_add_room -> {
-                        // Allow creating a chat room under this local group (uses community chat-room API)
-                        val ctx = requireContext()
-                        val input = android.widget.EditText(ctx).apply { hint = "Chat room name" }
-                        androidx.appcompat.app.AlertDialog.Builder(ctx)
-                            .setTitle("Add chat room")
-                            .setView(input)
-                            .setPositiveButton("Create") { d, _ ->
-                                val name = input.text?.toString()?.trim().orEmpty()
-                                if (name.isNotEmpty()) {
-                                    // Use GroupRoomViewModel to create chat room inside this local group
-                                    val parentCode = try { vm.group.value?.chatRoomCode } catch (_: Exception) { null }
-                                    val effectiveParent = parentCode.takeIf { !it.isNullOrBlank() } ?: groupId
-                                    roomsVm.createChatRoom(effectiveParent, name) { success ->
-                                        if (success) {
-                                            Toast.makeText(ctx, "Chat room created: $name", Toast.LENGTH_SHORT).show()
-                                            // reload rooms
-                                            roomsVm.loadChatRoomsForGroup(effectiveParent)
-                                        } else {
+                        try {
+                            val ctx = requireContext()
+                            val inflater = layoutInflater
+                            val dialogView = inflater.inflate(R.layout.dialog_create_chat_room, null)
+                            // Resolve IDs at runtime to avoid any R generation timing issues
+                            val pkg = requireContext().packageName
+                            val etId = dialogView.resources.getIdentifier("et_room_name", "id", pkg)
+                            val errId = dialogView.resources.getIdentifier("dialog_error", "id", pkg)
+                            val btnCreateId = dialogView.resources.getIdentifier("btn_create", "id", pkg)
+                            val btnCancelId = dialogView.resources.getIdentifier("btn_cancel", "id", pkg)
+                            val etName = dialogView.findViewById<EditText?>(etId)
+                            val tvError = dialogView.findViewById<TextView?>(errId)
+                            val btnCreate = dialogView.findViewById<android.widget.Button?>(btnCreateId)
+                            val btnCancel = dialogView.findViewById<android.widget.Button?>(btnCancelId)
+
+                            val dialog = try {
+                                com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+                                    .setView(dialogView)
+                                    .create()
+                            } catch (e: Exception) {
+                                // Fallback to AppCompat dialog if Material dialog creation fails (theme missing on some devices)
+                                androidx.appcompat.app.AlertDialog.Builder(ctx)
+                                    .setView(dialogView)
+                                    .create()
+                            }
+
+                            fun setLoading(loading: Boolean) {
+                                try { btnCreate?.isEnabled = !loading } catch (_: Exception) {}
+                                try { btnCancel?.isEnabled = !loading } catch (_: Exception) {}
+                                try { etName?.isEnabled = !loading } catch (_: Exception) {}
+                            }
+
+                            btnCreate?.setOnClickListener {
+                                val name = etName?.text?.toString()?.trim().orEmpty()
+                                if (name.isEmpty()) {
+                                    try { tvError?.text = "Name is required" } catch (_: Exception) {}
+                                    try { tvError?.visibility = View.VISIBLE } catch (_: Exception) {}
+                                    return@setOnClickListener
+                                }
+                                try { tvError?.visibility = View.GONE } catch (_: Exception) {}
+                                setLoading(true)
+                                val parentCode = try { vm.group.value?.chatRoomCode } catch (_: Exception) { null }
+                                val effectiveParent = parentCode.takeIf { !it.isNullOrBlank() } ?: groupId
+                                roomsVm.createChatRoom(effectiveParent, name) { success ->
+                                    setLoading(false)
+                                    if (success) {
+                                        Toast.makeText(ctx, "Chat room created: $name", Toast.LENGTH_SHORT).show()
+                                        roomsVm.loadChatRoomsForGroup(effectiveParent)
+                                        try { dialog.dismiss() } catch (_: Exception) {}
+                                    } else {
+                                        try {
+                                            com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to create chat room", com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE)
+                                                .setAction("Retry") {
+                                                    btnCreate?.let { it.performClick() }
+                                                }.show()
+                                        } catch (_: Exception) {
                                             Toast.makeText(ctx, "Failed to create chat room", Toast.LENGTH_SHORT).show()
                                         }
                                     }
-                                } else {
-                                    Toast.makeText(ctx, "Name required", Toast.LENGTH_SHORT).show()
                                 }
-                                d.dismiss()
                             }
-                            .setNegativeButton(android.R.string.cancel, null)
-                            .show()
+                            btnCancel?.setOnClickListener { dialog.dismiss() }
+                            dialog.show()
+                        } catch (e: Exception) {
+                            try { Toast.makeText(requireContext(), "Failed to open create room dialog", Toast.LENGTH_SHORT).show() } catch (_: Exception) {}
+                        }
                         true
                     }
                     R.id.action_members -> {

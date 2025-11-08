@@ -97,20 +97,20 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                android:background="@drawable/background_gradient">
+                android:background="@color/transparent">
 
 
             <androidx.core.widget.NestedScrollView
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:fillViewport="true"
-                    android:background="@drawable/background_gradient">
+                    android:background="@color/transparent">
 
 
                 <androidx.constraintlayout.widget.ConstraintLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:background="@drawable/background_gradient">
+                        android:background="@color/transparent">
 
 
                     <ImageView
@@ -201,23 +201,13 @@
                             app:layout_constraintStart_toStartOf="parent"
                             app:layout_constraintEnd_toEndOf="parent"/>
 
-                    <ProgressBar
-                            android:id="@+id/progress"
-                            style="@android:style/Widget.Material.ProgressBar.Horizontal"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:visibility="gone"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintEnd_toEndOf="parent"
-                            app:layout_constraintTop_toBottomOf="@id/divider_line"
-                            android:layout_marginTop="8dp" />
 
                     <androidx.recyclerview.widget.RecyclerView
                             android:id="@+id/rv_rooms"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:nestedScrollingEnabled="false"
-                            app:layout_constraintTop_toBottomOf="@id/progress"
+                            app:layout_constraintTop_toBottomOf="@id/divider_line"
                             app:layout_constraintStart_toStartOf="@+id/guideline_start"
                             android:background="@color/transparent"
                             android:layout_marginTop="15dp"
@@ -231,9 +221,9 @@
                             android:gravity="center"
                             android:paddingTop="24dp"
                             android:paddingBottom="24dp"
-                            android:background="@drawable/background_gradient"
+                            android:background="@color/transparent"
                             android:visibility="gone"
-                            app:layout_constraintTop_toBottomOf="@id/progress"
+                            app:layout_constraintTop_toBottomOf="@id/divider_line"
                             app:layout_constraintStart_toStartOf="parent"
                             app:layout_constraintEnd_toEndOf="parent">
 
@@ -243,6 +233,7 @@
                                 android:text="No rooms yet"
                                 android:textColor="@android:color/white"
                                 android:textSize="16sp"
+                                app:layout_constraintTop_toTopOf="parent"
                                 android:layout_marginTop="8dp"/>
 
                     </LinearLayout>

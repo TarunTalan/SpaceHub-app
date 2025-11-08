@@ -80,18 +80,22 @@
               <option value="1527372d-cf24-419b-a167-21ae971fb894" />
               <option value="1f081d1e-d86b-44ef-8c56-96fa8a2f6c46" />
               <option value="20b3a6aa-6be7-4f21-b21a-60cedbaca818" />
+              <option value="29044eba-7335-4d59-9bce-a68572d69001" />
               <option value="2bd76e02-f7fa-4432-ab2b-520f3cf305de" />
               <option value="315744fe-83f5-413e-b7d4-7338a6414478" />
               <option value="3205377a-03d1-4672-b296-e78e294f0100" />
+              <option value="3990b23e-eef9-428b-8e08-e72664f0bf50" />
               <option value="3e5467e0-b5a5-4d4b-bcaf-227047008d2c" />
               <option value="46f8c10d-0737-4b35-8ffc-51992f2c4794" />
               <option value="47865c81-fdf9-445d-8703-182aac2eb85b" />
               <option value="527464b8-e19c-45f6-9901-03fb473f51d2" />
               <option value="548ebdde-77bb-43bd-9ef2-dd9554c3cc35" />
               <option value="571095f3-38c5-4be6-913d-230542c76466" />
+              <option value="57f1f910-e8d8-44b8-9f34-873a52a1adc4" />
               <option value="5a41e7a4-fb88-40b0-abc0-2e4ef38bca4e" />
               <option value="67f27b19-d900-4432-842a-a032fa2fdeaa" />
               <option value="6a3e548f-f080-4153-92ce-5a30fa37deca" />
+              <option value="6cdd98f1-b3fd-4fd6-831f-d0e3477f44b9" />
               <option value="7674075c-9ad0-4ef8-8c6e-e01e37f0f731" />
               <option value="77d7e38e-ae16-4429-911b-647acf0750bd" />
               <option value="80a35f15-134d-4c12-a9d0-7a2fa8771b86" />
@@ -106,6 +110,7 @@
               <option value="bf83e4c8-a927-4c58-8e09-1fda00beca4c" />
               <option value="c8305184-6451-41be-8d97-afff21610981" />
               <option value="d8ee7976-a2f2-42be-b53a-726a11e01d7e" />
+              <option value="e273faab-0782-4fc2-8e59-e86ef6b10fc4" />
               <option value="fcad0366-75d9-4c78-8384-753c73148881" />
               <option value="fff63e84-332d-42e4-9d8f-46091e39d093" />
             </set>
@@ -430,6 +435,11 @@
           <option value="file://$PROJECT_DIR$/app/src/main/res/drawable/add_button_bg.xml" />
           <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/group/CreateCommunityOrGroupFragment.kt" />
           <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_create_community_or_group.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/dialog_create_chat_room.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/drawable/dialog_card_bg.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/group/GroupDetailFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/RoomFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/CommunityDetailFragment.kt" />
         </set>
       </entry>
       <entry key="51ddf032-a05c-455c-b844-098efdaf2341" />

@@ -44,10 +44,24 @@
                 android:hint="@string/search_hint_generic"
                 android:autofillHints="username"
                 android:textColorHint="#B3FFFFFF"
+                android:layout_marginEnd="15dp"
                 android:background="@drawable/edit_text_outline"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="@+id/guideline_start_top"
+                app:layout_constraintEnd_toStartOf="@+id/btn_add"/>
+
+        <!-- Add button at bottom right to open Search Friends -->
+
+        <ImageView
+                android:id="@+id/btn_add"
+                android:layout_width="35dp"
+                android:layout_height="35dp"
+                android:src="@drawable/add_friend"
+                android:tint="@color/white"
+                android:contentDescription="@string/cd_add_friend"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toStartOf="@+id/guideline_end_top"/>
 
         <androidx.constraintlayout.widget.Guideline
@@ -90,18 +104,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!-- Add button at bottom right to open Search Friends -->
-    <ImageView
-        android:id="@+id/btn_add"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:src="@drawable/add__icon"
-        android:padding="8dp"
-        android:background="@drawable/rect_button_bg_blue"
-        android:contentDescription="@string/cd_add_friend"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_margin="16dp"/>
+
 
     <!-- Keep the existing illustration block and guidelines -->
     <androidx.constraintlayout.widget.ConstraintLayout
