@@ -70,6 +70,7 @@ class LocalGroupsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    @Suppress("unused")
     fun createGroup(nameBody: okhttp3.RequestBody, descBody: okhttp3.RequestBody, image: okhttp3.MultipartBody.Part? = null, onDone: (Boolean)->Unit = {}) {
         viewModelScope.launch {
             _loading.value = true

@@ -3,7 +3,6 @@ package com.example.myapplication.data.chat.websocket
 import android.content.Context
 import android.util.Log
 import com.example.myapplication.BuildConfig
-import com.example.myapplication.data.chat.model.WSChatMessage
 import com.example.myapplication.data.network.SharedPrefsTokenStore
 import com.google.gson.Gson
 import kotlinx.coroutines.channels.Channel
@@ -19,10 +18,10 @@ class ChatWebSocketService private constructor(private val context: Context) {
 
     private val gson = Gson()
     private var sockJsClient: SockJsWebSocketClient? = null
-    private val messageChannel = Channel<WSChatMessage>(Channel.BUFFERED)
+    private val messageChannel = Channel<com.example.myapplication.data.chat.model.WSChatMessage>(Channel.BUFFERED)
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.DISCONNECTED)
 
-    val messages: Flow<WSChatMessage> = messageChannel.receiveAsFlow()
+    val messages: Flow<com.example.myapplication.data.chat.model.WSChatMessage> = messageChannel.receiveAsFlow()
     val connectionState: StateFlow<ConnectionState> = _connectionState
 
     companion object {
@@ -50,6 +49,13 @@ class ChatWebSocketService private constructor(private val context: Context) {
             _connectionState.value = ConnectionState.ERROR("No auth token")
             return
         }
+
+        // Log masked token and BASE_URL for diagnostics
+        try {
+            val masked = if (token.length <= 8) "****" else token.take(4) + "..." + token.takeLast(4)
+            Log.d(TAG, "Using auth token (masked): $masked")
+            Log.d(TAG, "BuildConfig.BASE_URL = ${BuildConfig.BASE_URL}")
+        } catch (_: Exception) {}
 
         // SockJS endpoint URL - Spring Boot typically uses /ws or /websocket
         val baseUrl = BuildConfig.BASE_URL
@@ -157,7 +163,7 @@ class ChatWebSocketService private constructor(private val context: Context) {
                     val bodyIndex = frame.indexOf("\n\n")
                     if (bodyIndex > 0) {
                         val body = frame.substring(bodyIndex + 2).replace("\u0000", "")
-                        val chatMessage = gson.fromJson(body, WSChatMessage::class.java)
+                        val chatMessage = gson.fromJson(body, com.example.myapplication.data.chat.model.WSChatMessage::class.java)
                         messageChannel.trySend(chatMessage)
                     }
                 }
@@ -183,7 +189,7 @@ class ChatWebSocketService private constructor(private val context: Context) {
         Log.d(TAG, "Subscribed to /user/queue/messages")
     }
 
-    fun sendMessage(message: WSChatMessage) {
+    fun sendMessage(message: com.example.myapplication.data.chat.model.WSChatMessage) {
         val json = gson.toJson(message)
         val stompFrame = """
             SEND
@@ -198,7 +204,7 @@ class ChatWebSocketService private constructor(private val context: Context) {
     }
 
     fun sendTypingIndicator(recipientId: String, conversationId: String) {
-        val message = WSChatMessage(
+        val message = com.example.myapplication.data.chat.model.WSChatMessage(
             type = "typing",
             conversationId = conversationId,
             senderId = "", // Will be set by server
@@ -208,7 +214,7 @@ class ChatWebSocketService private constructor(private val context: Context) {
     }
 
     fun markAsDelivered(messageId: String, conversationId: String) {
-        val message = WSChatMessage(
+        val message = com.example.myapplication.data.chat.model.WSChatMessage(
             type = "delivered",
             messageId = messageId,
             conversationId = conversationId,
@@ -219,7 +225,7 @@ class ChatWebSocketService private constructor(private val context: Context) {
     }
 
     fun markAsRead(messageId: String, conversationId: String) {
-        val message = WSChatMessage(
+        val message = com.example.myapplication.data.chat.model.WSChatMessage(
             type = "read",
             messageId = messageId,
             conversationId = conversationId,
@@ -289,4 +295,3 @@ class ChatWebSocketService private constructor(private val context: Context) {
         data class ERROR(val message: String) : ConnectionState()
     }
 }
-

@@ -19,6 +19,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private val chatRepo = ChatRepository.getInstance(app, chatDao)
 
     private val _currentConversation = MutableLiveData<Conversation?>()
+    @Suppress("unused")
     val currentConversation: LiveData<Conversation?> = _currentConversation
 
     private val _messages = MutableLiveData<List<ChatMessage>>(emptyList())
@@ -28,19 +29,20 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     val connectionState: LiveData<DirectChatWebSocketService.ConnectionState> = _connectionState
 
     private val _sendingMessage = MutableLiveData<Boolean>(false)
+    @Suppress("unused")
     val sendingMessage: LiveData<Boolean> = _sendingMessage
 
     private var conversationId: String? = null
 
     init {
-        // Connect to WebSocket
-        chatRepo.connectWebSocket()
-
-        // Observe connection state
+        // Mirror repository connection state into LiveData
         viewModelScope.launch {
-            chatRepo.connectionState.collect { state ->
-                _connectionState.postValue(state)
-                Log.d("ChatViewModel", "Connection state: $state")
+            try {
+                chatRepo.connectionState.collect { state ->
+                    _connectionState.postValue(state)
+                }
+            } catch (e: Exception) {
+                Log.w("ChatViewModel", "Failed observing connection state", e)
             }
         }
     }
@@ -52,7 +54,18 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 _currentConversation.postValue(conversation)
                 conversationId = conversation.id
 
-                // Load messages
+                // Connect the websocket for this sender/receiver pair (use stored repo method)
+                val myEmail = com.example.myapplication.data.user.UserDataManager.getInstance(getApplication()).getEmail()
+                if (!myEmail.isNullOrBlank()) {
+                    val myEmailNonNull = myEmail
+                    try {
+                        chatRepo.connectWebSocket(myEmailNonNull, peerEmail)
+                    } catch (e: Exception) {
+                        Log.w("ChatViewModel", "Failed to connect websocket", e)
+                    }
+                }
+
+                // Collect messages for this conversation and publish to LiveData
                 chatRepo.getMessagesForConversation(conversation.id).collect { messagesList ->
                     _messages.postValue(messagesList)
                 }
@@ -69,9 +82,11 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _sendingMessage.postValue(true)
             try {
+                val recipientEmail = conversation.peerEmail ?: return@launch
+                val recipientName = conversation.peerName ?: recipientEmail
                 val result = chatRepo.sendMessage(
-                    recipientEmail = conversation.peerEmail,
-                    recipientName = conversation.peerName,
+                    recipientEmail = recipientEmail,
+                    recipientName = recipientName,
                     content = content.trim()
                 )
 
@@ -87,22 +102,30 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun sendTypingIndicator() {
         val conversation = _currentConversation.value ?: return
         viewModelScope.launch {
-            chatRepo.sendTypingIndicator(conversation.peerEmail)
+            try {
+                val recipientEmail = conversation.peerEmail ?: return@launch
+                chatRepo.sendTypingIndicator(recipientEmail)
+            } catch (e: Exception) {
+                // non-fatal
+                Log.w("ChatViewModel", "Failed to send typing indicator", e)
+            }
         }
     }
 
     fun markAsRead() {
         conversationId?.let { id ->
             viewModelScope.launch {
-                chatRepo.markConversationAsRead(id)
+                try {
+                    chatRepo.markConversationAsRead(id)
+                } catch (e: Exception) {
+                    Log.w("ChatViewModel", "Failed to mark conversation read", e)
+                }
             }
         }
     }
 
     override fun onCleared() {
+        // Intentionally do not disconnect WebSocket here: it is shared across the app
         super.onCleared()
-        // Don't disconnect WebSocket here as it's shared across the app
-        // It will be managed by the Application lifecycle
     }
 }
-

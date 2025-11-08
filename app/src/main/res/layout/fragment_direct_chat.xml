@@ -97,7 +97,6 @@
         android:layout_height="0dp"
         android:clipToPadding="false"
         android:paddingTop="8dp"
-        android:paddingBottom="72dp"
         app:layout_constraintTop_toBottomOf="@id/constraintLayoutTitle"
         app:layout_constraintBottom_toTopOf="@id/constraintLayoutChat"
         app:layout_constraintStart_toStartOf="parent"

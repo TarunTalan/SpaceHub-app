@@ -4,7 +4,7 @@ import com.example.myapplication.data.auth.model.*
 import com.example.myapplication.data.chat_room.model.CreateChatRoomResponse
 import com.example.myapplication.data.chat_room.model.DeleteChatRoomRequest
 import com.example.myapplication.data.chat_room.model.DeleteChatRoomResponse
-import com.example.myapplication.data.chat_room.model.GetAllChatRoomsResponse
+import com.example.myapplication.data.chat_room.model.GetChatRoomSummaryResponse
 import com.example.myapplication.data.community.model.*
 import com.example.myapplication.data.dashboard.model.*
 import com.example.myapplication.data.friends.model.*
@@ -220,13 +220,8 @@ interface ApiService {
     @POST("new-chatroom/create")
     suspend fun createChatRoom(
         @Part("name") name: RequestBody,
-        @Part("chatRoomCode") chatRoomCode: RequestBody
+        @Part("roomCode") roomCode: RequestBody
     ): Response<CreateChatRoomResponse>
-
-    @GET("rooms/all")
-    suspend fun getAllChatRooms(
-        @Query("email") email: String
-    ): Response<GetAllChatRoomsResponse>
 
     @POST("rooms/deleteRoom")
     suspend fun deleteChatRoom(
@@ -315,5 +310,12 @@ interface ApiService {
         @Body body: JoinGroupByLinkRequest
     ): Response<JoinGroupByLinkResponse>
 
+    @GET("new-chatroom/list/summary")
+    suspend fun getChatRoomSummary(
+        @Query("roomCode") roomCode: String
+    ): Response<GetChatRoomSummaryResponse>
+
 
 }
+
+

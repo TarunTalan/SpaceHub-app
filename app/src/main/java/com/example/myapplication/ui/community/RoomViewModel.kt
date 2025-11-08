@@ -11,10 +11,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * ViewModel to resolve a community room's stable identifier (roomCode) by preferring local cache
- * and falling back to network if missing. Runs in viewModelScope to survive configuration changes.
- */
 class RoomViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = CommunityRepository.getInstance(app)
 
@@ -63,16 +59,34 @@ class RoomViewModel(app: Application) : AndroidViewModel(app) {
                 // Find the matching parent room by id/roomCode/name
                 val match = rooms.firstOrNull { r -> r.id == roomId || r.roomCode == roomId || r.name == roomId }
                 if (match != null) {
-                    // Expose nested chat rooms (newChatRooms) to UI
-                    android.util.Log.d("RoomViewModel", "Found parent room in community response: id=${match.id}, roomCode=${match.roomCode}, newChatRooms=${match.newChatRooms?.size ?: 0}")
-                    _chatRooms.value = match.newChatRooms ?: emptyList()
-                    return@launch
+                    // If server provided nested chat rooms in `newChatRooms`, use them
+                    val nested = match.newChatRooms
+                    android.util.Log.d("RoomViewModel", "Found parent room in community response: id=${match.id}, roomCode=${match.roomCode}, newChatRooms=${nested?.size ?: 0}")
+                    if (!nested.isNullOrEmpty()) {
+                        _chatRooms.value = nested
+                        return@launch
+                    }
+
+                    // Otherwise try the dedicated summary endpoint (by roomCode)
+                    val lookupCode = match.roomCode.ifBlank { match.id }
+                    android.util.Log.d("RoomViewModel", "Attempting getChatRoomSummary for roomCode=$lookupCode")
+                    val summaryRes = withContext(Dispatchers.IO) { repo.getChatRoomSummary(lookupCode) }
+                    if (summaryRes.isSuccess) {
+                        _chatRooms.value = summaryRes.getOrDefault(emptyList())
+                        return@launch
+                    } else {
+                        android.util.Log.w("RoomViewModel", "getChatRoomSummary failed: ${summaryRes.exceptionOrNull()?.message}")
+                    }
                 }
 
-                // As a fallback, load user's chat rooms (global) to avoid empty UI
-                android.util.Log.d("RoomViewModel", "Parent room not found in community rooms; falling back to getAllChatRooms (global)")
-                val globalRes = withContext(Dispatchers.IO) { repo.getAllChatRooms() }
-                _chatRooms.value = globalRes.getOrNull() ?: emptyList()
+                // As a fallback, directly request the chat-room summary for the requested roomId
+                android.util.Log.d("RoomViewModel", "Parent room not found in community rooms; attempting getChatRoomSummary for lookupKey=$roomId")
+                val summaryRes = withContext(Dispatchers.IO) { repo.getChatRoomSummary(roomId) }
+                if (summaryRes.isSuccess) {
+                    _chatRooms.value = summaryRes.getOrDefault(emptyList())
+                } else {
+                    android.util.Log.w("RoomViewModel", "getChatRoomSummary fallback failed: ${summaryRes.exceptionOrNull()?.message}")
+                }
             } catch (t: Throwable) {
                 android.util.Log.w("RoomViewModel", "loadChatRoomsForCommunity failed: ${t.message}")
             }

@@ -10,25 +10,32 @@
     <!-- Sent message bubble (aligned to right) -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/message_container"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="48dp"
+        android:layout_marginEnd="8dp"
         android:background="@drawable/bg_message_sent"
-        android:padding="12dp"
-        android:maxWidth="280dp"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="4dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_percent="0.7"
+        app:layout_constraintHorizontal_bias="1.0">
 
         <TextView
             android:id="@+id/tv_message"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:textColor="@color/white"
             android:textSize="15sp"
+            android:ellipsize="end"
+            android:breakStrategy="balanced"
+            android:hyphenationFrequency="full"
+            android:includeFontPadding="false"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            tools:text="Hello, how are you?"/>
+            tools:text="Hello, how are you bbbbubhuhhuhbbxjbbjxbsjjsxnsjnxjxbjuihuhihjhuhuhjhjbjbjh?"/>
 
         <TextView
             android:id="@+id/tv_time"
@@ -57,4 +64,3 @@
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
-

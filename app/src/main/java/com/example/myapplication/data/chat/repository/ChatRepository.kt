@@ -37,7 +37,7 @@ class ChatRepository private constructor(
     }
 
     init {
-        // Listen to WebSocket messages and save to database
+        // Listen to WebSocket messages
         scope.launch {
             webSocketService.messages.collect { wsMessage ->
                 handleIncomingMessage(wsMessage)
@@ -47,8 +47,9 @@ class ChatRepository private constructor(
 
     val connectionState = webSocketService.connectionState
 
-    fun connectWebSocket() {
-        webSocketService.connect()
+    /** Connect to direct chat websocket for a specific sender/receiver pair. */
+    fun connectWebSocket(senderEmail: String, receiverEmail: String) {
+        webSocketService.connect(senderEmail, receiverEmail)
     }
 
     fun disconnectWebSocket() {
@@ -57,10 +58,6 @@ class ChatRepository private constructor(
 
     fun getMessagesForConversation(conversationId: String): Flow<List<ChatMessage>> {
         return chatDao.getMessagesForConversation(conversationId)
-    }
-
-    fun getAllConversations(): Flow<List<Conversation>> {
-        return chatDao.getAllConversations()
     }
 
     suspend fun sendMessage(
@@ -84,7 +81,7 @@ class ChatRepository private constructor(
             // Get avatar URL
             val avatarUrl = userDataManager.profileImageUrlFlow.first()
 
-            // Create message
+            // Create message locally (SENDING)
             val message = ChatMessage(
                 id = messageId,
                 conversationId = conversationId,
@@ -98,10 +95,9 @@ class ChatRepository private constructor(
                 isFromMe = true
             )
 
-            // Save to local database
+            // Persist local message & conversation
             chatDao.insertMessage(message)
 
-            // Update or create conversation
             val conversation = chatDao.getConversation(conversationId) ?: Conversation(
                 id = conversationId,
                 peerEmail = recipientEmail,
@@ -116,14 +112,15 @@ class ChatRepository private constructor(
                 lastMessageTime = timestamp
             ))
 
-            // Send via WebSocket
+            // Send via WebSocket with client messageId so server can ACK
             val success = webSocketService.sendMessage(
                 senderEmail = myEmail,
                 receiverEmail = recipientEmail,
-                content = content
+                content = content,
+                messageId = messageId
             )
 
-            // Update status to sent
+            // Update status to SENT or FAILED
             if (success) {
                 chatDao.updateMessageStatus(messageId, MessageStatus.SENT)
             } else {
@@ -138,15 +135,14 @@ class ChatRepository private constructor(
     }
 
     fun sendTypingIndicator(@Suppress("UNUSED_PARAMETER") recipientEmail: String) {
-        // Direct WebSocket doesn't support typing indicators
-        // This is a no-op for compatibility
+        // Direct WebSocket doesn't support typing indicators in this implementation
     }
 
+    @Suppress("unused")
     suspend fun markMessageAsRead(messageId: String, @Suppress("UNUSED_PARAMETER") conversationId: String) {
         try {
             chatDao.updateMessageStatus(messageId, MessageStatus.READ)
-            // Direct WebSocket doesn't send read receipts to server
-        } catch (@Suppress("SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             Log.e(TAG, "Failed to mark message as read", e)
         }
     }
@@ -178,118 +174,88 @@ class ChatRepository private constructor(
 
     private suspend fun handleIncomingMessage(wsMessage: com.example.myapplication.data.chat.websocket.DirectChatMessage) {
         try {
-            val myEmail = userDataManager.getEmail()
-
-            // Validate email addresses
-            if (wsMessage.senderEmail.isBlank() || wsMessage.receiverEmail.isBlank()) {
-                Log.e(TAG, "Invalid message: sender='${wsMessage.senderEmail}', receiver='${wsMessage.receiverEmail}', content='${wsMessage.content}'")
-                return
-            }
-
-            // Parse ISO timestamp to millis
-            val timestamp = try {
-                // Handle nanosecond precision timestamps (e.g., 2025-11-07T03:19:19.803047233)
-                val truncated = if (wsMessage.timestamp.contains('.')) {
-                    val parts = wsMessage.timestamp.split('.')
-                    if (parts.size >= 2) {
-                        // Extract fractional seconds part
-                        val fractional = parts[1]
-                        // Find where the timezone info starts (Z, +, or -)
-                        val tzIndex = fractional.indexOfFirst { it == 'Z' || it == '+' || it == '-' }
-
-                        if (tzIndex > 3) {
-                            // Has more than millisecond precision, truncate to 3 digits
-                            val millis = fractional.substring(0, 3)
-                            val tz = if (tzIndex > 0) fractional.substring(tzIndex) else "Z"
-                            "${parts[0]}.$millis$tz"
-                        } else if (tzIndex == -1 && fractional.length > 3) {
-                            // No timezone, but has extra precision
-                            "${parts[0]}.${fractional.substring(0, 3)}Z"
-                        } else {
-                            // Already correct format or needs Z
-                            if (wsMessage.timestamp.endsWith("Z") || wsMessage.timestamp.contains("+") || wsMessage.timestamp.contains("-")) {
-                                wsMessage.timestamp
-                            } else {
-                                "${wsMessage.timestamp}Z"
-                            }
-                        }
-                    } else {
-                        wsMessage.timestamp
-                    }
-                } else {
-                    // No fractional seconds, add Z if needed
-                    if (wsMessage.timestamp.endsWith("Z")) wsMessage.timestamp else "${wsMessage.timestamp}Z"
-                }
-
-                Instant.parse(truncated).toEpochMilli()
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to parse timestamp '${wsMessage.timestamp}', using current time. Error: ${e.message}")
-                System.currentTimeMillis()
-            }
-
             val conversationId = generateConversationId(wsMessage.senderEmail, wsMessage.receiverEmail)
 
-            Log.d(TAG, "Processing message: id=${wsMessage.id}, conversationId=$conversationId, from=${wsMessage.senderEmail}, to=${wsMessage.receiverEmail}, myEmail=$myEmail")
-
-            // Determine if this message is from me
-            // IMPORTANT: A message can't be FROM me if it's addressed TO me
-            val isSentByMe = !myEmail.isNullOrBlank() && wsMessage.senderEmail.equals(myEmail, ignoreCase = true)
-            val isAddressedToMe = !myEmail.isNullOrBlank() && wsMessage.receiverEmail.equals(myEmail, ignoreCase = true)
-
-            // Bulletproof logic: If message is addressed TO me, it's definitely incoming (not from me)
-            // Even if sender somehow matches myEmail (shouldn't happen, but safety first)
-            val isFromMe = if (isAddressedToMe) {
-                false  // Message TO me is never FROM me
-            } else {
-                isSentByMe  // Only if not addressed to me, check if I sent it
+            // Control frames (delivered/read) — update status using provided id or fallback to latest sent message
+            val ctrl = wsMessage.type?.lowercase()?.trim()
+            if (!ctrl.isNullOrBlank()) {
+                val ackId = wsMessage.messageId?.takeIf { it.isNotBlank() } ?: wsMessage.id?.takeIf { it.isNotBlank() }
+                if (!ackId.isNullOrBlank()) {
+                    try {
+                        when (ctrl) {
+                            "delivered" -> chatDao.updateMessageStatus(ackId, MessageStatus.DELIVERED)
+                            "read" -> chatDao.updateMessageStatus(ackId, MessageStatus.READ)
+                        }
+                        return
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to update message status for id=$ackId", e)
+                        return
+                    }
+                } else {
+                    try {
+                        val recent = chatDao.getMessagesList(conversationId).lastOrNull { it.isFromMe }
+                        if (recent != null) {
+                            when (ctrl) {
+                                "delivered" -> chatDao.updateMessageStatus(recent.id, MessageStatus.DELIVERED)
+                                "read" -> chatDao.updateMessageStatus(recent.id, MessageStatus.READ)
+                            }
+                            return
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Fallback failed for conversation $conversationId", e)
+                    }
+                }
             }
 
-            Log.d(TAG, "Message isFromMe: $isFromMe (sender=${wsMessage.senderEmail}, receiver=${wsMessage.receiverEmail}, myEmail=$myEmail, isSentByMe=$isSentByMe, isAddressedToMe=$isAddressedToMe)")
+            val myEmail = userDataManager.getEmail()
 
-            // Skip messages from ourselves if we recently sent the same content
-            // This prevents duplicate messages when the server echoes back our sent messages
+            if (wsMessage.senderEmail.isBlank() || wsMessage.receiverEmail.isBlank()) return
+
+            // Parse timestamp: try ISO Instant, then numeric epoch millis, otherwise fallback to now
+            val timestamp = try {
+                Instant.parse(wsMessage.timestamp).toEpochMilli()
+            } catch (_: Exception) {
+                try {
+                    wsMessage.timestamp.toLong()
+                } catch (_: Exception) {
+                    System.currentTimeMillis()
+                }
+            }
+
+            val isSentByMe = !myEmail.isNullOrBlank() && wsMessage.senderEmail.equals(myEmail, ignoreCase = true)
+            val isAddressedToMe = !myEmail.isNullOrBlank() && wsMessage.receiverEmail.equals(myEmail, ignoreCase = true)
+            val isFromMe = if (isAddressedToMe) false else isSentByMe
+
+            // If this is an echo of a sent message, attempt to update the local record
             if (isFromMe && !myEmail.isNullOrBlank()) {
                 val recentMessages = chatDao.getMessagesList(conversationId)
-                Log.d(TAG, "Checking ${recentMessages.size} recent messages for duplicates")
-
-                // Log all recent messages for debugging
-                recentMessages.takeLast(5).forEach { msg ->
-                    Log.d(TAG, "Recent msg: senderId=${msg.senderId}, content=${msg.content}, isFromMe=${msg.isFromMe}, timestamp=${msg.timestamp}")
+                val matched = recentMessages.firstOrNull { existing ->
+                    existing.senderId.equals(wsMessage.senderEmail, ignoreCase = true) &&
+                            existing.content == wsMessage.content &&
+                            Math.abs(existing.timestamp - timestamp) < 2000
                 }
-
-                // Only check messages from the last 2 seconds (reduced from 5 for more precision)
-                val isDuplicate = recentMessages.any { existing ->
-                    // Check if the existing message was sent by the same sender (not just isFromMe flag)
-                    val sameAuthor = existing.senderId.equals(wsMessage.senderEmail, ignoreCase = true)
-                    val sameContent = existing.content == wsMessage.content
-                    val timeDiff = Math.abs(existing.timestamp - timestamp)
-                    val recentTime = timeDiff < 2000 // Reduced to 2 seconds from 5 seconds
-
-                    if (sameAuthor && sameContent && recentTime) {
-                        Log.d(TAG, "Found potential duplicate: existing.senderId=${existing.senderId}, existing.content=${existing.content}, timeDiff=${timeDiff}ms")
+                if (matched != null) {
+                    try {
+                        val ctrlType = wsMessage.type?.lowercase()?.trim()
+                        when (ctrlType) {
+                            "read" -> chatDao.updateMessageStatus(matched.id, MessageStatus.READ)
+                            else -> chatDao.updateMessageStatus(matched.id, MessageStatus.DELIVERED)
+                        }
+                        return
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to update status for echoed message ${matched.id}", e)
                     }
-
-                    sameAuthor && sameContent && recentTime
                 }
-
-                if (isDuplicate) {
-                    Log.d(TAG, "⚠️ SKIPPING duplicate echo: sender=${wsMessage.senderEmail}, content=${wsMessage.content}, myEmail=$myEmail")
-                    return
-                } else {
-                    Log.d(TAG, "✅ NOT duplicate, processing: ${wsMessage.content}")
-                }
-            } else {
-                Log.d(TAG, "✅ Message from peer (${wsMessage.senderEmail}), processing: ${wsMessage.content}")
             }
 
             val peerEmail = if (isFromMe) wsMessage.receiverEmail else wsMessage.senderEmail
 
-            // Create message
+            // Create and persist incoming message
             val message = ChatMessage(
                 id = wsMessage.id ?: UUID.randomUUID().toString(),
                 conversationId = conversationId,
                 senderId = wsMessage.senderEmail,
-                senderName = wsMessage.senderEmail, // Use email as name for now
+                senderName = wsMessage.senderEmail,
                 senderAvatar = null,
                 recipientId = wsMessage.receiverEmail,
                 content = wsMessage.content,
@@ -298,13 +264,9 @@ class ChatRepository private constructor(
                 isFromMe = isFromMe
             )
 
-            Log.d(TAG, "💾 Saving message to DB: id=${message.id}, isFromMe=${message.isFromMe}, sender=${message.senderId}, recipient=${message.recipientId}, content=${message.content}")
-
             chatDao.insertMessage(message)
 
-            Log.d(TAG, "✅ Message saved to database successfully: ${message.id}")
-
-            // Update conversation
+            // Update conversation metadata
             val conversation = chatDao.getConversation(conversationId)
             if (conversation != null) {
                 chatDao.updateConversation(conversation.copy(
@@ -312,20 +274,16 @@ class ChatRepository private constructor(
                     lastMessageTime = message.timestamp,
                     unreadCount = if (isFromMe) conversation.unreadCount else conversation.unreadCount + 1
                 ))
-                Log.d(TAG, "Updated existing conversation: $conversationId")
             } else {
-                // Create new conversation for incoming message
-                val newConversation = Conversation(
+                chatDao.insertConversation(Conversation(
                     id = conversationId,
                     peerEmail = peerEmail,
-                    peerName = peerEmail, // Use email as name for now
+                    peerName = peerEmail,
                     peerAvatar = null,
                     lastMessage = message.content,
                     lastMessageTime = message.timestamp,
                     unreadCount = if (isFromMe) 0 else 1
-                )
-                chatDao.insertConversation(newConversation)
-                Log.d(TAG, "Created new conversation: $conversationId with peer: $peerEmail")
+                ))
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to handle incoming message", e)
@@ -333,14 +291,10 @@ class ChatRepository private constructor(
     }
 
     private fun generateConversationId(email1: String?, email2: String?): String {
-        // Generate deterministic conversation ID by sorting emails
         val e1 = email1?.trim() ?: ""
         val e2 = email2?.trim() ?: ""
 
-        if (e1.isEmpty() || e2.isEmpty()) {
-            Log.w(TAG, "generateConversationId called with empty email(s): '$e1', '$e2'")
-            return "unknown_${System.currentTimeMillis()}"
-        }
+        if (e1.isEmpty() || e2.isEmpty()) return "unknown_${System.currentTimeMillis()}"
 
         val sorted = listOf(e1, e2).sorted()
         return "${sorted[0]}_${sorted[1]}".replace("@", "_").replace(".", "_")

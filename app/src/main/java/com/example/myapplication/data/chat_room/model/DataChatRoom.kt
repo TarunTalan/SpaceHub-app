@@ -4,5 +4,5 @@ data class DataChatRoom(
     val createdAt: Long,
     val id: String,
     val name: String,
-    val roomCode: String
+    val chatRoomCode: String
 )

@@ -8,18 +8,28 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.myapplication.ui.community.adapter.RoomAdapter
+import com.example.myapplication.data.community.model.DataRoom
 import com.example.myapplication.R
 import com.example.myapplication.data.user.UserDataManager
 import com.example.myapplication.ui.group.viewmodel.GroupDetailViewModel
+import com.example.myapplication.ui.group.viewmodel.GroupRoomViewModel
 import com.google.android.material.imageview.ShapeableImageView
 import kotlinx.coroutines.launch
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 
 class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
     // Use activity-scoped VM so other fragments (members) can share the same instance
     private val vm: GroupDetailViewModel by activityViewModels()
+    // ViewModel to manage chat rooms inside this local group
+    private val roomsVm: GroupRoomViewModel by viewModels()
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -33,6 +43,9 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
         val memberCountTv = view.findViewById<TextView>(R.id.member_count_tv)
         val progress = view.findViewById<ProgressBar>(R.id.progress)
         val settingsAnchor = view.findViewById<ImageView>(R.id.setting_grp)
+        val rvRooms = view.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.rv_rooms)
+        val emptyRoomsView = view.findViewById<View>(R.id.empty_rooms_view)
+        val swipeRefresh = view.findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
 
         // Make marquee scroll without focus requirement (header username)
         tvUser?.isSelected = true
@@ -79,6 +92,43 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
             progress?.visibility = if (loading) View.VISIBLE else View.GONE
         }
 
+        // Setup rooms adapter
+        val roomsAdapter = RoomAdapter(onClick = { room ->
+            // Navigate to chat room screen, passing chatRoomCode, chatRoomName and group image
+            try {
+                val code = if (room.roomCode.isNotBlank()) room.roomCode else room.id
+                val groupImage = try { vm.group.value?.imageUrl as? String } catch (_: Exception) { null }
+                val args = Bundle().apply {
+                    putString("chatRoomCode", code)
+                    putString("chatRoomName", room.name)
+                    putString("communityImageUrl", groupImage ?: passedImage)
+                }
+                findNavController().navigate(R.id.chatRoomFragment, args)
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Failed to open chat: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+        rvRooms?.layoutManager = LinearLayoutManager(requireContext())
+        rvRooms?.adapter = roomsAdapter
+
+        // Pull-to-refresh: reload rooms (and refresh group details optionally)
+        swipeRefresh?.setOnRefreshListener {
+            val code = try { vm.group.value?.chatRoomCode?.takeIf { it.isNotBlank() } ?: groupId } catch (_: Exception) { groupId }
+            try { roomsVm.loadChatRoomsForGroup(code) } catch (_: Exception) {}
+            // optionally refresh group details as well
+            try { vm.refreshDetails() } catch (_: Exception) {}
+        }
+
+        // Observe roomsVm.loading to drive the SwipeRefreshLayout indicator
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                roomsVm.loading.collect { loading ->
+                    try { swipeRefresh?.isRefreshing = loading } catch (_: Exception) {}
+                }
+            }
+        }
+
+        // Observe chat rooms from roomsVm and update adapter (collected below from lifecycleScope)
         vm.group.observe(viewLifecycleOwner) { data ->
             data?.let {
                 // DataXX fields are non-nullable in the model: name:String, totalMembers:Int
@@ -95,6 +145,29 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
                     } catch (_: Exception) {
                         Glide.with(this).load(R.drawable.default_comm_icon).centerCrop().into(grpImage)
                     }
+                }
+
+                // Load chat rooms for this group into roomsVm
+                val code = it.chatRoomCode.takeIf { it.isNotBlank() } ?: groupId
+                try { roomsVm.loadChatRoomsForGroup(code) } catch (_: Exception) {}
+            }
+        }
+
+        // Observe roomsVm chatRooms and update UI (use lifecycleScope + repeatOnLifecycle to collect StateFlow)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                roomsVm.chatRooms.collect { chatList ->
+                    val mapped = chatList.map { c ->
+                        DataRoom(id = if (c.chatRoomCode.isNotBlank()) c.chatRoomCode else c.id, name = c.name, roomCode = c.chatRoomCode)
+                    }
+                    if (mapped.isEmpty()) {
+                        emptyRoomsView?.visibility = View.VISIBLE
+                        rvRooms?.visibility = View.GONE
+                    } else {
+                        emptyRoomsView?.visibility = View.GONE
+                        rvRooms?.visibility = View.VISIBLE
+                    }
+                    roomsAdapter.submitList(mapped)
                 }
             }
         }
@@ -151,8 +224,34 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
                         true
                     }
                     R.id.action_add_room -> {
-                        // Not applicable to local groups
-                        Toast.makeText(requireContext(), "Add room not applicable", Toast.LENGTH_SHORT).show()
+                        // Allow creating a chat room under this local group (uses community chat-room API)
+                        val ctx = requireContext()
+                        val input = android.widget.EditText(ctx).apply { hint = "Chat room name" }
+                        androidx.appcompat.app.AlertDialog.Builder(ctx)
+                            .setTitle("Add chat room")
+                            .setView(input)
+                            .setPositiveButton("Create") { d, _ ->
+                                val name = input.text?.toString()?.trim().orEmpty()
+                                if (name.isNotEmpty()) {
+                                    // Use GroupRoomViewModel to create chat room inside this local group
+                                    val parentCode = try { vm.group.value?.chatRoomCode } catch (_: Exception) { null }
+                                    val effectiveParent = parentCode.takeIf { !it.isNullOrBlank() } ?: groupId
+                                    roomsVm.createChatRoom(effectiveParent, name) { success ->
+                                        if (success) {
+                                            Toast.makeText(ctx, "Chat room created: $name", Toast.LENGTH_SHORT).show()
+                                            // reload rooms
+                                            roomsVm.loadChatRoomsForGroup(effectiveParent)
+                                        } else {
+                                            Toast.makeText(ctx, "Failed to create chat room", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                } else {
+                                    Toast.makeText(ctx, "Name required", Toast.LENGTH_SHORT).show()
+                                }
+                                d.dismiss()
+                            }
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .show()
                         true
                     }
                     R.id.action_members -> {

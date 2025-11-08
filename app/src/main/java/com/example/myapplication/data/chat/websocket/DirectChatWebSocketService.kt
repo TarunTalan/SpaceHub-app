@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import okhttp3.*
 import okio.ByteString
 import java.util.concurrent.TimeUnit
+import java.lang.ref.WeakReference
 
 class DirectChatWebSocketService private constructor(private val context: Context) {
 
@@ -30,12 +31,20 @@ class DirectChatWebSocketService private constructor(private val context: Contex
         .build()
 
     companion object {
+        // Use a WeakReference to avoid holding a strong static reference to a Context-holding object
         @Volatile
-        private var INSTANCE: DirectChatWebSocketService? = null
+        private var INSTANCE_REF: WeakReference<DirectChatWebSocketService>? = null
 
         fun getInstance(context: Context): DirectChatWebSocketService {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: DirectChatWebSocketService(context.applicationContext).also { INSTANCE = it }
+            val existing = INSTANCE_REF?.get()
+            if (existing != null) return existing
+
+            return synchronized(this) {
+                val again = INSTANCE_REF?.get()
+                if (again != null) return@synchronized again
+                val inst = DirectChatWebSocketService(context.applicationContext)
+                INSTANCE_REF = WeakReference(inst)
+                inst
             }
         }
 
@@ -43,49 +52,50 @@ class DirectChatWebSocketService private constructor(private val context: Contex
         private const val WS_URL = "wss://codewithketan.me/ws/direct-chat"
     }
 
-    fun connect() {
-        if (webSocket != null) {
-            Log.d(TAG, "WebSocket already connected or connecting")
-            return
-        }
+    /**
+     * Connect the Direct WebSocket for 1:1 chat. The server expects senderEmail and receiverEmail
+     * to be present as query parameters in the connection URL. Pass both values (non-empty).
+     */
+    fun connect(senderEmail: String, receiverEmail: String) {
+        if (webSocket != null) return
 
         val token = SharedPrefsTokenStore(context).getAccessToken()
         if (token.isNullOrEmpty()) {
-            Log.e(TAG, "No auth token available")
             _connectionState.value = ConnectionState.ERROR("No auth token")
             return
         }
 
+        // Build URL with required query params
+        val encodedSender = try { java.net.URLEncoder.encode(senderEmail, "UTF-8") } catch (_: Exception) { senderEmail }
+        val encodedReceiver = try { java.net.URLEncoder.encode(receiverEmail, "UTF-8") } catch (_: Exception) { receiverEmail }
+        val urlWithParams = "$WS_URL?senderEmail=$encodedSender&receiverEmail=$encodedReceiver"
+
         _connectionState.value = ConnectionState.CONNECTING
-        Log.d(TAG, "Connecting to WebSocket: $WS_URL")
 
         val request = Request.Builder()
-            .url(WS_URL)
+            .url(urlWithParams)
             .addHeader("Authorization", "Bearer $token")
+            .addHeader("Sec-WebSocket-Protocol", "v10.stomp")
             .build()
 
         webSocket = okHttpClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                Log.d(TAG, "WebSocket connected successfully")
                 _connectionState.value = ConnectionState.CONNECTED
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                Log.d(TAG, "Received message: $text")
                 handleMessage(text)
             }
 
             override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-                Log.d(TAG, "Received bytes: ${bytes.hex()}")
+                // binary frames are not used in current protocol
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                Log.d(TAG, "WebSocket closing: $code - $reason")
                 webSocket.close(1000, null)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                Log.d(TAG, "WebSocket closed: $code - $reason")
                 _connectionState.value = ConnectionState.DISCONNECTED
                 this@DirectChatWebSocketService.webSocket = null
             }
@@ -103,11 +113,11 @@ class DirectChatWebSocketService private constructor(private val context: Contex
             val message = gson.fromJson(text, DirectChatMessage::class.java)
             messageChannel.trySend(message)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse message: $text", e)
+            Log.e(TAG, "Failed to parse WS message", e)
         }
     }
 
-    fun sendMessage(senderEmail: String, receiverEmail: String, content: String): Boolean {
+    fun sendMessage(senderEmail: String, receiverEmail: String, content: String, messageId: String): Boolean {
         val ws = webSocket
         if (ws == null || _connectionState.value != ConnectionState.CONNECTED) {
             Log.e(TAG, "Cannot send message - not connected")
@@ -118,13 +128,14 @@ class DirectChatWebSocketService private constructor(private val context: Contex
             val message = DirectChatMessageRequest(
                 senderEmail = senderEmail,
                 receiverEmail = receiverEmail,
-                content = content
+                content = content,
+                messageId = messageId
             )
             val json = gson.toJson(message)
-            Log.d(TAG, "Sending message: $json")
-            return ws.send(json)
+            val sentResult = ws.send(json)
+            return sentResult
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to send message", e)
+            Log.e(TAG, "Failed to send WS message", e)
             return false
         }
     }
@@ -153,7 +164,10 @@ data class DirectChatMessageRequest(
     val receiverEmail: String,
 
     @SerializedName("content")
-    val content: String
+    val content: String,
+
+    @SerializedName("messageId")
+    val messageId: String
 )
 
 // Response format from server
@@ -171,6 +185,11 @@ data class DirectChatMessage(
     val content: String = "",
 
     @SerializedName("timestamp")
-    val timestamp: String = ""
-)
+    val timestamp: String = "",
 
+    @SerializedName("type")
+    val type: String? = null,
+
+    @SerializedName("messageId")
+    val messageId: String? = null
+)

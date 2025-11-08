@@ -62,6 +62,7 @@ class ChatMessagesAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(Me
         private val ivStatus: ImageView = view.findViewById(R.id.iv_status)
 
         fun bind(message: ChatMessage) {
+            try { android.util.Log.d("ChatMessagesAdapter", "BIND SENT: id=${message.id} fromMe=${message.isFromMe} content=${message.content}") } catch (_: Exception) {}
             tvMessage.text = message.content
             tvTime.text = formatTime(message.timestamp)
 
@@ -80,9 +81,13 @@ class ChatMessagesAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(Me
     class ReceivedMessageViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         private val ivAvatar: ImageView = view.findViewById(R.id.iv_avatar)
         private val tvMessage: TextView = view.findViewById(R.id.tv_message)
+        private val tvSenderName: TextView = view.findViewById(R.id.tv_sender_name)
         private val tvTime: TextView = view.findViewById(R.id.tv_time)
 
         fun bind(message: ChatMessage) {
+            try { android.util.Log.d("ChatMessagesAdapter", "BIND RECV: id=${message.id} fromMe=${message.isFromMe} content=${message.content}") } catch (_: Exception) {}
+            // Show sender name (username) when available, otherwise fall back to senderId/email
+            tvSenderName.text = message.senderName?.takeIf { it.isNotBlank() } ?: message.senderId
             tvMessage.text = message.content
             tvTime.text = formatTime(message.timestamp)
 
@@ -110,4 +115,3 @@ class ChatMessagesAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(Me
         override fun areContentsTheSame(oldItem: ChatMessage, newItem: ChatMessage) = oldItem == newItem
     }
 }
-

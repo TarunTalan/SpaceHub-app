@@ -181,7 +181,7 @@ class CommunityRepository private constructor(private val context: Context) {
         } catch (t: Throwable) { Result.failure(t) }
     }
 
-    // Rooms (per provided API definitions)
+    // Rooms
     suspend fun createRoom(communityId: String, roomName: String): Result<Unit> {
         return try {
             val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
@@ -194,7 +194,7 @@ class CommunityRepository private constructor(private val context: Context) {
         } catch (t: Throwable) { Result.failure(t) }
     }
 
-    // Create a chat room under anexisting room (simple, API-aligned)
+    // Create a chat room under an existing room
     suspend fun createChatRoom(communityId: String, roomId: String, chatRoomName: String): Result<DataChatRoom> {
         return withContext(Dispatchers.IO) {
             try {
@@ -207,31 +207,31 @@ class CommunityRepository private constructor(private val context: Context) {
                 } catch (_: Exception) { /* ignore local lookup errors */ }
 
                 if (parentRoomCode.isNullOrBlank()) {
-                    val remoteRoomsRes = getAllRooms(communityId)
-                    if (remoteRoomsRes.isSuccess) {
-                        val list = remoteRoomsRes.getOrNull() ?: emptyList()
-                        val match = list.firstOrNull { r -> r.id == roomId || r.roomCode == roomId || r.name == roomId }
-                        if (match != null) parentRoomCode = if (match.roomCode.isNotBlank()) match.roomCode else match.id
+                    try {
+                        val summaryResp = api.getChatRoomSummary(roomId)
+                        if (summaryResp.isSuccessful && (summaryResp.body()?.status in listOf(200, 201))) {
+                            parentRoomCode = roomId
+                        }
+                    } catch (_: Exception) {
                     }
                 }
 
-                // Fallback: use provided roomId if nothing resolved
-                if (parentRoomCode.isNullOrBlank()) parentRoomCode = roomId
-
-                if (parentRoomCode.isNullOrBlank()) return@withContext Result.failure(RuntimeException("Unable to resolve parent room code"))
+                // Fallback to provided roomId if nothing resolved
+                val parentCode: String = parentRoomCode?.takeIf { it.isNotBlank() } ?: roomId
 
                 // Build multipart parts per API contract: name, chatRoomCode
                 val namePart = chatRoomName.trim().toRequestBody("text/plain".toMediaTypeOrNull())
-                val codePart = parentRoomCode.trim().toRequestBody("text/plain".toMediaTypeOrNull())
+                val codePart = parentCode.trim().toRequestBody("text/plain".toMediaTypeOrNull())
 
                 val resp = api.createChatRoom(namePart, codePart)
                 if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
                     val created = resp.body()!!.data
+                    // DataChatRoom model uses 'chatRoomCode' as the field name
                     val dataChatRoom = DataChatRoom(
                         createdAt = created.createdAt,
                         id = created.id,
                         name = created.name,
-                        roomCode = created.roomCode
+                        chatRoomCode = created.chatRoomCode
                     )
                     Result.success(dataChatRoom)
                 } else {
@@ -245,31 +245,25 @@ class CommunityRepository private constructor(private val context: Context) {
         }
     }
 
-    // Get all chat rooms for a user
-    suspend fun getAllChatRooms(): Result<List<DataChatRoom>> {
+    // Fetch summary of chat rooms inside a specific parent room (by roomCode)
+    suspend fun getChatRoomSummary(roomCode: String): Result<List<DataChatRoom>> {
         return withContext(Dispatchers.IO) {
             try {
-                val email = userData.getEmail() ?: return@withContext Result.failure(IllegalStateException("Email not set"))
-                Log.d("CommunityRepo", "getAllChatRooms: requesting for email=$email")
-                val resp = api.getAllChatRooms(email)
-                Log.d("CommunityRepo", "getAllChatRooms: response code=${resp.code()} successful=${resp.isSuccessful}")
-                if (resp.isSuccessful) {
-                    val body = resp.body()
-                    if (body?.status in listOf(200, 201)) {
-                        val chatRooms = body?.data ?: emptyList()
-                        return@withContext Result.success(chatRooms)
-                    } else {
-                        val errMsg = body?.message ?: "Unexpected response"
-                        return@withContext Result.failure(RuntimeException(errMsg))
-                    }
-                } else {
-                    val errBody = try { resp.errorBody()?.string() } catch (_: Exception) { null }
-                    val msg = errBody ?: "HTTP ${resp.code()}"
-                    return@withContext Result.failure(RuntimeException(msg))
+                val resp = api.getChatRoomSummary(roomCode)
+                if (!resp.isSuccessful) return@withContext Result.failure(RuntimeException("HTTP ${resp.code()}"))
+                val body = resp.body() ?: return@withContext Result.failure(RuntimeException("Empty response"))
+                if (body.status !in listOf(200, 201)) return@withContext Result.failure(RuntimeException(body.message))
+
+                // `Data` model fields are non-nullable (chatRoomCode, name)
+                val mapped = body.data.map { item ->
+                    DataChatRoom(
+                        createdAt = 0L,
+                        id = item.chatRoomCode,
+                        name = item.name,
+                        chatRoomCode = item.chatRoomCode
+                    )
                 }
-            } catch (ce: kotlin.coroutines.cancellation.CancellationException) {
-                // propagate coroutine cancellation
-                throw ce
+                Result.success(mapped)
             } catch (t: Throwable) {
                 Result.failure(t)
             }
@@ -570,6 +564,7 @@ class CommunityRepository private constructor(private val context: Context) {
         }
     }
 
+    @Suppress("unused")
     suspend fun getPendingRequestsCount(): Result<Int> {
         return try {
             val requester = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
@@ -579,7 +574,6 @@ class CommunityRepository private constructor(private val context: Context) {
 
             val dataArr: JsonArray? = when {
                 root == null || root.isJsonNull -> null
-                root.isJsonArray -> root.asJsonArray
                 root is JsonObject -> root.asJsonObject.getAsJsonArray("data") ?: run {
                     val obj = root.asJsonObject
                     obj.entrySet().firstOrNull { it.value.isJsonArray }?.value?.asJsonArray
@@ -694,6 +688,7 @@ class CommunityRepository private constructor(private val context: Context) {
         }
     }
 
+    @Suppress("unused")
     suspend fun leaveCommunityRemote(communityName: String): Result<Unit> {
         return try {
             val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))

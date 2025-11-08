@@ -362,9 +362,11 @@
 
     <fragment
             android:id="@+id/chatRoomFragment"
-            android:name="com.example.myapplication.ui.friends.SearchFriendsFragment"
-            android:label="Search Friends"
-            tools:layout="@layout/fragment_search_friends">
+            android:name="com.example.myapplication.ui.dashboard.ChatRoomFragment"
+            android:label="ChatRoomFragment"
+            tools:layout="@layout/fragment_chat_room">
+        <argument android:name="chatRoomCode" app:argType="string" />
+        <argument android:name="chatRoomName" app:argType="string" />
         <action android:id="@+id/action_chatRoomFragment_to_dashboardFragment" app:destination="@id/dashboardFragment"/>
         <action android:id="@+id/action_chatRoomFragment_to_searchFriendsFragment" app:destination="@id/searchFriendsFragment"/>
     </fragment>

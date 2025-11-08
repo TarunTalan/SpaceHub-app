@@ -69,8 +69,8 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
         }
 
         // Initialize views
-        val backButton = view.findViewById<ImageView>(R.id.imageView)
-        val tvUsername = view.findViewById<TextView>(R.id.tvUsername)
+        val backButton: ImageView? = view.findViewById(R.id.imageView)
+        val tvUsername: TextView? = view.findViewById(R.id.tvUsername)
         val settingsButton = view.findViewById<ImageView>(R.id.setting_community)
         val communityImage = view.findViewById<ImageView>(R.id.community_image)
         val communityNameTv = view.findViewById<TextView>(R.id.community_name)
@@ -122,8 +122,17 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
         // Setup chat rooms RecyclerView with adapter
         chatRoomsAdapter = RoomAdapter(
             onClick = { chatRoom ->
-                Toast.makeText(requireContext(), "Opening chat room: ${chatRoom.name}", Toast.LENGTH_SHORT).show()
-                // TODO: Navigate to chat room detail or messages
+                try {
+                    val code = if (chatRoom.roomCode.isNotBlank()) chatRoom.roomCode else chatRoom.id
+                    val args = Bundle().apply {
+                        putString("chatRoomCode", code)
+                        putString("chatRoomName", chatRoom.name)
+                        putString("communityImageUrl", communityImageUrl)
+                    }
+                    findNavController().navigate(R.id.chatRoomFragment, args)
+                } catch (e: Exception) {
+                    Toast.makeText(requireContext(), "Failed to open chat: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
             },
             onLongClick = { chatRoom ->
                 // Show delete dialog
@@ -161,13 +170,13 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
         settingsButton?.visibility = View.GONE
 
         // Load existing chat rooms for this parent room. Prefer `roomCode` if present.
-        roomViewModel.loadChatRoomsForCommunity(communityId, currentRoomId ?: roomId!!)
+        roomViewModel.loadChatRoomsForCommunity(communityId, currentRoomId ?: roomId)
         viewLifecycleOwner.lifecycleScope.launch {
             roomViewModel.chatRooms.collect { chatRoomsList ->
                 chatRooms.clear()
                 // Map DataChatRoom (flat) into DataRoom for adapter compatibility
                 chatRooms.addAll(chatRoomsList.map { dataChatRoom ->
-                    DataRoom(id = dataChatRoom.roomCode, name = dataChatRoom.name, roomCode = dataChatRoom.roomCode)
+                    DataRoom(id = dataChatRoom.chatRoomCode, name = dataChatRoom.name, roomCode = dataChatRoom.chatRoomCode)
                 })
                 updateChatRoomsUI()
             }
@@ -244,8 +253,8 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
                                 val res = repo.createChatRoom(commId, rId, name)
                                 val created = res.getOrNull()
                                 if (created != null) {
-                                    val effectiveId = if (created.roomCode.isNotBlank()) created.roomCode else created.id
-                                    val newRoom = DataRoom(id = effectiveId, name = created.name.ifBlank { name }, roomCode = created.roomCode)
+                                    val effectiveId = if (created.chatRoomCode.isNotBlank()) created.chatRoomCode else created.id
+                                    val newRoom = DataRoom(id = effectiveId, name = created.name.ifBlank { name }, roomCode = created.chatRoomCode)
                                     chatRooms.add(0, newRoom)
                                     updateChatRoomsUI()
                                     Toast.makeText(requireContext(), "Chat room '${created.name}' created", Toast.LENGTH_SHORT).show()

@@ -11,7 +11,6 @@ import android.graphics.Bitmap
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import okhttp3.MultipartBody
-import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import androidx.fragment.app.Fragment
@@ -176,7 +175,7 @@ class EditGroupFragment : Fragment(R.layout.fragment_edit_group) {
                             }
                         }
                         .show()
-                 } catch (e: Exception) {
+                 } catch (_: Exception) {
                      Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
                  }
              }

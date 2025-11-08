@@ -270,4 +270,35 @@ class LocalGroupRepository private constructor(private val context: Context) {
             Result.success(d)
         } catch (t: Throwable) { Result.failure(t) }
     }
+
+    // ----- Group-level chat room APIs -----
+    // Fetch chat rooms inside a given local group (use group.chatRoomCode or accept a roomCode)
+    suspend fun getGroupChatRooms(groupRoomCode: String): Result<List<com.example.myapplication.data.chat_room.model.DataChatRoom>> = withContext(Dispatchers.IO) {
+        try {
+            val resp = api.getChatRoomSummary(groupRoomCode)
+            if (!resp.isSuccessful) return@withContext Result.failure(RuntimeException("HTTP ${resp.code()}"))
+            val body = resp.body() ?: return@withContext Result.failure(RuntimeException("Empty response"))
+            if (body.status !in listOf(200, 201)) return@withContext Result.failure(RuntimeException(body.message))
+            val mapped = body.data.map { d -> com.example.myapplication.data.chat_room.model.DataChatRoom(createdAt = 0L, id = d.chatRoomCode, name = d.name, chatRoomCode = d.chatRoomCode) }
+            Result.success(mapped)
+        } catch (t: Throwable) { Result.failure(t) }
+    }
+
+    // Create a chat room inside a local group using the group's roomCode (or the provided roomCode)
+    suspend fun createChatRoomInGroup(groupRoomCode: String, chatRoomName: String): Result<com.example.myapplication.data.chat_room.model.DataChatRoom> = withContext(Dispatchers.IO) {
+        try {
+            val namePart = chatRoomName.trim().toRequestBody("text/plain".toMediaTypeOrNull())
+            val codePart = groupRoomCode.trim().toRequestBody("text/plain".toMediaTypeOrNull())
+            val resp = api.createChatRoom(namePart, codePart)
+            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
+                val created = resp.body()!!.data
+                val dataChatRoom = com.example.myapplication.data.chat_room.model.DataChatRoom(createdAt = created.createdAt, id = created.id, name = created.name, chatRoomCode = created.chatRoomCode)
+                Result.success(dataChatRoom)
+            } else {
+                val errBody = try { resp.errorBody()?.string() } catch (_: Exception) { null }
+                val msg = resp.body()?.message ?: errBody ?: "HTTP ${resp.code()}"
+                Result.failure(RuntimeException(msg))
+            }
+        } catch (t: Throwable) { Result.failure(t) }
+    }
 }
