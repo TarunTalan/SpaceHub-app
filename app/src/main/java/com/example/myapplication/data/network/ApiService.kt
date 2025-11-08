@@ -101,7 +101,7 @@ interface ApiService {
     @POST("community/members")
     suspend fun getAllMembers(
         @Body body: GetAllMembersRequest
-    ): Response<GetAllMembersResponse>
+    ): Response<com.example.myapplication.data.community.model.CommunityGetAllMembersResponse>
 
     @POST("community/changeRole")
     suspend fun changeRole(
@@ -278,7 +278,7 @@ interface ApiService {
         @Path("groupId") groupId: String
     ): Response<GetLocalGroupDetailsResponse>
 
-    @DELETE("local-group/delete")
+    @HTTP(method = "DELETE", path = "local-group/delete", hasBody = true)
     suspend fun deleteLocalGroup(
         @Body body: DeleteLocalGroupRequest
     ): Response<DeleteLocalGroupResponse>
@@ -286,7 +286,7 @@ interface ApiService {
     @GET("local-group/{localGroupId}/members")
     suspend fun getLocalGroupMembers(
         @Path("localGroupId") localGroupId: String
-    ): Response<GetAllMembersResponse>
+    ): Response<com.example.myapplication.data.groups.model.GroupGetAllMembersResponse>
 
     @Multipart
     @POST("local-group/{localGroupId}/settings")

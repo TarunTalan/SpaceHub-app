@@ -123,12 +123,15 @@
                             app:layout_constraintStart_toStartOf="parent"
                             app:layout_constraintEnd_toEndOf="parent"/>
 
-                    <ImageView
+                    <com.google.android.material.imageview.ShapeableImageView
                             android:layout_width="80dp"
                             android:layout_height="80dp"
                             android:id="@+id/grp_image"
                             android:src="@drawable/default_comm_icon"
                             android:layout_marginBottom="-40dp"
+                            android:scaleType="centerCrop"
+                            android:clipToOutline="true"
+                            app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Circle"
                             app:layout_constraintBottom_toBottomOf="@id/grp_banner"
                             app:layout_constraintStart_toStartOf="@+id/guideline_start"/>
 

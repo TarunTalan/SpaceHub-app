@@ -107,20 +107,55 @@ class GroupDescriptionFragment : BaseFragment(R.layout.fragment_group_descriptio
                 try { setLoaderVisible(false) } catch (_: Exception) {}
 
                 if (result != null) {
-                    // success
-                    Snackbar.make(view, "Local group created", Snackbar.LENGTH_SHORT).show()
-                    sharedVm.clear()
+                    // result is Result<CreateLocalGroupResponse>
+                    if (result.isSuccess) {
+                        val created = result.getOrNull()?.data
+                        // Prepare a small bundle with created group details so dashboard/tab can update immediately
+                        try {
+                            val nav = findNavController()
+                            val preview = sharedVm.selectedContentUri.value?.toString() ?: sharedVm.selectedImagePath.value
+                            val bundle = Bundle().apply {
+                                putString("id", created?.id)
+                                putString("name", created?.name)
+                                putString("imageUrl", created?.imageUrl)
+                                putString("previewUri", preview)
+                                putInt("totalMembers", created?.totalMembers ?: 0)
+                            }
+                            // Prefer previousBackStackEntry (the screen we'll return to) so it receives the bundle when we pop
+                            val previous = nav.previousBackStackEntry
+                            if (previous != null) {
+                                previous.savedStateHandle.set("local_group_created_item", bundle)
+                                previous.savedStateHandle.set("refresh_local_groups", true)
+                            } else {
+                                // Fallbacks: current and explicit dashboard entry if available
+                                nav.currentBackStackEntry?.savedStateHandle?.set("local_group_created_item", bundle)
+                                nav.currentBackStackEntry?.savedStateHandle?.set("refresh_local_groups", true)
+                                runCatching {
+                                    val entry = nav.getBackStackEntry(R.id.dashboardFragment)
+                                    entry.savedStateHandle.set("local_group_created_item", bundle)
+                                    entry.savedStateHandle.set("refresh_local_groups", true)
+                                }
+                            }
+                        } catch (_: Exception) {}
+                     }
+                      // success
+                      Snackbar.make(view, "Local group created", Snackbar.LENGTH_SHORT).show()
+                      sharedVm.clear()
 
-                    // Notify dashboard/local-groups tab to refresh
-                    try {
-                        val nav = findNavController()
-                        // set flag on current and dashboard entry if present
-                        nav.currentBackStackEntry?.savedStateHandle?.set("local_group_created", true)
-                        runCatching {
-                            val entry = nav.getBackStackEntry(R.id.dashboardFragment)
-                            entry.savedStateHandle.set("local_group_created", true)
-                        }
-                    } catch (_: Exception) {}
+                      // Notify dashboard/local-groups tab to refresh
+                     try {
+                         val nav = findNavController()
+                         val previous = nav.previousBackStackEntry
+                         if (previous != null) {
+                             previous.savedStateHandle.set("local_group_created", true)
+                         } else {
+                             nav.currentBackStackEntry?.savedStateHandle?.set("local_group_created", true)
+                             runCatching {
+                                 val entry = nav.getBackStackEntry(R.id.dashboardFragment)
+                                 entry.savedStateHandle.set("local_group_created", true)
+                             }
+                         }
+                     } catch (_: Exception) {}
 
                     // Navigate back to dashboard; clear backstack similar to community flow
                     runCatching {

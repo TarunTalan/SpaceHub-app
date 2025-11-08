@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.os.Bundle
+import android.util.Log
 import android.util.TypedValue
 import android.view.View
 import android.widget.ImageView
@@ -42,17 +43,28 @@ import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.appcompat.app.AlertDialog
 import androidx.core.graphics.drawable.DrawableCompat
 import androidx.core.graphics.toColorInt
+import com.example.myapplication.ui.dashboard.adapter.CommunityListAdapter
+import com.example.myapplication.ui.dashboard.adapter.CommunityUi
+import com.example.myapplication.ui.group.LocalGroupsViewModel
 
 class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
 
     private val sharedVm: ProfileSharedViewModel by activityViewModels()
     private val communityVm: CommunityViewModel by viewModels()
+    private val localGroupsVm: LocalGroupsViewModel by viewModels()
 
     // Store reference to badge update function
     private var updateBadgeFn: (() -> Unit)? = null
     private val roleBackfilled = mutableSetOf<String>()
 
+    private lateinit var localGroupsAdapter: CommunityListAdapter
+    private var rvLocalGroups: RecyclerView? = null
+    private var tvLocalGroupsHeader: TextView? = null
+
+    private val TAG = "DashboardLocalGroups"
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        Log.d(TAG, "onViewCreated: DashboardFragment created")
         super.onViewCreated(view, savedInstanceState)
 
         // No global loader here; we'll show a loader only during the one-time bootstrap below
@@ -237,6 +249,9 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
                     val communitiesDeferred = async { communityRepo.fetchMyCommunitiesRemote(email) }
                     val pendingRequestsDeferred = async { communityRepo.getMyPendingRequests() }
                     val incomingFriendRequestsDeferred = async { friendsRepo.getIncomingRequests() }
+
+                    // Also refresh local groups
+                    localGroupsVm.loadGroups()
 
                     // Wait for all requests to complete
                     val communitiesRes = communitiesDeferred.await()
@@ -465,6 +480,154 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         // Attach to both lists (you may prefer only on joined communities list)
         attachSwipeToLeave(rvYourCommunities, yourAdapter)
         attachSwipeToLeave(rvJoinedCommunities, joinedAdapter)
+
+        // Local Groups section
+        rvLocalGroups = view.findViewById(R.id.rv_local_groups_dashboard)
+        tvLocalGroupsHeader = view.findViewById(R.id.tv_local_groups)
+        localGroupsAdapter = CommunityListAdapter({ item ->
+            // On click, fetch group details before navigating
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    Log.d(TAG, "Clicked local group: id=${item.communityId}, name=${item.name}")
+                    showLoader()
+                    val repo = com.example.myapplication.data.groups.repository.LocalGroupRepository.getInstance(requireContext())
+                    val res = repo.getLocalGroupDetails(item.communityId)
+                    hideLoader()
+                    if (res.isSuccess) {
+                        val data = res.getOrNull()
+                        Log.d(TAG, "getLocalGroupDetails success: $data")
+                        findNavController().navigate(
+                            R.id.action_dashboardFragment_to_localGroupDetailFragment,
+                            Bundle().apply {
+                                putString("communityId", data?.id)
+                                putString("name", data?.name)
+                                putString("imageUrl", data?.imageUrl?.toString())
+                                putString("description", data?.description)
+                                putInt("totalMembers", data?.totalMembers ?: 0)
+                                putStringArrayList("memberEmails", ArrayList(data?.memberEmails ?: emptyList()))
+                            }
+                        )
+                    } else {
+                        Log.e(TAG, "getLocalGroupDetails failed: ${res.exceptionOrNull()?.message}", res.exceptionOrNull())
+                        android.widget.Toast.makeText(requireContext(), res.exceptionOrNull()?.message ?: "Failed to load group details", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    hideLoader()
+                    Log.e(TAG, "Exception in local group click handler", e)
+                    android.widget.Toast.makeText(requireContext(), e.message ?: "Failed to load group details", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        })
+        rvLocalGroups?.layoutManager = LinearLayoutManager(requireContext())
+        rvLocalGroups?.adapter = localGroupsAdapter
+        // Divider (optional)
+        try {
+            val deco = DividerItemDecoration(requireContext(), DividerItemDecoration.VERTICAL)
+            ContextCompat.getDrawable(requireContext(), R.drawable.divider_thin)?.let { d -> deco.setDrawable(d) }
+            rvLocalGroups?.addItemDecoration(deco)
+        } catch (_: Exception) {}
+        // Observe local groups from ViewModel
+        Log.d(TAG, "onViewCreated: Setting up local groups ViewModel observer")
+        viewLifecycleOwner.lifecycleScope.launch {
+            Log.d(TAG, "onViewCreated: Entered localGroupsVm.groups launch block")
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                Log.d(TAG, "onViewCreated: Entered repeatOnLifecycle for localGroupsVm.groups")
+                localGroupsVm.groups.collect { list ->
+                    Log.d(TAG, "localGroupsVm.groups.collect: list size = ${list.size}")
+                    val ui = list.map { g ->
+                        val communityId = g.id
+                        val idInt = try { communityId.toInt() } catch (_: Exception) { communityId.hashCode() }
+                        val imageUrl = g.imageUrl as? String
+                        val mapped = CommunityUi(
+                            communityId = communityId,
+                            id = idInt,
+                            name = g.name,
+                            imageUrl = imageUrl,
+                            subtitle = "${g.totalMembers} members",
+                            isLocal = true,
+                            isRequested = false,
+                            isOwner = false,
+                            isAdmin = false,
+                            isMember = true
+                        )
+                        Log.d(TAG, "Mapped local group: $mapped from DataX: $g")
+                        mapped
+                    }
+                    Log.d(TAG, "Updating localGroupsAdapter with ${ui.size} items: $ui")
+                    localGroupsAdapter.submitList(ui)
+                    // Hide header if empty
+                    tvLocalGroupsHeader?.visibility = if (ui.isEmpty()) View.GONE else View.VISIBLE
+                    rvLocalGroups?.visibility = if (ui.isEmpty()) View.GONE else View.VISIBLE
+                }
+                // trigger load once
+                Log.d(TAG, "onViewCreated: Calling localGroupsVm.loadGroups() on dashboard start")
+                localGroupsVm.loadGroups()
+            }
+        }
+        Log.d(TAG, "onViewCreated: Setting up savedStateHandle observer for local_group_created_item")
+        // Observe savedStateHandle for local_group_created_item and prepend to local groups list
+        try {
+            val nav = findNavController()
+            fun observeHandle(handleProvider: (() -> androidx.lifecycle.SavedStateHandle?)?) {
+                try {
+                    val handle = try { handleProvider?.invoke() } catch (_: Exception) { null }
+                    handle ?: return
+                    handle.getLiveData<Bundle>("local_group_created_item").observe(viewLifecycleOwner) { bundle ->
+                        Log.d(TAG, "savedStateHandle observer fired: bundle = $bundle")
+                        if (bundle != null) {
+                            try {
+                                val id = bundle.getString("id") ?: return@observe
+                                val already = localGroupsAdapter.currentList.any { it.communityId == id }
+                                Log.d(TAG, "Checking for duplicate: already = $already, id = $id")
+                                if (already) {
+                                    handle.remove<Bundle>("local_group_created_item")
+                                    return@observe
+                                }
+                                val name = bundle.getString("name") ?: "Unnamed"
+                                val imageUrl = bundle.getString("imageUrl") ?: bundle.getString("previewUri")
+                                val totalMembers = bundle.getInt("totalMembers", 0)
+                                val idInt = try { id.toInt() } catch (_: Exception) { id.hashCode() }
+                                val newUi = CommunityUi(
+                                    communityId = id,
+                                    id = idInt,
+                                    name = name,
+                                    imageUrl = imageUrl,
+                                    subtitle = "${totalMembers} members",
+                                    isLocal = true,
+                                    isRequested = false,
+                                    isOwner = true,
+                                    isAdmin = false,
+                                    isMember = true
+                                )
+                                val current = localGroupsAdapter.currentList
+                                val updated = listOf(newUi) + current
+                                Log.d(TAG, "Prepending new local group to adapter: $newUi")
+                                localGroupsAdapter.submitList(updated)
+                                try { rvLocalGroups?.scrollToPosition(0) } catch (_: Exception) {}
+                                handle.remove<Bundle>("local_group_created_item")
+                                tvLocalGroupsHeader?.visibility = View.VISIBLE
+                                rvLocalGroups?.visibility = View.VISIBLE
+                            } catch (e: Exception) { Log.e(TAG, "Error adding new local group", e) }
+                        }
+                    }
+                } catch (e: Exception) { Log.e(TAG, "Error in observeHandle", e) }
+            }
+            runCatching { observeHandle { nav.getBackStackEntry(R.id.dashboardFragment).savedStateHandle } }
+            try { observeHandle { nav.currentBackStackEntry?.savedStateHandle } } catch (_: Exception) {}
+            try { observeHandle { nav.previousBackStackEntry?.savedStateHandle } } catch (_: Exception) {}
+        } catch (e: Exception) { Log.e(TAG, "Error setting up savedStateHandle observer", e) }
+
+        // Observe refresh_local_groups flag to trigger API reload after group creation
+        try {
+            val nav = findNavController()
+            nav.currentBackStackEntry?.savedStateHandle?.getLiveData<Boolean>("refresh_local_groups")?.observe(viewLifecycleOwner) { shouldRefresh ->
+                if (shouldRefresh == true) {
+                    Log.d(TAG, "refresh_local_groups flag detected, reloading local groups from API")
+                    localGroupsVm.loadGroups()
+                    nav.currentBackStackEntry?.savedStateHandle?.set("refresh_local_groups", false)
+                }
+            }
+        } catch (_: Exception) {}
     }
 
     override fun onResume() {

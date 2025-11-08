@@ -43,7 +43,7 @@
     <!-- Circle Shape for community avatar -->
     <style name="ShapeAppearance.App.Circle" parent="ShapeAppearance.MaterialComponents.SmallComponent">
         <item name="cornerFamily">rounded</item>
-        <!-- large cornerSize to ensure a circle for 95dp container -->
-        <item name="cornerSize">48dp</item>
+        <!-- use percentage corner so it becomes a perfect circle for any size -->
+        <item name="cornerSize">50%</item>
     </style>
 </resources>

@@ -6,6 +6,8 @@ import com.example.myapplication.data.community.model.RequestJoinResponse
 import com.example.myapplication.data.groups.model.*
 import com.example.myapplication.data.network.NetworkModule
 import com.example.myapplication.data.user.UserDataManager
+import com.example.myapplication.data.groups.database.GroupsDatabase
+import com.example.myapplication.data.groups.model.LocalGroup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MultipartBody
@@ -17,8 +19,12 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
  * Repository for Local Group APIs. Mirrors CommunityRepository but without Room persistence.
  */
 class LocalGroupRepository private constructor(private val context: Context) {
-    private val api = NetworkModule.createApiService(context)
-    private val userData = UserDataManager.getInstance(context)
+    // Use application context to avoid leaks; initialize api lazily with appContext
+    private val appContext = context.applicationContext
+    private val api by lazy { NetworkModule.createApiService(appContext) }
+    private val userData = UserDataManager.getInstance(appContext)
+    private val db by lazy { GroupsDatabase.getInstance(appContext) }
+    private val groupDao by lazy { db.groupDao() }
 
     companion object {
         @Volatile
@@ -34,12 +40,39 @@ class LocalGroupRepository private constructor(private val context: Context) {
     suspend fun getAllLocalGroups(): Result<List<DataX>> = withContext(Dispatchers.IO) {
         try {
             val email = userData.getEmail() ?: return@withContext Result.failure(IllegalStateException("Email not set"))
+            android.util.Log.d("LocalGroupRepo", "getAllLocalGroups: email = $email")
             val resp = api.getAllLocalGroups(email)
             if (!resp.isSuccessful) return@withContext Result.failure(RuntimeException("HTTP ${resp.code()}"))
             val body = resp.body()
             val list = body?.data ?: emptyList()
+            android.util.Log.d("LocalGroupRepo", "getAllLocalGroups: returned list size = ${list.size}")
+            // Persist into DB
+            try {
+                val entities = list.map { d ->
+                    LocalGroup(
+                        groupId = d.id,
+                        name = d.name,
+                        description = d.description,
+                        imageUrl = d.imageUrl as? String,
+                        memberEmails = d.memberEmails ?: emptyList(),
+                        memberCount = d.totalMembers,
+                        createdByEmail = d.createdByEmail,
+                        chatRoomCode = d.chatRoomCode,
+                        createdAt = d.createdAt,
+                        updatedAt = d.updatedAt,
+                        isOwner = false,
+                        isMember = d.memberEmails.contains(userData.getEmail())
+                    )
+                }
+                groupDao.insertGroups(entities)
+                // delete groups not present anymore
+                val ids = entities.map { it.groupId }
+                groupDao.deleteGroupsNotIn(ids)
+            } catch (e: Exception) { android.util.Log.e("LocalGroupRepo", "Failed to persist groups", e) }
+
             Result.success(list)
         } catch (t: Throwable) {
+            android.util.Log.e("LocalGroupRepo", "getAllLocalGroups: error", t)
             Result.failure(t)
         }
     }
@@ -50,6 +83,25 @@ class LocalGroupRepository private constructor(private val context: Context) {
             if (!resp.isSuccessful) return@withContext Result.failure(RuntimeException("HTTP ${resp.code()}"))
             val body = resp.body()
             val data = body?.data ?: return@withContext Result.failure(RuntimeException("Empty body"))
+            // Persist single group
+            try {
+                val entity = LocalGroup(
+                    groupId = data.id,
+                    name = data.name,
+                    description = data.description,
+                    imageUrl = data.imageUrl as? String,
+                    memberEmails = data.memberEmails ?: emptyList(),
+                    memberCount = data.totalMembers,
+                    createdByEmail = data.createdByEmail,
+                    chatRoomCode = data.chatRoomCode,
+                    createdAt = data.createdAt,
+                    updatedAt = data.updatedAt,
+                    isOwner = (data.createdByEmail == userData.getEmail()),
+                    isMember = data.memberEmails.contains(userData.getEmail())
+                )
+                groupDao.insertGroup(entity)
+            } catch (e: Exception) { android.util.Log.e("LocalGroupRepo", "Failed to persist group details", e) }
+
             Result.success(data)
         } catch (t: Throwable) { Result.failure(t) }
     }
@@ -63,8 +115,31 @@ class LocalGroupRepository private constructor(private val context: Context) {
             val email = userData.getEmail() ?: return@withContext Result.failure(IllegalStateException("Email not set"))
             val creatorEmail = email.toRequestBody("text/plain".toMediaTypeOrNull())
             val resp = api.createLocalGroup(name = name, description = description, creatorEmail = creatorEmail, imageFile = imageFile)
-            if (!resp.isSuccessful) return@withContext Result.failure(RuntimeException("HTTP ${resp.code()}"))
+            if (!resp.isSuccessful) {
+                val errBody = try { resp.errorBody()?.string() } catch (_: Exception) { null }
+                return@withContext Result.failure(RuntimeException("HTTP ${resp.code()} - ${errBody ?: "no body"}"))
+            }
             val body = resp.body() ?: return@withContext Result.failure(RuntimeException("Empty response body"))
+            // If created, persist the new group returned inside body.data (CreateLocalGroupResponse.LocalGroupData)
+            try {
+                val d = body.data
+                val entity = LocalGroup(
+                    groupId = d.id,
+                    name = d.name,
+                    description = d.description,
+                    imageUrl = d.imageUrl as? String,
+                    memberEmails = d.memberEmails ?: emptyList(),
+                    memberCount = d.totalMembers,
+                    createdByEmail = d.createdByEmail,
+                    chatRoomCode = d.chatRoomCode,
+                    createdAt = d.createdAt,
+                    updatedAt = d.updatedAt,
+                    isOwner = (d.createdByEmail == userData.getEmail()),
+                    isMember = d.memberEmails.contains(userData.getEmail())
+                )
+                groupDao.insertGroup(entity)
+            } catch (e: Exception) { android.util.Log.e("LocalGroupRepo", "Failed to persist created group", e) }
+
             Result.success(body)
         } catch (t: Throwable) { Result.failure(t) }
     }
@@ -74,7 +149,14 @@ class LocalGroupRepository private constructor(private val context: Context) {
             val email = userData.getEmail() ?: return@withContext Result.failure(IllegalStateException("Email not set"))
             val req = DeleteLocalGroupRequest(groupId = groupId, requesterEmail = email)
             val resp = api.deleteLocalGroup(req)
-            if (resp.isSuccessful && resp.body()?.status in listOf(200, 201)) Result.success(Unit)
+            if (resp.isSuccessful && resp.body()?.status in listOf(200, 201)) {
+                try {
+                    // remove from DB
+                    // Delete by id using DAO helper
+                    groupDao.deleteGroupById(groupId)
+                } catch (e: Exception) { android.util.Log.e("LocalGroupRepo", "Failed to remove group from DB", e) }
+                Result.success(Unit)
+            }
             else Result.failure(RuntimeException("HTTP ${resp.code()} - ${resp.errorBody()?.string()}"))
         } catch (t: Throwable) { Result.failure(t) }
     }
@@ -84,7 +166,9 @@ class LocalGroupRepository private constructor(private val context: Context) {
             val resp = api.getLocalGroupMembers(localGroupId)
             if (!resp.isSuccessful) return@withContext Result.failure(RuntimeException("HTTP ${resp.code()}"))
             val body = resp.body()
-            val list: List<DataXXX> = (body?.data as? List<DataXXX>) ?: emptyList()
+            // API returns data as an array of member objects for local groups
+            val list: List<DataXXX> = body?.data ?: emptyList()
+            android.util.Log.d("LocalGroupRepo", "getLocalGroupMembers: parsed list size=${list.size} for id=$localGroupId")
             Result.success(list)
         } catch (t: Throwable) { Result.failure(t) }
     }
@@ -99,6 +183,26 @@ class LocalGroupRepository private constructor(private val context: Context) {
             val resp = api.updateLocalGroupSettings(localGroupId = localGroupId, requesterEmail = requesterEmailBody, name = nameBody, imageFile = imageFile)
             if (!resp.isSuccessful) return@withContext Result.failure(RuntimeException("HTTP ${resp.code()}"))
             val body = resp.body() ?: return@withContext Result.failure(RuntimeException("Empty response"))
+            // update DB record if fields changed
+            try {
+                val d = body.data
+                val entity = LocalGroup(
+                    groupId = d.id,
+                    name = d.name,
+                    description = d.description,
+                    imageUrl = d.imageUrl as? String,
+                    memberEmails = d.memberEmails ?: emptyList(),
+                    memberCount = d.totalMembers,
+                    createdByEmail = d.createdByEmail,
+                    chatRoomCode = d.chatRoomCode,
+                    createdAt = d.createdAt,
+                    updatedAt = d.updatedAt,
+                    isOwner = (d.createdByEmail == userData.getEmail()),
+                    isMember = d.memberEmails.contains(userData.getEmail())
+                )
+                groupDao.insertGroup(entity)
+            } catch (e: Exception) { android.util.Log.e("LocalGroupRepo", "Failed to persist updated settings", e) }
+
             Result.success(body)
         } catch (t: Throwable) { Result.failure(t) }
     }
@@ -110,6 +214,14 @@ class LocalGroupRepository private constructor(private val context: Context) {
             val resp = api.requestToJoinLocalGroup(req)
             if (!resp.isSuccessful) return@withContext Result.failure(RuntimeException("HTTP ${resp.code()}"))
             val body = resp.body() ?: return@withContext Result.failure(RuntimeException("Empty response"))
+            // update DB membership flag if join succeeded
+            try {
+                if (body.status == 200) {
+                    // mark membership true in DB
+                    groupDao.updateMembership(groupId, true)
+                }
+            } catch (e: Exception) { android.util.Log.e("LocalGroupRepo", "Failed to update membership in DB", e) }
+
             Result.success(body)
         } catch (t: Throwable) { Result.failure(t) }
     }

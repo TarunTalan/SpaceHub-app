@@ -4,6 +4,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
@@ -28,7 +29,7 @@ class MemberAdapter(
         private val ivAvatar: ImageView = view.findViewById(R.id.ivAvatar)
         private val tvName: TextView = view.findViewById(R.id.tvMemberName)
         private val tvRole: TextView = view.findViewById(R.id.tvMemberRole)
-        private val btnPromote: Button = view.findViewById(R.id.btnPromote)
+        private val btnPromote: ImageButton = view.findViewById(R.id.btnPromote)
         private val btnRemove: Button = view.findViewById(R.id.btnRemove)
 
         fun bind(item: Member) {

@@ -44,14 +44,19 @@ class LocalGroupsTabFragment : BaseFragment(R.layout.fragment_tab_local_groups) 
 
         adapter = CommunityListAdapter({ item ->
             runCatching {
-                findNavController().navigate(
-                    R.id.action_searchFragment_to_localGroupDetailFragment,
-                    Bundle().apply {
-                        putString("communityId", item.communityId)
-                        putString("name", item.name)
-                        putString("imageUrl", item.imageUrl)
-                    }
-                )
+                val nav = findNavController()
+                val current = nav.currentDestination?.id
+                val args = Bundle().apply {
+                    putString("communityId", item.communityId)
+                    putString("name", item.name)
+                    putString("imageUrl", item.imageUrl)
+                }
+
+                when (current) {
+                    R.id.searchFragment -> nav.navigate(R.id.action_searchFragment_to_localGroupDetailFragment, args)
+                    R.id.dashboardFragment -> nav.navigate(R.id.action_dashboardFragment_to_localGroupDetailFragment, args)
+                    else -> nav.navigate(R.id.localGroupDetailFragment, args) // direct fallback
+                }
             }
         }, { _ ->
             // default join action for local groups
@@ -103,6 +108,64 @@ class LocalGroupsTabFragment : BaseFragment(R.layout.fragment_tab_local_groups) 
                     vm.loadGroups()
                     // clear the flag
                     entry.savedStateHandle["local_group_created"] = false
+                }
+            }
+
+            // Also observe the more detailed created item bundle so this tab can prepend the new group without a full reload
+            entry.savedStateHandle.getLiveData<Bundle>("local_group_created_item").observe(viewLifecycleOwner) { bundle ->
+                if (bundle != null) {
+                    try {
+                        val id = bundle.getString("id") ?: return@observe
+                        val already = adapter.currentList.any { it.communityId == id }
+                        if (already) {
+                            entry.savedStateHandle.remove<Bundle>("local_group_created_item")
+                            return@observe
+                        }
+                        val name = bundle.getString("name") ?: "Unnamed"
+                        val imageUrl = bundle.getString("imageUrl") ?: bundle.getString("previewUri")
+                        val totalMembers = bundle.getInt("totalMembers", 0)
+                        val idInt = try { id.toInt() } catch (_: Exception) { id.hashCode() }
+                        val newUi = CommunityUi(
+                            communityId = id,
+                            id = idInt,
+                            name = name,
+                            imageUrl = imageUrl,
+                            subtitle = "${totalMembers} members",
+                            isLocal = true,
+                            isRequested = false,
+                            isOwner = true,
+                            isAdmin = false,
+                            isMember = true
+                        )
+                        val updated = listOf(newUi) + adapter.currentList
+                        adapter.submitList(updated)
+                        try { recycler.scrollToPosition(0) } catch (_: Exception) {}
+                        entry.savedStateHandle.remove<Bundle>("local_group_created_item")
+                        emptyView?.visibility = View.GONE
+                        emptyIllustration?.visibility = View.GONE
+                    } catch (_: Exception) {}
+                }
+            }
+
+            // Also support the simple refresh flag set by Group creation flow
+            entry.savedStateHandle.getLiveData<Boolean>("refresh_local_groups").observe(viewLifecycleOwner) { shouldRefresh ->
+                if (shouldRefresh == true) {
+                    vm.loadGroups()
+                    entry.savedStateHandle["refresh_local_groups"] = false
+                }
+            }
+
+            // Observe deletion events from GroupDetailFragment and remove the item immediately
+            entry.savedStateHandle.getLiveData<String>("local_group_deleted_id").observe(viewLifecycleOwner) { deletedId ->
+                if (!deletedId.isNullOrBlank()) {
+                    try {
+                        val updated = adapter.currentList.filterNot { it.communityId == deletedId }
+                        adapter.submitList(updated)
+                        try { recycler.scrollToPosition(0) } catch (_: Exception) {}
+                        emptyView?.visibility = if (adapter.itemCount == 0) View.VISIBLE else View.GONE
+                        emptyIllustration?.visibility = if (adapter.itemCount == 0) View.VISIBLE else View.GONE
+                    } catch (_: Exception) {}
+                    entry.savedStateHandle.remove<String>("local_group_deleted_id")
                 }
             }
         } catch (_: Exception) {}

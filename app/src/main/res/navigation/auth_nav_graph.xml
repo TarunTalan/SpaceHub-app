@@ -252,6 +252,8 @@
                 app:destination="@id/requestsInboxFragment"/>
         <action android:id="@+id/action_dashboardFragment_to_friendRequestsFragment"
                 app:destination="@id/friendRequestsFragment"/>
+        <action android:id="@+id/action_dashboardFragment_to_localGroupDetailFragment"
+                app:destination="@id/localGroupDetailFragment" />
     </fragment>
 
     <!-- Friend requests inbox screen -->
@@ -314,9 +316,11 @@
 
     <fragment
         android:id="@+id/localGroupDetailFragment"
-        android:name="com.example.myapplication.ui.dashboard.JoinCommunityFragment"
+        android:name="com.example.myapplication.ui.group.GroupDetailFragment"
         android:label="LocalGroupDetail"
-        tools:layout="@layout/fragment_join_community"/>
+        tools:layout="@layout/fragment_local_group_overview">
+        <action android:id="@+id/action_localGroupDetailFragment_to_groupMembersFragment" app:destination="@id/groupMembersFragment" />
+    </fragment>
 
     <fragment
             android:id="@+id/createCommunityFragment"
@@ -449,4 +453,12 @@
             android:name="com.example.myapplication.ui.group.CreateCommunityOrGroupFragment"
             android:label="CreateCommunityOrGroupFragment"
             tools:layout="@layout/fragment_create_community_or_group" />
+
+    <fragment
+        android:id="@+id/groupMembersFragment"
+        android:name="com.example.myapplication.ui.group.GroupMembersFragment"
+        android:label="GroupMembers"
+        tools:layout="@layout/fragment_group_members">
+        <argument android:name="communityId" app:argType="string" />
+    </fragment>
 </navigation>

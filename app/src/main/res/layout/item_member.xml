@@ -1,83 +1,113 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+             xmlns:app="http://schemas.android.com/apk/res-auto"
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:background="@color/transparent">
 
     <!-- Background actions (revealed on swipe) -->
     <RelativeLayout
-        android:id="@+id/bg_actions"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@color/transparent"
-        android:paddingEnd="16dp"
-        android:paddingStart="16dp">
+            android:id="@+id/bg_actions"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/transparent"
+            android:paddingEnd="16dp"
+            android:paddingStart="16dp">
 
         <ImageButton
-            android:id="@+id/btnDeleteReveal"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_alignParentEnd="true"
-            android:layout_centerVertical="true"
-            android:background="@android:color/transparent"
-            android:src="@drawable/delete"
-            android:contentDescription="@string/unknown_user"
-            android:tint="@android:color/white"/>
+                android:id="@+id/btnDeleteReveal"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:src="@drawable/delete"
+                android:contentDescription="@string/delete"
+                android:background="@drawable/ellipse_dull"
+                android:backgroundTint="@color/error_red"
+                android:padding="8dp"
+                app:tint="@android:color/white"
+                android:scaleType="centerInside"/>
     </RelativeLayout>
 
     <!-- Foreground content (swiped to reveal actions) -->
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/fg_container"
-        android:orientation="horizontal"
-        android:padding="12dp"
-        android:gravity="center_vertical"
-        android:background="@android:color/white"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="72dp"
+        android:padding="8dp"
+        android:background="@android:color/transparent">
 
         <ImageView
             android:id="@+id/ivAvatar"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:contentDescription="@string/profile_image"
             android:scaleType="centerCrop"
-            android:src="@drawable/default_comm_icon"
-            android:contentDescription="@string/unknown_user"/>
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
 
-        <LinearLayout
-            android:orientation="vertical"
+        <TextView
+            android:id="@+id/tvMemberName"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="12dp">
-            <TextView
-                android:id="@+id/tvMemberName"
-                android:textStyle="bold"
-                android:textSize="16sp"
-                android:textColor="#111111"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"/>
-            <TextView
-                android:id="@+id/tvMemberRole"
-                android:textColor="#666666"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"/>
-        </LinearLayout>
+            android:textAppearance="?attr/textAppearanceBody1"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            app:layout_constraintStart_toEndOf="@id/ivAvatar"
+            app:layout_constraintTop_toTopOf="@id/ivAvatar"
+            app:layout_constraintEnd_toStartOf="@+id/controls_container"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp" />
 
+        <TextView
+                android:id="@+id/tvMemberRole"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:textAppearance="?attr/textAppearanceCaption"
+                android:textColor="#666666"
+                android:textSize="14sp"
+                app:layout_constraintStart_toEndOf="@id/ivAvatar"
+                app:layout_constraintTop_toBottomOf="@id/tvMemberName"
+                app:layout_constraintEnd_toStartOf="@+id/controls_container"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                app:layout_constraintBottom_toBottomOf="parent"/>
+
+        <!-- Right-side action buttons container -->
         <LinearLayout
+            android:id="@+id/controls_container"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <Button
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <ImageButton
                 android:id="@+id/btnPromote"
-                android:text="Toggle Admin"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"/>
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:visibility="gone"
+                android:src="@drawable/promote"
+                android:contentDescription="@string/promote"
+                android:background="@drawable/ellipse_dull"
+                android:padding="8dp"
+                app:tint="@android:color/white"
+                android:scaleType="centerInside" />
+
             <Button
                 android:id="@+id/btnRemove"
-                android:text="Remove"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:text="@string/remove"
                 android:layout_marginStart="8dp"
-                android:visibility="gone"/>
+                android:visibility="gone"
+                android:textSize="12sp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"/>
         </LinearLayout>
-    </LinearLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </FrameLayout>

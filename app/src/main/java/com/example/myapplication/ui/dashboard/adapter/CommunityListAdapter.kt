@@ -67,7 +67,8 @@ class CommunityListAdapter(
     }
 
     inner class VH(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        private val img: ImageView? = itemView.findViewById(R.id.ivCover) ?: itemView.findViewById(R.id.imgAvatar)
+        // `imgAvatar` id does not exist in layouts; both community and group cards use `ivCover`.
+        private val img: ImageView? = itemView.findViewById(R.id.ivCover)
         private val tvName: TextView? = itemView.findViewById(R.id.tvName)
         private val tvSubtitle: TextView? = itemView.findViewById(R.id.tvDesc) ?: itemView.findViewById(R.id.tvSubtitle)
         private val btnJoinRequest: TextView? = itemView.findViewById(R.id.btnJoinRequest)

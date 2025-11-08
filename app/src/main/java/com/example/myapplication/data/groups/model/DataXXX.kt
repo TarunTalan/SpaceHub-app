@@ -1,9 +1,9 @@
 package com.example.myapplication.data.groups.model
 
 data class DataXXX(
-    val avatarKey: Any,
-    val avatarPreviewUrl: Any,
+    val avatarKey: String?,
+    val avatarPreviewUrl: String?,
     val email: String,
-    val id: Int,
-    val username: Any
+    val id: String,
+    val username: String?
 )

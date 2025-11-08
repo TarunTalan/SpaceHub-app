@@ -5,8 +5,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.myapplication.data.groups.repository.LocalGroupRepository
 import com.example.myapplication.data.groups.model.DataX
+import com.example.myapplication.data.groups.database.GroupsDatabase
+import com.example.myapplication.data.groups.model.LocalGroup
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class LocalGroupsViewModel(app: Application) : AndroidViewModel(app) {
@@ -20,6 +23,38 @@ class LocalGroupsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
+
+    private val groupDao = GroupsDatabase.getInstance(app.applicationContext).groupDao()
+
+    init {
+        // Observe DB immediately so UI shows cached groups without waiting for network
+        viewModelScope.launch {
+            groupDao.getAllGroupsFlow().collectLatest { list ->
+                try {
+                    val mapped = list.map { entity -> localGroupToDataX(entity) }
+                    android.util.Log.d("LocalGroupsVM", "DB emitted ${mapped.size} groups")
+                    _groups.value = mapped
+                } catch (t: Throwable) {
+                    _error.value = t.message
+                }
+            }
+        }
+    }
+
+    private fun localGroupToDataX(entity: LocalGroup): DataX {
+        return DataX(
+            chatRoomCode = entity.chatRoomCode ?: "",
+            createdAt = entity.createdAt ?: "",
+            createdByEmail = entity.createdByEmail ?: "",
+            description = entity.description ?: "",
+            id = entity.groupId,
+            imageUrl = entity.imageUrl ?: "",
+            memberEmails = entity.memberEmails,
+            name = entity.name,
+            totalMembers = entity.memberCount,
+            updatedAt = entity.updatedAt ?: ""
+        )
+    }
 
     fun loadGroups() {
         viewModelScope.launch {
@@ -44,4 +79,3 @@ class LocalGroupsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 }
-

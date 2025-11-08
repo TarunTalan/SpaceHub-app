@@ -165,6 +165,9 @@
     <string name="update_failed">Update failed</string>
     <string name="invalid_dob_format">Invalid date format. Use DD/MM/YYYY</string>
     <string name="toggle">Toggle</string>
+    <string name="toggle_admin">Toggle Admin</string>
+    <string name="remove">Remove</string>
+    <string name="promote">Promote</string>
 
     <!-- Search / Tabs related strings (missing, added to fix resource linking) -->
     <string name="cd_back">Back</string>

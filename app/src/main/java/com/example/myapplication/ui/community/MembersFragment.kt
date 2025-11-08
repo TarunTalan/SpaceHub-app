@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.drawable.DrawableCompat
+import androidx.core.graphics.toColorInt
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DividerItemDecoration
@@ -47,14 +48,8 @@ class MembersFragment : Fragment(R.layout.fragment_members) {
                 lifecycleScope.launch {
                     val res = CommunityRepository.getInstance(requireContext()).changeMemberRole(communityId, member.email, next)
                     if (res.isSuccess) {
-                        // Reload members after role change
-                        view?.let { v ->
-                            val rvReload = v.findViewById<RecyclerView>(R.id.rv_members)
-                            val progressReload = v.findViewById<ProgressBar>(R.id.progress)
-                            if (rvReload != null && progressReload != null) {
-                                loadMembers(communityId, rvReload, progressReload)
-                            }
-                        }
+                        // Reload members after role change using captured RecyclerView + ProgressBar
+                        loadMembers(communityId, rv, progress)
                     } else {
                         Toast.makeText(requireContext(), "Failed", Toast.LENGTH_SHORT).show()
                     }
@@ -64,14 +59,8 @@ class MembersFragment : Fragment(R.layout.fragment_members) {
                 lifecycleScope.launch {
                     val res = CommunityRepository.getInstance(requireContext()).removeMember(communityId, member.email)
                     if (res.isSuccess) {
-                        // Reload members after removal
-                        view?.let { v ->
-                            val rvReload = v.findViewById<RecyclerView>(R.id.rv_members)
-                            val progressReload = v.findViewById<ProgressBar>(R.id.progress)
-                            if (rvReload != null && progressReload != null) {
-                                loadMembers(communityId, rvReload, progressReload)
-                            }
-                        }
+                        // Reload members after removal using captured RecyclerView + ProgressBar
+                        loadMembers(communityId, rv, progress)
                     } else {
                         Toast.makeText(requireContext(), "Failed", Toast.LENGTH_SHORT).show()
                     }
@@ -144,15 +133,16 @@ class MembersFragment : Fragment(R.layout.fragment_members) {
                     .show()
             }
             override fun onChildDraw(c: Canvas, rv: RecyclerView, vh: RecyclerView.ViewHolder, dX: Float, dY: Float, actionState: Int, isCurrentlyActive: Boolean) {
+                // Foreground container (present in item_member layout)
                 val fg = vh.itemView.findViewById<View>(R.id.fg_container)
                 val tx = dX.coerceAtMost(0f)
-                fg.translationX = tx
+                fg?.translationX = tx
 
                 // Draw red bg + delete icon on left swipe
                 val itemView = vh.itemView
                 if (dX < 0) {
                     val bg = RectF(itemView.right + dX, itemView.top.toFloat(), itemView.right.toFloat(), itemView.bottom.toFloat())
-                    val paint = android.graphics.Paint().apply { color = Color.parseColor("#E53935") }
+                    val paint = android.graphics.Paint().apply { color = "#E53935".toColorInt() }
                     c.drawRect(bg, paint)
                     deleteIcon?.let { icon ->
                         val iconMargin = (itemView.height - 48) / 2

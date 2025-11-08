@@ -52,7 +52,14 @@ class TokenInterceptor(private val tokenStore: TokenStore) : Interceptor {
             "friends/respond",
             "friends/list",
             "friends/pending/incoming",
-            "search"
+            "search",
+            "local-group/create",
+            "local-group/all",
+            "local-group/{groupId}",
+            "local-group/delete",
+            "local-group/{localGroupId}/members",
+            "local-group/{localGroupId}/settings",
+            "local-group/join"
 
         )
         val isUnauthEndpoint = unauthEndpoints.any { path.contains(it, ignoreCase = true) }
@@ -62,8 +69,9 @@ class TokenInterceptor(private val tokenStore: TokenStore) : Interceptor {
 
         val token = tokenStore.getAccessToken()
         val tokenPresent = !token.isNullOrBlank()
+        val willAttach = !isUnauthEndpoint && tokenPresent && !hasSkipHeader
 
-        val newReq = if (!isUnauthEndpoint && tokenPresent && !hasSkipHeader) {
+        val newReq = if (willAttach) {
             original.newBuilder()
                 .header("Authorization", "Bearer $token")
                 .build()
@@ -71,7 +79,8 @@ class TokenInterceptor(private val tokenStore: TokenStore) : Interceptor {
             original
         }
 
+        val resp = chain.proceed(newReq)
 
-        return chain.proceed(newReq)
+        return resp
     }
 }

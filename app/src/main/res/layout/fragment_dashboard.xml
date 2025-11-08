@@ -104,7 +104,7 @@
                 app:layout_constraintTop_toBottomOf="@id/top_toolbar"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintBottom_toTopOf="@id/guideline_bottom"
+                app:layout_constraintBottom_toBottomOf="parent"
                 android:layout_marginTop="20dp">
 
             <androidx.core.widget.NestedScrollView
@@ -199,6 +199,35 @@
                             android:overScrollMode="never"
                             tools:listitem="@layout/item_community_card"
                             tools:itemCount="6"/>
+
+                    <!-- Local groups header row (with toggle, optional) -->
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content">
+                        <TextView
+                                android:id="@+id/tv_local_groups"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Local groups"
+                                android:textColor="@color/white"
+                                android:textSize="18sp"
+                                android:layout_marginStart="25dp"
+                                android:layout_marginTop="12dp"
+                                android:fontFamily="@font/roboto_semibold"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toTopOf="parent"
+                                app:layout_constraintBottom_toBottomOf="parent"/>
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+                    <!-- Local groups list (non-nested scrolling) -->
+                    <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rv_local_groups_dashboard"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:nestedScrollingEnabled="false"
+                            android:overScrollMode="never"
+                            tools:listitem="@layout/item_local_group_card"
+                            tools:itemCount="2"/>
 
                 </LinearLayout>
             </androidx.core.widget.NestedScrollView>
