@@ -89,8 +89,8 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
 
         ivNotification?.setOnClickListener {
             runCatching {
-                // Open friend requests inbox
-                findNavController().navigate(R.id.action_dashboardFragment_to_friendRequestsFragment)
+                // Open unified notifications inbox (friend + group join requests)
+                findNavController().navigate(R.id.action_dashboardFragment_to_notificationsFragment)
             }
         }
 
@@ -98,11 +98,19 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         fun updateBadge() {
             viewLifecycleOwner.lifecycleScope.launch {
                 try {
-                    val repo = com.example.myapplication.data.friends.repository.FriendsRepository.getInstance(requireContext())
-                    val res = repo.getIncomingRequests()
-                    val count = res.getOrNull()?.size ?: 0
-                    if (count > 0) {
-                        tvBadge?.text = if (count > 99) "99+" else count.toString()
+                    // friend requests
+                    val friendRepo = com.example.myapplication.data.friends.repository.FriendsRepository.getInstance(requireContext())
+                    val friendRes = friendRepo.getIncomingRequests()
+                    val friendCount = friendRes.getOrNull()?.size ?: 0
+
+                    // local community join requests (pending join requests)
+                    val commRepo = com.example.myapplication.data.community.repository.CommunityRepository.getInstance(requireContext())
+                    val joinRes = commRepo.getMyPendingRequests()
+                    val joinCount = joinRes.getOrNull()?.size ?: 0
+
+                    val total = friendCount + joinCount
+                    if (total > 0) {
+                        tvBadge?.text = if (total > 99) "99+" else total.toString()
                         tvBadge?.visibility = View.VISIBLE
                     } else {
                         tvBadge?.visibility = View.GONE
@@ -497,20 +505,20 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
                         val data = res.getOrNull()
                         Log.d(TAG, "getLocalGroupDetails success: $data")
                         findNavController().navigate(
-                            R.id.action_dashboardFragment_to_localGroupDetailFragment,
-                            Bundle().apply {
-                                putString("communityId", data?.id)
-                                putString("name", data?.name)
-                                putString("imageUrl", data?.imageUrl?.toString())
-                                putString("description", data?.description)
-                                putInt("totalMembers", data?.totalMembers ?: 0)
-                                putStringArrayList("memberEmails", ArrayList(data?.memberEmails ?: emptyList()))
-                            }
-                        )
-                    } else {
-                        Log.e(TAG, "getLocalGroupDetails failed: ${res.exceptionOrNull()?.message}", res.exceptionOrNull())
-                        android.widget.Toast.makeText(requireContext(), res.exceptionOrNull()?.message ?: "Failed to load group details", android.widget.Toast.LENGTH_SHORT).show()
-                    }
+                            R.id.localGroupDetailFragment,
+                             Bundle().apply {
+                                 putString("communityId", data?.id)
+                                 putString("name", data?.name)
+                                 putString("imageUrl", data?.imageUrl?.toString())
+                                 putString("description", data?.description)
+                                 putInt("totalMembers", data?.totalMembers ?: 0)
+                                 putStringArrayList("memberEmails", ArrayList(data?.memberEmails ?: emptyList()))
+                             }
+                         )
+                        } else {
+                            Log.e(TAG, "getLocalGroupDetails failed: ${res.exceptionOrNull()?.message}", res.exceptionOrNull())
+                            android.widget.Toast.makeText(requireContext(), res.exceptionOrNull()?.message ?: "Failed to load group details", android.widget.Toast.LENGTH_SHORT).show()
+                        }
                 } catch (e: Exception) {
                     hideLoader()
                     Log.e(TAG, "Exception in local group click handler", e)

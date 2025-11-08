@@ -17,15 +17,15 @@ class CreateCommunityOrGroupFragment: BaseFragment(R.layout.fragment_create_comm
 
         createGroupBtn?.setOnClickListener {
             try {
-                // Navigate to the group name & picture fragment
-                findNavController().navigate(R.id.groupNamePicFragment)
+                // Navigate to the create group options screen
+                findNavController().navigate(R.id.action_createCommunityOrGroupFragment_to_createGroupFragment)
             } catch (_: Exception) {}
         }
 
         createCommBtn?.setOnClickListener {
             try {
-                // Navigate to the community name & picture fragment
-                findNavController().navigate(R.id.communityNamePicFragment)
+                // Navigate to the create community options screen
+                findNavController().navigate(R.id.action_createCommunityOrGroupFragment_to_createCommunityFragment)
             } catch (_: Exception) {}
         }
     }

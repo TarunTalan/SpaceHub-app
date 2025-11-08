@@ -45,18 +45,15 @@ class LocalGroupsTabFragment : BaseFragment(R.layout.fragment_tab_local_groups) 
         adapter = CommunityListAdapter({ item ->
             runCatching {
                 val nav = findNavController()
-                val current = nav.currentDestination?.id
+                // Always navigate directly to the destination id to avoid 'action not found' when current destination differs
+                // The nav graph defines localGroupDetailFragment as a top-level destination; use its id directly.
                 val args = Bundle().apply {
                     putString("communityId", item.communityId)
                     putString("name", item.name)
                     putString("imageUrl", item.imageUrl)
                 }
 
-                when (current) {
-                    R.id.searchFragment -> nav.navigate(R.id.action_searchFragment_to_localGroupDetailFragment, args)
-                    R.id.dashboardFragment -> nav.navigate(R.id.action_dashboardFragment_to_localGroupDetailFragment, args)
-                    else -> nav.navigate(R.id.localGroupDetailFragment, args) // direct fallback
-                }
+                nav.navigate(R.id.localGroupDetailFragment, args)
             }
         }, { _ ->
             // default join action for local groups
@@ -77,7 +74,7 @@ class LocalGroupsTabFragment : BaseFragment(R.layout.fragment_tab_local_groups) 
                         val ui = list.map { g ->
                             val communityId = g.id
                             val idInt = try { communityId.toInt() } catch (_: Exception) { communityId.hashCode() }
-                            val imageUrl = if (g.imageUrl is String) g.imageUrl as String else null
+                            val imageUrl = g.imageUrl as? String
                             CommunityUi(
                                 communityId = communityId,
                                 id = idInt,

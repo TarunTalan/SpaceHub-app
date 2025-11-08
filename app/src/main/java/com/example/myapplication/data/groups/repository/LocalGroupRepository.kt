@@ -225,4 +225,49 @@ class LocalGroupRepository private constructor(private val context: Context) {
             Result.success(body)
         } catch (t: Throwable) { Result.failure(t) }
     }
+
+    // Create an invite link for a local group. Returns DataXXXXX which includes inviteLink and inviteCode
+    suspend fun createLocalGroupInviteLink(groupId: String): Result<DataXXXXX> = withContext(Dispatchers.IO) {
+        try {
+            val email = userData.getEmail() ?: return@withContext Result.failure(IllegalStateException("Email not set"))
+            val req = CreateLocalGroupInviteLinkRequest(inviterEmail = email)
+            val resp = api.createLocalGroupInviteLink(groupId, req)
+            if (!resp.isSuccessful) return@withContext Result.failure(RuntimeException("HTTP ${resp.code()} - ${resp.errorBody()?.string()}"))
+            val body = resp.body() ?: return@withContext Result.failure(RuntimeException("Empty response"))
+            val data = body.data
+            Result.success(data)
+        } catch (t: Throwable) { Result.failure(t) }
+    }
+
+    // Join a local group using an invite link/code. Persists group info and marks membership.
+    suspend fun joinLocalGroupByLink(groupId: String, inviteCode: String): Result<DataXXXXXX> = withContext(Dispatchers.IO) {
+        try {
+            val email = userData.getEmail() ?: return@withContext Result.failure(IllegalStateException("Email not set"))
+            val req = JoinGroupByLinkRequest(acceptorEmail = email, groupId = groupId, inviteCode = inviteCode)
+            val resp = api.joinLocalGroupByLink(req)
+            if (!resp.isSuccessful) return@withContext Result.failure(RuntimeException("HTTP ${resp.code()} - ${resp.errorBody()?.string()}"))
+            val body = resp.body() ?: return@withContext Result.failure(RuntimeException("Empty response"))
+            val d = body.data
+            // Persist/update the group in DB
+            try {
+                val entity = LocalGroup(
+                    groupId = d.id,
+                    name = d.name,
+                    description = d.description,
+                    imageUrl = d.imageUrl,
+                    memberEmails = d.members.mapNotNull { it.email },
+                    memberCount = d.members.size,
+                    createdByEmail = d.createdBy.email,
+                    chatRoomCode = d.chatRoom.roomCode,
+                    createdAt = d.createdAt,
+                    updatedAt = d.updatedAt,
+                    isOwner = (d.createdBy.email == userData.getEmail()),
+                    isMember = true
+                )
+                groupDao.insertGroup(entity)
+            } catch (e: Exception) { android.util.Log.e("LocalGroupRepo", "Failed to persist joined group", e) }
+
+            Result.success(d)
+        } catch (t: Throwable) { Result.failure(t) }
+    }
 }

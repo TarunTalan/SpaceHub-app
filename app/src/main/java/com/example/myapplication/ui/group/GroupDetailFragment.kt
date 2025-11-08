@@ -132,13 +132,22 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
             popup.setOnMenuItemClickListener { item ->
                 when (item.itemId) {
                     R.id.action_edit_community -> {
-                        // Edit for local groups not implemented yet
-                        Toast.makeText(requireContext(), "Edit not supported for local groups", Toast.LENGTH_SHORT).show()
+                        // Navigate to edit group fragment, passing the group id
+                        try {
+                            val args = Bundle().apply { putString("communityId", groupId) }
+                            findNavController().navigate(R.id.action_localGroupDetail_to_editGroup, args)
+                        } catch (e: Exception) {
+                            Toast.makeText(requireContext(), "Failed to open editor: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
                         true
                     }
                     R.id.action_invite -> {
-                        // Invite not supported for local groups (show toast)
-                        Toast.makeText(requireContext(), "Invite not supported for local groups", Toast.LENGTH_SHORT).show()
+                        // Create invite link for local group
+                        try {
+                            vm.createInviteLink()
+                        } catch (e: Exception) {
+                            Toast.makeText(requireContext(), "Failed to create invite: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
                         true
                     }
                     R.id.action_add_room -> {
@@ -173,6 +182,47 @@ class GroupDetailFragment : Fragment(R.layout.fragment_group_detail) {
                 }
             }
             popup.show()
+        }
+        // Observe invite result and show UI (Snackbar with Share/Copy)
+        vm.inviteData.observe(viewLifecycleOwner) { data ->
+            if (data == null) return@observe
+            try {
+                // Prefer full inviteLink, fallback to inviteCode
+                val link = if (data.inviteLink.isNotBlank()) data.inviteLink else data.inviteCode
+
+                // Show dialog with the link and actions: Share / Copy / Close
+                try {
+                    val builder = androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                    builder.setTitle("Invite Link")
+                    builder.setMessage(link)
+                    builder.setPositiveButton("Share") { _, _ ->
+                        try {
+                            val send = android.content.Intent().apply {
+                                action = android.content.Intent.ACTION_SEND
+                                putExtra(android.content.Intent.EXTRA_TEXT, link)
+                                type = "text/plain"
+                            }
+                            startActivity(android.content.Intent.createChooser(send, "Share invite"))
+                        } catch (_: Exception) {}
+                    }
+                    builder.setNeutralButton("Copy") { _, _ ->
+                        try {
+                            val cb = requireContext().getSystemService(android.content.ClipboardManager::class.java)
+                            val clip = android.content.ClipData.newPlainText("invite", link)
+                            cb.setPrimaryClip(clip)
+                            Toast.makeText(requireContext(), "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                        } catch (_: Exception) {}
+                    }
+                    builder.setNegativeButton(android.R.string.cancel, null)
+                    builder.show()
+                } catch (_: Exception) {
+                    // fallback: show toast and copy
+                    try { Toast.makeText(requireContext(), link, Toast.LENGTH_LONG).show() } catch (_: Exception) {}
+                }
+
+                // clear inviteData after handling
+                try { vm.clearInviteData() } catch (_: Exception) {}
+            } catch (_: Exception) {}
         }
     }
 }

@@ -13,6 +13,8 @@ import com.example.myapplication.data.groups.model.DeleteLocalGroupRequest
 import com.example.myapplication.data.groups.model.DeleteLocalGroupResponse
 import com.example.myapplication.data.groups.model.GetAllLocalGroupsResponse
 import com.example.myapplication.data.groups.model.GetLocalGroupDetailsResponse
+import com.example.myapplication.data.groups.model.JoinGroupByLinkRequest
+import com.example.myapplication.data.groups.model.JoinGroupByLinkResponse
 import com.example.myapplication.data.groups.model.UpdateLocalGroupProfileResponse
 import com.example.myapplication.data.search.model.*
 import okhttp3.MultipartBody
@@ -301,6 +303,17 @@ interface ApiService {
     suspend fun requestToJoinLocalGroup(
         @Body body: RequestJoinRequest
     ): Response<RequestJoinResponse>
+
+    @POST("localgroup/invites/create/{groupId}")
+    suspend fun createLocalGroupInviteLink(
+        @Path("groupId") groupId: String,
+        @Body body: com.example.myapplication.data.groups.model.CreateLocalGroupInviteLinkRequest
+    ): Response<com.example.myapplication.data.groups.model.CreateLocalGroupInviteLinkResponse>
+
+    @POST("localgroup/invites/accept")
+    suspend fun joinLocalGroupByLink(
+        @Body body: JoinGroupByLinkRequest
+    ): Response<JoinGroupByLinkResponse>
 
 
 }

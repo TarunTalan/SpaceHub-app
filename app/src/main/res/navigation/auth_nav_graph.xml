@@ -252,8 +252,8 @@
                 app:destination="@id/requestsInboxFragment"/>
         <action android:id="@+id/action_dashboardFragment_to_friendRequestsFragment"
                 app:destination="@id/friendRequestsFragment"/>
-        <action android:id="@+id/action_dashboardFragment_to_localGroupDetailFragment"
-                app:destination="@id/localGroupDetailFragment" />
+        <action android:id="@+id/action_dashboardFragment_to_notificationsFragment"
+                app:destination="@id/notificationsFragment"/>
     </fragment>
 
     <!-- Friend requests inbox screen -->
@@ -320,6 +320,16 @@
         android:label="LocalGroupDetail"
         tools:layout="@layout/fragment_local_group_overview">
         <action android:id="@+id/action_localGroupDetailFragment_to_groupMembersFragment" app:destination="@id/groupMembersFragment" />
+        <!-- action to edit local group -->
+        <action android:id="@+id/action_localGroupDetail_to_editGroup" app:destination="@id/editGroupFragment" />
+    </fragment>
+
+    <!-- Edit group destination for local groups -->
+    <fragment
+        android:id="@+id/editGroupFragment"
+        android:name="com.example.myapplication.ui.group.EditGroupFragment"
+        android:label="EditGroupFragment">
+        <argument android:name="communityId" app:argType="string" />
     </fragment>
 
     <fragment
@@ -340,6 +350,16 @@
                 app:popEnterAnim="@anim/slide_in_left"
                 app:popExitAnim="@anim/slide_out_right"/>
     </fragment>
+
+    <fragment
+            android:id="@+id/createGroupFragment"
+            android:name="com.example.myapplication.ui.group.CreateGroupFragment"
+            android:label="CreateGroupFragment"
+            tools:layout="@layout/fragment_create_group">
+        <action android:id="@+id/action_createGroupFragment_to_groupNamePicFragment" app:destination="@id/groupNamePicFragment"
+                app:enterAnim="@anim/slide_in_right" app:exitAnim="@anim/slide_out_left" app:popEnterAnim="@anim/slide_in_left" app:popExitAnim="@anim/slide_out_right" />
+    </fragment>
+
     <fragment
             android:id="@+id/chatRoomFragment"
             android:name="com.example.myapplication.ui.friends.SearchFriendsFragment"
@@ -454,6 +474,9 @@
             android:label="CreateCommunityOrGroupFragment"
             tools:layout="@layout/fragment_create_community_or_group" />
 
+    <!-- Actions to navigate from the choice screen to the specific create screens -->
+    <action android:id="@+id/action_createCommunityOrGroupFragment_to_createGroupFragment" app:destination="@id/createGroupFragment"/>
+    <action android:id="@+id/action_createCommunityOrGroupFragment_to_createCommunityFragment" app:destination="@id/createCommunityFragment"/>
     <fragment
         android:id="@+id/groupMembersFragment"
         android:name="com.example.myapplication.ui.group.GroupMembersFragment"
@@ -461,4 +484,17 @@
         tools:layout="@layout/fragment_group_members">
         <argument android:name="communityId" app:argType="string" />
     </fragment>
+
+    <!-- Join group by invite link -->
+    <fragment
+        android:id="@+id/joinGroupFragment"
+        android:name="com.example.myapplication.ui.group.JoinGroupFragment"
+        android:label="JoinGroup"
+        tools:layout="@layout/fragment_join_community" />
+
+    <fragment
+        android:id="@+id/notificationsFragment"
+        android:name="com.example.myapplication.ui.notifications.NotificationsFragment"
+        android:label="NotificationsFragment"
+        tools:layout="@layout/fragment_notifications" />
 </navigation>

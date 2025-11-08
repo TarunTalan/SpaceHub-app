@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:app="http://schemas.android.com/apk/res-auto"
         xmlns:tools="http://schemas.android.com/tools"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@drawable/background_gradient"
-        tools:context=".ui.dashboard.JoinCommunityFragment">
+        tools:context=".ui.dashboard.JoinGroupFragment">
 
     <ImageView
             android:layout_width="0dp"
@@ -18,7 +19,7 @@
             android:paddingVertical="10dp"
             android:paddingEnd="20dp"
             app:layout_constraintStart_toStartOf="@id/guideline_start"
-            app:layout_constraintBottom_toTopOf="@id/guideline_top" />
+            app:layout_constraintBottom_toTopOf="@id/guideline_top"/>
 
     <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="0dp"
@@ -33,20 +34,20 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/roboto_medium"
-                android:text="Join an existing Community"
+                android:text="Join an existing Group"
                 android:textColor="#FFFFFF"
                 android:textSize="@dimen/onboarding_title_text_size"
                 android:gravity="center"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
+                app:layout_constraintTop_toTopOf="parent"/>
 
         <TextView
                 android:id="@+id/tv_subtitle"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/roboto_regular"
-                android:text="Enter an invite below to join an existing community"
+                android:text="Enter an invite below to join an existing group"
                 android:textColor="#FFFFFF"
                 android:textSize="15sp"
                 android:paddingHorizontal="20dp"
@@ -55,7 +56,7 @@
                 app:layout_constraintEnd_toEndOf="@+id/tv_title"
                 app:layout_constraintStart_toStartOf="@+id/tv_title"
                 app:layout_constraintBaseline_toBottomOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/tv_title" />
+                app:layout_constraintTop_toBottomOf="@+id/tv_title"/>
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -78,7 +79,7 @@
                 android:textSize="@dimen/label_text_size"
                 android:textColor="#FFFFFF"
                 app:layout_constraintStart_toStartOf="@+id/etCommLink"
-                app:layout_constraintTop_toTopOf="parent" />
+                app:layout_constraintTop_toTopOf="parent"/>
 
         <EditText
                 android:id="@+id/etCommLink"
@@ -95,7 +96,7 @@
                 android:textSize="14sp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/tvJoinCommunity" />
+                app:layout_constraintTop_toBottomOf="@id/tvJoinCommunity"/>
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <androidx.appcompat.widget.AppCompatButton
@@ -113,7 +114,7 @@
             app:layout_constraintBottom_toBottomOf="@id/guideline_bottom"
             app:layout_constraintEnd_toEndOf="@id/guideline_end"
             app:layout_constraintStart_toStartOf="@id/guideline_start"
-            android:layout_marginTop="80dp" />
+            android:layout_marginTop="80dp"/>
 
 
     <!-- Decorative Ellipses -->
@@ -130,7 +131,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             tools:ignore="ContentDescription"
             android:translationZ="-10dp"
-            android:elevation="-10dp" />
+            android:elevation="-10dp"/>
     <ImageView
             android:id="@+id/ellipse3"
             android:layout_width="0dp"
@@ -143,7 +144,7 @@
             app:layout_constraintTop_toTopOf="parent"
             tools:ignore="ContentDescription"
             android:elevation="-10dp"
-            android:translationZ="-10dp" />
+            android:translationZ="-10dp"/>
     <ImageView
             android:id="@+id/ellipse4"
             android:layout_width="0dp"
@@ -157,7 +158,7 @@
             android:layout_marginTop="40dp"
             tools:ignore="ContentDescription"
             android:elevation="-10dp"
-            android:translationZ="-10dp" />
+            android:translationZ="-10dp"/>
     <ImageView
             android:id="@+id/ellipse5"
             android:layout_width="0dp"
@@ -171,7 +172,7 @@
             android:layout_marginTop="80dp"
             tools:ignore="ContentDescription"
             android:elevation="-10dp"
-            android:translationZ="-10dp" />
+            android:translationZ="-10dp"/>
 
 
     <androidx.constraintlayout.widget.Guideline
@@ -179,14 +180,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            app:layout_constraintGuide_percent="0.1" />
+            app:layout_constraintGuide_percent="0.1"/>
 
     <androidx.constraintlayout.widget.Guideline
             android:id="@+id/guideline_end"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            app:layout_constraintGuide_percent="0.9" />
+            app:layout_constraintGuide_percent="0.9"/>
 
     <androidx.constraintlayout.widget.Guideline
             android:layout_width="wrap_content"

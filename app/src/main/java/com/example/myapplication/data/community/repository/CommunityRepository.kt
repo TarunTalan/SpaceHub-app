@@ -379,7 +379,24 @@ class CommunityRepository private constructor(private val context: Context) {
         } catch (t: Throwable) { Result.failure(t) }
     }
 
-    // Fetch "My communities" from remote API and persist locally into Room
+    // Upload community banner image and update community coverPhotoUrl locally
+    suspend fun uploadCommunityBannerRemote(communityId: String, requesterEmail: String, imagePart: okhttp3.MultipartBody.Part?): Result<String?> {
+        return try {
+            val resp = api.uploadCommunityBanner(communityId = communityId, requesterEmail = requesterEmail, file = imagePart)
+            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
+                // API currently doesn't provide a stable field for returned image URL in our model.
+                // Return null to indicate success but no URL parsed. Caller may refresh community details separately if needed.
+                Result.success(null)
+            } else {
+                val code = resp.code()
+                val bodyMsg = try { resp.body()?.message } catch (_: Exception) { null }
+                Result.failure(RuntimeException("HTTP $code - ${bodyMsg ?: ""}"))
+            }
+        } catch (t: Throwable) {
+            Result.failure(t)
+        }
+    }
+
     suspend fun fetchMyCommunitiesRemote(requesterEmail: String? = null): Result<Unit> {
         return try {
             val email = requesterEmail ?: userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))

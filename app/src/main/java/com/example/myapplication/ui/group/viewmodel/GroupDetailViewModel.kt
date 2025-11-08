@@ -37,6 +37,9 @@ class GroupDetailViewModel(app: Application) : AndroidViewModel(app) {
     private val _deleted = MutableLiveData<Boolean>(false)
     val deleted: LiveData<Boolean> = _deleted
 
+    private val _inviteData = MutableLiveData<com.example.myapplication.data.groups.model.DataXXXXX?>(null)
+    val inviteData: LiveData<com.example.myapplication.data.groups.model.DataXXXXX?> = _inviteData
+
     fun setGroupId(id: String) {
         android.util.Log.d("GroupDetailVM", "setGroupId: requested id=$id current=${_groupId.value}")
         // Clear transient flags (deleted/toast) when switching to a different group
@@ -140,7 +143,28 @@ class GroupDetailViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun createInviteLink() {
+        val id = _groupId.value ?: return
+        viewModelScope.launch {
+            _loading.postValue(true)
+            try {
+                val res = withContext(Dispatchers.IO) { repo.createLocalGroupInviteLink(id) }
+                _loading.postValue(false)
+                if (res.isSuccess) {
+                    val data = res.getOrNull()
+                    _inviteData.postValue(data)
+                } else {
+                    _toast.postValue(res.exceptionOrNull()?.message ?: "Failed to create invite link")
+                }
+            } catch (t: Throwable) {
+                _loading.postValue(false)
+                _toast.postValue(t.message ?: "Failed to create invite link")
+            }
+        }
+    }
+
     // Helpers to clear transient LiveData after UI has consumed them
     fun clearToast() { _toast.value = null }
     fun clearDeleted() { _deleted.value = false }
+    fun clearInviteData() { _inviteData.value = null }
 }
