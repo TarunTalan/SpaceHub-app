@@ -38,6 +38,9 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
         val etDob = view.findViewById<EditText>(R.id.etDOB)
         val etBio = view.findViewById<EditText>(R.id.etBio)
         val imgView = view.findViewById<ImageView>(R.id.profile)
+        val scroll = view.findViewById<androidx.core.widget.NestedScrollView>(R.id.sv_profile)
+        // Ensure scroll view can receive focus and does not clip children when IME animates
+        try { scroll.isFocusable = true; scroll.isFocusableInTouchMode = true; scroll.clipToPadding = false } catch (_: Exception) {}
 
         // Input filters
         val noSpacesFilter = InputFilter { source, _, _, _, _, _ -> if (source != null && source.any { it.isWhitespace() }) "" else null }
@@ -109,6 +112,45 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
 
         etDob.apply { isFocusable = false; isClickable = true; isCursorVisible = false; setOnClickListener { showMaterialDatePicker(this) } }
 
+        // Helper to ensure the focused view is visible inside the NestedScrollView when keyboard appears
+        fun scrollToView(target: View) {
+            try {
+                scroll?.post {
+                    try {
+                        val rect = android.graphics.Rect()
+                        target.getDrawingRect(rect)
+                        // Convert child rect to scroll coordinates
+                        scroll.offsetDescendantRectToMyCoords(target, rect)
+                        // scroll so the target's top is visible with a small margin
+                        val margin = (resources.displayMetrics.density * 12).toInt()
+                        val targetY = (rect.top - margin).coerceAtLeast(0)
+                        scroll.smoothScrollTo(0, targetY)
+                    } catch (_: Exception) {}
+                }
+            } catch (_: Exception) {}
+        }
+
+        // Focus change listeners: when an EditText gains focus, scroll to it (delay slightly to let IME show)
+        val focusChangeListener = View.OnFocusChangeListener { v, hasFocus -> if (hasFocus) scroll.postDelayed({ runCatching { scrollToView(v) } }, 120) }
+        etFirst.onFocusChangeListener = focusChangeListener
+        etLast.onFocusChangeListener = focusChangeListener
+        etUser.onFocusChangeListener = focusChangeListener
+        etBio.onFocusChangeListener = focusChangeListener
+
+        // WindowInsets listener: add bottom padding equal to IME so content scrolls above the keyboard
+        try {
+            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(scroll) { v, insets ->
+                try {
+                    val imeBottom = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom
+                    // small extra so the focused field isn't flush to the top of the keyboard
+                    val extra = (resources.displayMetrics.density * 8).toInt()
+                    v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, imeBottom + extra)
+                } catch (_: Exception) {}
+                insets
+            }
+            androidx.core.view.ViewCompat.requestApplyInsets(scroll)
+        } catch (_: Exception) {}
+
         view.findViewById<ImageView>(R.id.back)?.setOnClickListener { runCatching { findNavController().popBackStack() } }
         view.findViewById<TextView>(R.id.tvChangeProfilePicture)?.setOnClickListener { runCatching { navigateWithDelay(R.id.action_profileFragment_to_changeProfilePicFragment) } }
         imgView.setOnClickListener { runCatching { navigateWithDelay(R.id.action_profileFragment_to_changeProfilePicFragment) } }
@@ -133,7 +175,7 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
                 InputValidator.UsernameResult.VALID -> { }
                 InputValidator.UsernameResult.EMPTY -> { valid = false; showError(tvUsernameError, getString(R.string.username_required)) }
                 InputValidator.UsernameResult.HAS_SPACE -> { valid = false; showError(tvUsernameError, getString(R.string.username_no_spaces)) }
-                InputValidator.UsernameResult.HAS_DIGIT -> { valid = false; showError(tvUsernameError, getString(R.string.username_invalid_chars)) }
+                InputValidator.UsernameResult.HAS_DIGIT -> {  }
                 InputValidator.UsernameResult.INVALID_CHAR -> { valid = false; showError(tvUsernameError, getString(R.string.username_invalid_chars)) }
             }
 

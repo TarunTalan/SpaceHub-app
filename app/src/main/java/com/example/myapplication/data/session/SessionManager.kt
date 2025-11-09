@@ -64,9 +64,11 @@ object SessionManager {
                         } catch (_: Exception) {}
                     } catch (_: Exception) {}
 
-                    // 4) Delete DB files after the above operations have completed to avoid races
-                    runCatching { context.deleteDatabase("community_database") }
-                    runCatching { context.deleteDatabase("groups_database") }
+                    // 4) Mark DB files for deletion on next app restart to avoid deleting active DB while app is running.
+                    try {
+                        val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                        prefs.edit().putBoolean("delete_db_on_restart", true).apply()
+                    } catch (_: Exception) {}
                 } catch (_: Exception) {
                     // ignore
                 }
@@ -106,7 +108,8 @@ object SessionManager {
                 }
             }
 
-            // NOTE: database files are now deleted inside the IO coroutine above after tables are cleared.
+            // NOTE: database files will be deleted on next app restart (marked via shared prefs) to avoid
+            // races where other coroutines hold DB connections in the current process.
         } catch (_: Exception) {
         }
     }

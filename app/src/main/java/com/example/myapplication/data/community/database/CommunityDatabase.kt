@@ -44,6 +44,7 @@ abstract class CommunityDatabase : RoomDatabase() {
                 "community_database"
             )
                 .fallbackToDestructiveMigration() // For development; use migrations in production
+                .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
                 .build()
         }
 

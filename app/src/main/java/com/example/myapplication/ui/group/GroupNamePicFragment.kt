@@ -73,6 +73,15 @@ class GroupNamePicFragment : BaseFragment(R.layout.fragment_group_name_pic) {
             } catch (_: Exception) {}
         }
 
+        // Clear any previous selection (for example user's profile picture) so creating a group
+        // starts with a neutral placeholder rather than a prefilled profile image.
+        try {
+            sharedVm.setSelectedBitmap(null)
+            sharedVm.setSelectedContentUri(null)
+            sharedVm.setImagePath(null)
+            sharedVm.setDrawableRes(null)
+        } catch (_: Exception) {}
+
         renderPreview()
         sharedVm.selectedBitmap.observe(viewLifecycleOwner) { renderPreview() }
         sharedVm.selectedContentUri.observe(viewLifecycleOwner) { renderPreview() }

@@ -154,10 +154,44 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
             applyChatRoomsToggleState(ivToggle)
         }
 
-        // Show FAB for creating chat rooms
-        fabCreateRoom?.visibility = View.VISIBLE
+        // Show FAB for creating chat rooms only for community admins/owners/moderators.
+        // Start hidden and reveal after checking role.
+        fabCreateRoom?.visibility = View.GONE
         fabCreateRoom?.setOnClickListener {
             showCreateChatRoomDialog()
+        }
+
+        // Check community role and reveal FAB for privileged users
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val repo = CommunityRepository.getInstance(requireContext())
+                var community = repo.getCommunityById(communityId)
+                // If we don't have local info or role flags aren't set, try refreshing members once
+                if (community == null || (community.isOwner == false && community.isModerator == false && community.role.isNullOrBlank())) {
+                    // Attempt to refresh members/roles (network) to get up-to-date role flags
+                    try { repo.fetchMembers(communityId, force = true) } catch (_: Exception) {}
+                    community = repo.getCommunityById(communityId)
+                }
+
+                val shouldShowFab = try {
+                    when {
+                        community == null -> false
+                        community.isOwner -> true
+                        community.isModerator -> true
+                        !community.role.isNullOrBlank() && community.role.trim().uppercase().contains("ADMIN") -> true
+                        else -> false
+                    }
+                } catch (_: Exception) { false }
+
+                if (shouldShowFab) {
+                    fabCreateRoom?.visibility = View.VISIBLE
+                } else {
+                    fabCreateRoom?.visibility = View.GONE
+                }
+            } catch (_: Exception) {
+                // leave hidden on error
+                fabCreateRoom?.visibility = View.GONE
+            }
         }
 
         // Hide settings button (not applicable for room view)

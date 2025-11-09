@@ -464,6 +464,20 @@
               <option value="67fa6efa-166f-4cbb-9379-5fe3505a471b" />
               <option value="0e3f543c-c92f-4adc-8345-8ac9220c2c89" />
               <option value="d39773c7-76f2-4f53-b742-c37d69eaac98" />
+              <option value="48b5ca69-30c2-4fa7-ae97-a20667a8570f" />
+              <option value="e19f2fc9-4e68-4a57-8289-c358578de191" />
+              <option value="3f05465b-d0df-40da-8f9d-41f1cee354f0" />
+              <option value="8cc6c25b-66c8-41a0-b58a-6b8688fdafaa" />
+              <option value="cca0237d-b0ab-4c57-9142-ca4ee969561c" />
+              <option value="c57ae7e4-908a-44e1-b3f5-86f5921d93e9" />
+              <option value="5659640a-ac6e-46b5-a9cd-371d9fa6db6f" />
+              <option value="4be4fef4-abd4-47e2-8338-01d081e05351" />
+              <option value="60ba39e0-c3c4-4965-972a-e6ce487ce2d4" />
+              <option value="617cb8d3-be6a-4067-9224-60c66fbec122" />
+              <option value="224b6ea0-3f91-4e31-9460-1ca0f39e591d" />
+              <option value="56b7fac1-cc6a-4ea5-a3c3-4bff5817e66b" />
+              <option value="71df4392-bbe1-433a-9918-2c5db1ab7212" />
+              <option value="8596ff4b-5806-40e5-a9aa-f5c72c322e82" />
             </set>
           </value>
         </entry>
@@ -513,6 +527,13 @@
           <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/session/SessionManager.kt" />
           <option value="file://$PROJECT_DIR$/app/src/main/res/layout/activity_main.xml" />
           <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_dashboard.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_profile.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/ProfileFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/common/InputValidator.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/group/GroupNamePicFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/chat/repository/ChatRepository.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/chat/websocket/ChatWebSocket.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/RoomFragment.kt" />
         </set>
       </entry>
     </pendingWorkingSetItems>

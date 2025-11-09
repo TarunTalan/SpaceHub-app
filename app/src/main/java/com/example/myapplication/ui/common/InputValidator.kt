@@ -11,6 +11,7 @@ object InputValidator {
 
     enum class EmailResult { VALID, EMPTY, INVALID_FORMAT, TOO_LONG, HAS_SPACE }
     enum class PasswordResult { VALID, EMPTY, TOO_SHORT, TOO_LONG, HAS_SPACE, NO_LOWERCASE }
+    // Keep HAS_DIGIT for backward compatibility in callers, but validation now allows digits and underscore.
     enum class UsernameResult { VALID, EMPTY, HAS_SPACE, HAS_DIGIT, INVALID_CHAR }
 
     // Validate email and return result
@@ -66,8 +67,8 @@ object InputValidator {
         val u = username.orEmpty()
         if (u.isEmpty()) return UsernameResult.EMPTY
         if (u.contains(' ')) return UsernameResult.HAS_SPACE
-        if (u.any { it.isDigit() }) return UsernameResult.HAS_DIGIT
-        if (!u.all { it.isLetter() }) return UsernameResult.INVALID_CHAR
+        // Allow letters, digits and underscore in usernames. Any other character is invalid.
+        if (!u.all { it.isLetterOrDigit() || it == '_' }) return UsernameResult.INVALID_CHAR
         return UsernameResult.VALID
     }
 

@@ -122,7 +122,7 @@
     <!-- Toast shown when an avatar is selected via Skip -->
     <string name="avatar_selected">Avatar selected</string>
 
-    <string name="username_instruction">User Name must contain (letters, digits, -,  @)</string>
+    <string name="username_instruction">User Name must contain (letters, digits, _)</string>
     <string name="username_no_spaces">Username must not contain any space</string>
     <string name="username_required">Username is required</string>
     <string name="username_invalid_chars">Invalid characters in username!</string>

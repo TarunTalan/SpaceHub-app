@@ -44,6 +44,16 @@ class MainActivity : AppCompatActivity() {
         }
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        // If a previous logout requested DB deletion, do it now (cold start) before any DB instance is created.
+        try {
+            val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
+            val deleteOnRestart = prefs.getBoolean("delete_db_on_restart", false)
+            if (deleteOnRestart) {
+                try { deleteDatabase("community_database") } catch (_: Exception) {}
+                try { deleteDatabase("groups_database") } catch (_: Exception) {}
+                prefs.edit().putBoolean("delete_db_on_restart", false).apply()
+            }
+        } catch (_: Exception) {}
         // Ensure the center add overlay is hidden by default; navigation listener will make it visible
         // only for top-level destinations where the bottom nav is visible.
         try { binding.centerAddOverlay.visibility = View.GONE } catch (_: Exception) {}
@@ -94,7 +104,8 @@ class MainActivity : AppCompatActivity() {
                 } catch (_: Exception) {}
             }
         }
-        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        // Keep bottom nav fixed. We'll handle IME insets per-fragment so content can scroll while nav stays put.
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
         val token = SharedPrefsTokenStore(this).getAccessToken()
         val navInflater = navController.navInflater
         val graph = navInflater.inflate(R.navigation.auth_nav_graph)
