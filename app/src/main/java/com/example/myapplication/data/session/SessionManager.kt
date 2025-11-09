@@ -33,39 +33,43 @@ object SessionManager {
                     .clear()
             }
 
-            // Wipe Room database tables (communities, rooms, etc.)
+            // Perform DB clear/close and related cleanup sequentially on the IO scope to avoid races
             scope.launch {
-                runCatching {
-                    com.example.myapplication.data.community.database.CommunityDatabase
-                        .getInstance(context)
-                        .clearAllTables()
-                }
-            }
+                try {
+                    // 1) Clear all tables on community DB
+                    runCatching {
+                        com.example.myapplication.data.community.database.CommunityDatabase
+                            .getInstance(context)
+                            .clearAllTables()
+                    }
 
-            // Also attempt to clear and close our DB instances fully
-            scope.launch {
-                try {
-                    com.example.myapplication.data.community.database.CommunityDatabase.clearAndClose(context)
-                } catch (_: Exception) {}
-                try {
-                    com.example.myapplication.data.groups.database.GroupsDatabase.clearAndClose(context)
-                } catch (_: Exception) {}
-            }
-
-            // Clear chat tables explicitly (conversations/messages) from community DB chatDao if available
-            scope.launch {
-                try {
-                    val db = com.example.myapplication.data.community.database.CommunityDatabase.getInstance(context)
+                    // 2) Clear tables and perform safe close operations (our clearAndClose no longer closes Room instance)
                     try {
-                        val chatDao = db.chatDao()
-                        // getAllConversations() returns Flow<List<Conversation>>; collect a single snapshot
-                        val convs = runCatching { chatDao.getAllConversations().first() }.getOrNull() ?: emptyList()
-                        convs.forEach { conv ->
-                            runCatching { chatDao.deleteMessagesForConversation(conv.id) }
-                            runCatching { chatDao.deleteConversation(conv.id) }
-                        }
+                        com.example.myapplication.data.community.database.CommunityDatabase.clearAndClose(context)
                     } catch (_: Exception) {}
-                } catch (_: Exception) {}
+                    try {
+                        com.example.myapplication.data.groups.database.GroupsDatabase.clearAndClose(context)
+                    } catch (_: Exception) {}
+
+                    // 3) Clear chat tables from the community DB (safely collect snapshot)
+                    try {
+                        val db = com.example.myapplication.data.community.database.CommunityDatabase.getInstance(context)
+                        try {
+                            val chatDao = db.chatDao()
+                            val convs = runCatching { chatDao.getAllConversations().first() }.getOrNull() ?: emptyList()
+                            convs.forEach { conv ->
+                                runCatching { chatDao.deleteMessagesForConversation(conv.id) }
+                                runCatching { chatDao.deleteConversation(conv.id) }
+                            }
+                        } catch (_: Exception) {}
+                    } catch (_: Exception) {}
+
+                    // 4) Delete DB files after the above operations have completed to avoid races
+                    runCatching { context.deleteDatabase("community_database") }
+                    runCatching { context.deleteDatabase("groups_database") }
+                } catch (_: Exception) {
+                    // ignore
+                }
             }
 
             // Clear app-level SharedPreferences used by UI (like last_screen)
@@ -102,9 +106,7 @@ object SessionManager {
                 }
             }
 
-            // Finally, delete the actual database files so a fresh DB will be created on next launch
-            runCatching { context.deleteDatabase("community_database") }
-            runCatching { context.deleteDatabase("groups_database") }
+            // NOTE: database files are now deleted inside the IO coroutine above after tables are cleared.
         } catch (_: Exception) {
         }
     }

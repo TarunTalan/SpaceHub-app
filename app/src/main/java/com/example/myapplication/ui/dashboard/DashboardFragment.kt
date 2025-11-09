@@ -209,9 +209,54 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         val rvYourCommunities = view.findViewById<RecyclerView>(R.id.rv_your_communities)
         val rvJoinedCommunities = view.findViewById<RecyclerView>(R.id.rv_joined_communities)
         val emptyIllustrationContainer = view.findViewById<View>(R.id.illustration)
-        // Header labels for sections
+        // Header labels and toggles for sections (declare early so helper can reference them)
         val tvMyCommunitiesHeader = view.findViewById<TextView>(R.id.tv_my_communities)
         val tvJoinedCommunitiesHeader = view.findViewById<TextView>(R.id.tv_joined_communities)
+        val ivToggleYour = view.findViewById<ImageView>(R.id.iv_toggle_your_comm)
+        val ivToggleJoined = view.findViewById<ImageView>(R.id.iv_toggle_joined_comm)
+        // Track emptiness of community lists and local groups to decide when to show the illustration
+        var isCommunityListEmpty = true
+        var isLocalGroupsEmpty = true
+        fun updateIllustrationVisibility() {
+            try {
+                // Post to ensure UI-thread changes and stable view hierarchy
+                emptyIllustrationContainer?.post {
+                    try {
+                        val show = isCommunityListEmpty && isLocalGroupsEmpty
+                        if (show) {
+                            // Show illustration and hide other content to avoid overlap
+                            emptyIllustrationContainer.visibility = View.VISIBLE
+                            emptyIllustrationContainer.bringToFront()
+                            emptyIllustrationContainer.requestLayout()
+                            try { rvYourCommunities?.visibility = View.GONE } catch (_: Exception) {}
+                            try { rvJoinedCommunities?.visibility = View.GONE } catch (_: Exception) {}
+                            try { rvLocalGroups?.visibility = View.GONE } catch (_: Exception) {}
+                            try { tvMyCommunitiesHeader?.visibility = View.GONE } catch (_: Exception) {}
+                            try { tvJoinedCommunitiesHeader?.visibility = View.GONE } catch (_: Exception) {}
+                            try { tvLocalGroupsHeader?.visibility = View.GONE } catch (_: Exception) {}
+                            // Also hide the section toggle icons when showing the empty illustration
+                            try { ivToggleYour?.visibility = View.GONE } catch (_: Exception) {}
+                            try { ivToggleJoined?.visibility = View.GONE } catch (_: Exception) {}
+                        } else {
+                            // Hide illustration and restore other content; collectors will hide empty sections as needed
+                            emptyIllustrationContainer.visibility = View.GONE
+                            try { rvYourCommunities?.visibility = View.VISIBLE } catch (_: Exception) {}
+                            try { rvJoinedCommunities?.visibility = View.VISIBLE } catch (_: Exception) {}
+                            try { rvLocalGroups?.visibility = View.VISIBLE } catch (_: Exception) {}
+                            try { tvMyCommunitiesHeader?.visibility = View.VISIBLE } catch (_: Exception) {}
+                            try { tvJoinedCommunitiesHeader?.visibility = View.VISIBLE } catch (_: Exception) {}
+                            try { tvLocalGroupsHeader?.visibility = View.VISIBLE } catch (_: Exception) {}
+                            // Restore toggle icons (collectors will immediately hide them if their lists are empty)
+                            try { ivToggleYour?.visibility = View.VISIBLE } catch (_: Exception) {}
+                            try { ivToggleJoined?.visibility = View.VISIBLE } catch (_: Exception) {}
+                            try { (emptyIllustrationContainer.parent as? View)?.invalidate() } catch (_: Exception) {}
+                        }
+                    } catch (_: Exception) {}
+                }
+            } catch (_: Exception) {}
+        }
+        // Ensure initial illustration visibility reflects current (initially-empty) adapters quickly
+        updateIllustrationVisibility()
         val yourAdapter = YourCommunityAdapter { item ->
             runCatching { navigateWithDelay(R.id.action_dashboardFragment_to_communityDetailFragment, Bundle().apply { putString("communityId", item.communityId) }) }
         }
@@ -256,11 +301,17 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
                     // Update badge count after refreshing incoming friend requests
                     updateBadge()
 
-                    // Show errors if any
                     communitiesRes.onFailure { e ->
+                        isCommunityListEmpty = true
+                        // keep current isLocalGroupsEmpty value
+                        updateIllustrationVisibility()
                         android.widget.Toast.makeText(requireContext(), e.message ?: "Failed to refresh communities", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Exception) {
+                    // On unexpected refresh error (e.g., SQLite busy), treat lists as empty and show illustration
+                    isCommunityListEmpty = true
+                    isLocalGroupsEmpty = true
+                    updateIllustrationVisibility()
                     android.widget.Toast.makeText(requireContext(), "Failed to refresh: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
                 } finally {
                     // Stop spinner regardless of outcome
@@ -275,8 +326,6 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         fun dpToPx(dp: Int): Int = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp.toFloat(), resources.displayMetrics).toInt()
 
         // Toggles for sections
-        val ivToggleYour = view.findViewById<ImageView>(R.id.iv_toggle_your_comm)
-        val ivToggleJoined = view.findViewById<ImageView>(R.id.iv_toggle_joined_comm)
         var yourCommExpanded = true
         var joinedCommExpanded = true
         fun applyYourToggleState(animated: Boolean = true) {
@@ -298,45 +347,26 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 communityVm.observeMyCommunities().collect { list ->
-                    val email = com.example.myapplication.data.user.UserDataManager.getInstance(requireContext()).getEmail()
-                    val myCommunities = list.filter {
-                        it.isOwner || it.isModerator || (!it.creatorId.isNullOrBlank() && it.creatorId.equals(email, true))
-                    }
-                    val joinedCommunities = list.filter {
-                        it.isMember && !it.isOwner && !it.isModerator && (it.creatorId.isNullOrBlank() || !it.creatorId.equals(email, true))
-                    }
-                    yourAdapter.submitList(myCommunities)
-                    joinedAdapter.submitList(joinedCommunities)
-                    swipe?.isRefreshing = false
-                    val allEmpty = myCommunities.isEmpty() && joinedCommunities.isEmpty()
-                    emptyIllustrationContainer?.visibility = if (allEmpty) View.VISIBLE else View.GONE
-
-                    // Hide headers and arrows when respective lists are empty
-                    val hasMy = myCommunities.isNotEmpty()
-                    val hasJoined = joinedCommunities.isNotEmpty()
-                    tvMyCommunitiesHeader?.visibility = if (hasMy) View.VISIBLE else View.GONE
-                    ivToggleYour?.visibility = if (hasMy) View.VISIBLE else View.GONE
-                    tvJoinedCommunitiesHeader?.visibility = if (hasJoined) View.VISIBLE else View.GONE
-                    ivToggleJoined?.visibility = if (hasJoined) View.VISIBLE else View.GONE
-
-                    rvYourCommunities?.visibility = if (myCommunities.isNotEmpty() && yourCommExpanded) View.VISIBLE else View.GONE
-                    rvJoinedCommunities?.visibility = if (joinedCommunities.isNotEmpty() && joinedCommExpanded) View.VISIBLE else View.GONE
-
-                    // Background role backfill: if some communities appear as joined but we might be admin,
-                    // fetch members for a few of them once to update relationship flags in Room.
-                    val repo = CommunityRepository.getInstance(requireContext())
-                    val unknowns = joinedCommunities
-                        .asSequence()
-                        .filter { !roleBackfilled.contains(it.communityId) }
-                        .take(3)
-                        .toList()
-                    if (unknowns.isNotEmpty()) {
-                        viewLifecycleOwner.lifecycleScope.launch {
-                            unknowns.forEach { item ->
-                                roleBackfilled.add(item.communityId)
-                                runCatching { repo.fetchMembers(item.communityId) }
-                            }
+                    try {
+                        val email = com.example.myapplication.data.user.UserDataManager.getInstance(requireContext()).getEmail()
+                        val myCommunities = list.filter {
+                            it.isOwner || it.isModerator || (!it.creatorId.isNullOrBlank() && it.creatorId.equals(email, true))
                         }
+                        val joinedCommunities = list.filter {
+                            it.isMember && !it.isOwner && !it.isModerator && (it.creatorId.isNullOrBlank() || !it.creatorId.equals(email, true))
+                        }
+                        yourAdapter.submitList(myCommunities)
+                        joinedAdapter.submitList(joinedCommunities)
+                        swipe?.isRefreshing = false
+                        val allEmpty = myCommunities.isEmpty() && joinedCommunities.isEmpty()
+                        // update community emptiness and decide illustration visibility
+                        isCommunityListEmpty = allEmpty
+                        updateIllustrationVisibility()
+                    } catch (e: Exception) {
+                        // If processing the emitted list fails (DB busy, mapping error), treat community lists as empty so illustration shows
+                        isCommunityListEmpty = true
+                        updateIllustrationVisibility()
+                        Log.e(TAG, "Error processing community list", e)
                     }
                 }
             }
@@ -510,31 +540,41 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 Log.d(TAG, "onViewCreated: Entered repeatOnLifecycle for localGroupsVm.groups")
                 localGroupsVm.groups.collect { list ->
-                    Log.d(TAG, "localGroupsVm.groups.collect: list size = ${list.size}")
-                    val ui = list.map { g ->
-                        val communityId = g.id
-                        val idInt = try { communityId.toInt() } catch (_: Exception) { communityId.hashCode() }
-                        val imageUrl = g.imageUrl as? String
-                        val mapped = CommunityUi(
-                            communityId = communityId,
-                            id = idInt,
-                            name = g.name,
-                            imageUrl = imageUrl,
-                            subtitle = "${g.totalMembers} members",
-                            isLocal = true,
-                            isRequested = false,
-                            isOwner = false,
-                            isAdmin = false,
-                            isMember = true
-                        )
-                        Log.d(TAG, "Mapped local group: $mapped from DataX: $g")
-                        mapped
+                    try {
+                        Log.d(TAG, "localGroupsVm.groups.collect: list size = ${list.size}")
+                        val ui = list.map { g ->
+                            val communityId = g.id
+                            val idInt = try { communityId.toInt() } catch (_: Exception) { communityId.hashCode() }
+                            val imageUrl = g.imageUrl as? String
+                            val mapped = CommunityUi(
+                                communityId = communityId,
+                                id = idInt,
+                                name = g.name,
+                                imageUrl = imageUrl,
+                                subtitle = "${g.totalMembers} members",
+                                isLocal = true,
+                                isRequested = false,
+                                isOwner = false,
+                                isAdmin = false,
+                                isMember = true
+                            )
+                            Log.d(TAG, "Mapped local group: $mapped from DataX: $g")
+                            mapped
+                        }
+                        Log.d(TAG, "Updating localGroupsAdapter with ${ui.size} items: $ui")
+                        localGroupsAdapter.submitList(ui)
+                        // Hide header if empty
+                        tvLocalGroupsHeader?.visibility = if (ui.isEmpty()) View.GONE else View.VISIBLE
+                        rvLocalGroups?.visibility = if (ui.isEmpty()) View.GONE else View.VISIBLE
+                        // update local groups emptiness and maybe show/hide illustration
+                        isLocalGroupsEmpty = ui.isEmpty()
+                        updateIllustrationVisibility()
+                    } catch (e: Exception) {
+                        // On error reading local groups (DB busy etc.) assume empty so illustration can show
+                        isLocalGroupsEmpty = true
+                        updateIllustrationVisibility()
+                        Log.e(TAG, "Error processing local groups", e)
                     }
-                    Log.d(TAG, "Updating localGroupsAdapter with ${ui.size} items: $ui")
-                    localGroupsAdapter.submitList(ui)
-                    // Hide header if empty
-                    tvLocalGroupsHeader?.visibility = if (ui.isEmpty()) View.GONE else View.VISIBLE
-                    rvLocalGroups?.visibility = if (ui.isEmpty()) View.GONE else View.VISIBLE
                 }
                 // trigger load once
                 Log.d(TAG, "onViewCreated: Calling localGroupsVm.loadGroups() on dashboard start")

@@ -238,36 +238,41 @@
                 android:layout_width="0dp"
                 android:layout_height="0dp"
                 android:visibility="gone"
-                app:layout_constraintBottom_toBottomOf="@id/guideline_center"
-                app:layout_constraintTop_toTopOf="@id/guideline_top"
-                app:layout_constraintEnd_toEndOf="@id/guideline_end"
-                app:layout_constraintStart_toStartOf="@id/guideline_start">
+                android:translationZ="200dp"
+                android:elevation="200dp"
+                android:layout_marginTop="100dp"
+                app:layout_constraintTop_toBottomOf="@id/top_toolbar"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
 
             <ImageView
-                    android:layout_width="0dp"
-                    android:layout_height="0dp"
+                    android:id="@+id/imageView5"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     android:src="@drawable/illustration"
-                    android:layout_marginBottom="10dp"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="@id/guideline_top_2"
+                    android:scaleType="centerInside"
+                    app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintBottom_toTopOf="@id/textView"
-                    android:id="@+id/imageView5"/>
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintBottom_toTopOf="@id/textView" />
 
             <TextView
+                    android:id="@+id/textView"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textSize="26sp"
                     android:fontFamily="@font/roboto_medium"
                     android:text="DMs with superpowers"
-                    android:id="@+id/textView"
                     android:gravity="center"
                     android:textColor="@color/white"
+                    android:layout_marginTop="10dp"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintBottom_toTopOf="@+id/textView2"/>
+                    app:layout_constraintTop_toBottomOf="@id/imageView5"/>
 
             <TextView
+                    android:id="@+id/textView2"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:textSize="@dimen/input_text_size"
@@ -275,19 +280,12 @@
                     android:textColor="@color/white"
                     android:gravity="center"
                     android:paddingHorizontal="4dp"
+                    android:layout_marginTop="8dp"
                     android:text="Invite your friends to chat together, be in audio room and more"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintStart_toStartOf="@+id/textView"
-                    app:layout_constraintEnd_toEndOf="@id/textView"
-                    android:id="@+id/textView2"/>
+                    app:layout_constraintTop_toBottomOf="@id/textView"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"/>
 
-
-            <androidx.constraintlayout.widget.Guideline
-                    android:id="@+id/guideline_top_2"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:layout_constraintGuide_percent="0.1"
-                    android:orientation="horizontal"/>
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <androidx.constraintlayout.widget.ConstraintLayout

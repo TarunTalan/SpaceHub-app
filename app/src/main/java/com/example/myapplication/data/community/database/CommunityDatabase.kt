@@ -55,12 +55,15 @@ abstract class CommunityDatabase : RoomDatabase() {
             synchronized(this) {
                 try {
                     val inst = INSTANCE ?: run { getInstance(context) }
+                    // Only clear tables. Do NOT call inst.close() here because other coroutines/threads
+                    // may still be using the Room instance; closing leads to `connection pool has been closed`.
+                    // Clearing tables is sufficient for logout/cleanup use-cases. If you want to fully
+                    // remove DB files, call context.deleteDatabase("community_database") after app restart.
                     try { inst.clearAllTables() } catch (_: Exception) {}
-                    try { inst.close() } catch (_: Exception) {}
                 } catch (_: Exception) {
                     // ignore
                 } finally {
-                    INSTANCE = null
+                    // Keep INSTANCE intact to avoid racing with active DB users. Do not set to null here.
                 }
             }
         }

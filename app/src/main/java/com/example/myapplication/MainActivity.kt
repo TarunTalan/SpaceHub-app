@@ -1,7 +1,6 @@
 package com.example.myapplication
 
 import android.content.BroadcastReceiver
-import android.content.IntentFilter
 import android.content.res.ColorStateList
 import android.graphics.Rect
 import android.os.Bundle
@@ -24,6 +23,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.example.myapplication.data.chat.websocket.DirectChatWebSocketService
 import com.example.myapplication.data.chat.websocket.ChatWebSocketService
 import com.example.myapplication.ui.common.ProfileSharedViewModel
+import android.animation.ValueAnimator
 
 class MainActivity : AppCompatActivity() {
 
@@ -31,6 +31,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var navController: NavController
     private var defaultToolbarColor: Int = 0
     private var defaultStatusBarColor: Int = 0
+    // Animator for bottom nav indicator width changes
+    private var bottomIndicatorWidthAnimator: ValueAnimator? = null
+    // Cached item width to handle layout changes
+    private var bottomNavItemWidth: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,6 +44,9 @@ class MainActivity : AppCompatActivity() {
         }
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        // Ensure the center add overlay is hidden by default; navigation listener will make it visible
+        // only for top-level destinations where the bottom nav is visible.
+        try { binding.centerAddOverlay.visibility = View.GONE } catch (_: Exception) {}
         defaultToolbarColor = ContextCompat.getColor(this, R.color.dashboard_toolbar)
         defaultStatusBarColor = window.statusBarColor
         binding.toolbar.setBackgroundColor(defaultToolbarColor)
@@ -125,13 +132,12 @@ class MainActivity : AppCompatActivity() {
                     bottomNav.invalidate()
                 } catch (_: Exception) {}
             }
-            // Extra safety: ensure overlay is front after whole root is laid out
+            // Extra safety: ensure overlay is front after whole root is laid out (do NOT force visibility)
             binding.root.post {
                 try {
                     centerOverlay?.bringToFront()
                     centerOverlay?.translationZ = 96f
                     centerOverlay?.elevation = 96f
-                    centerOverlay?.visibility = View.VISIBLE
                     centerOverlay?.requestLayout()
                     bottomNav.invalidate()
                 } catch (_: Exception) {}
@@ -139,11 +145,8 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {}
         // Setup animated indicator bar
         setupBottomNavIndicator()
-        // Register logout receiver so app can cleanup runtime state when SessionManager broadcasts logout
-        try {
-            val filter = IntentFilter("com.example.myapplication.ACTION_LOGOUT")
-            registerReceiver(logoutReceiver, filter)
-        } catch (_: Exception) {}
+        // NOTE: logout receiver registration removed. If you need app-wide logout handling via broadcast,
+        // reintroduce a local broadcast or a centralized session manager callback instead of a dynamic receiver.
         if (!token.isNullOrEmpty()) {
             val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
             val lastScreen = prefs.getString("last_screen", null)
@@ -278,10 +281,26 @@ class MainActivity : AppCompatActivity() {
 
             // Calculate width of each menu item
             val bottomNavWidth = binding.bottomNavView.width
-            val itemWidth = bottomNavWidth / menuItemCount
+            val itemWidth = if (menuItemCount > 0) bottomNavWidth / menuItemCount else 0
+            bottomNavItemWidth = itemWidth
+
+            val initialIndicatorWidth = itemWidth
+            try {
+                binding.bottomNavIndicator.layoutParams = binding.bottomNavIndicator.layoutParams.apply { width = initialIndicatorWidth }
+                binding.bottomNavIndicator.requestLayout()
+            } catch (_: Exception) {}
 
             // Set initial position based on selected item
             updateIndicatorPosition(binding.bottomNavView.selectedItemId, itemWidth, false)
+
+            // Position center add overlay to sit above the center menu item
+            try {
+                val centerOverlay = findViewById<View>(R.id.center_add_overlay)
+                val centerIndex = menuItemCount / 2
+                val itemCenterX = (centerIndex * itemWidth) + itemWidth / 2f
+                val navCenterX = binding.bottomNavView.width / 2f
+                centerOverlay?.translationX = itemCenterX - navCenterX
+            } catch (_: Exception) {}
 
             // Listen for item selections
             binding.bottomNavView.setOnItemSelectedListener { menuItem ->
@@ -293,6 +312,26 @@ class MainActivity : AppCompatActivity() {
             // Also update when navigation changes
             navController.addOnDestinationChangedListener { _, destination, _ ->
                 updateIndicatorPosition(destination.id, itemWidth, true)
+            }
+
+            // If the bottom nav resizes (rotation, window insets), update measurements and reposition immediately
+            binding.bottomNavView.addOnLayoutChangeListener { v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
+                try {
+                    val newWidth = v.width
+                    val oldWidth = (oldRight - oldLeft)
+                    if (newWidth != oldWidth && menuItemCount > 0) {
+                        val newItemWidth = newWidth / menuItemCount
+                        bottomNavItemWidth = newItemWidth
+                        // reposition indicator without animation to avoid jumpiness
+                        updateIndicatorPosition(binding.bottomNavView.selectedItemId, newItemWidth, false)
+                        // reposition center overlay as well
+                        val centerOverlay = findViewById<View>(R.id.center_add_overlay)
+                        val centerIndex = menuItemCount / 2
+                        val itemCenterX = (centerIndex * newItemWidth) + newItemWidth / 2f
+                        val navCenterX = binding.bottomNavView.width / 2f
+                        centerOverlay?.translationX = itemCenterX - navCenterX
+                    }
+                } catch (_: Exception) {}
             }
         }
     }
@@ -307,15 +346,41 @@ class MainActivity : AppCompatActivity() {
             else -> 0
         }
 
-        val targetX = (position * itemWidth) + (itemWidth / 2) - (binding.bottomNavIndicator.width / 2)
+        // Target indicator width: equal to the menu item width so the indicator spans the item
+        val targetWidth = itemWidth
+
+        // Compute center X for the target item (when targetWidth == itemWidth, offset is zero)
+        val targetX = (position * itemWidth) + (itemWidth - targetWidth) / 2
+
+        val ind = binding.bottomNavIndicator
 
         if (animate) {
-            binding.bottomNavIndicator.animate()
-                .translationX(targetX.toFloat())
-                .setDuration(300)
-                .start()
+            // Animate translationX (200ms)
+            ind.animate().translationX(targetX.toFloat()).setDuration(200).start()
+
+            // Animate width with a cancellable animator
+            bottomIndicatorWidthAnimator?.cancel()
+            val startW = ind.width
+            if (startW != targetWidth) {
+                bottomIndicatorWidthAnimator = ValueAnimator.ofInt(startW, targetWidth).apply {
+                    duration = 200
+                    addUpdateListener { anim ->
+                        val w = anim.animatedValue as Int
+                        ind.layoutParams = ind.layoutParams.apply { width = w }
+                        ind.requestLayout()
+                    }
+                    start()
+                }
+            }
         } else {
-            binding.bottomNavIndicator.translationX = targetX.toFloat()
+            // Immediate placement: set width first then translation to avoid a visual jump
+            try {
+                ind.layoutParams = ind.layoutParams.apply { width = targetWidth }
+                ind.requestLayout()
+                ind.translationX = targetX.toFloat()
+            } catch (_: Exception) {
+                try { ind.translationX = targetX.toFloat() } catch (_: Exception) {}
+            }
         }
     }
 

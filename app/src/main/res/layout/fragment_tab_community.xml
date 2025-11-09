@@ -3,7 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/transparent">
+    android:background="@android:color/transparent"
+    android:animateLayoutChanges="true">
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvCommunity"
@@ -22,7 +23,6 @@
 
     <!-- Illustration shown when the list is empty -->
     <androidx.constraintlayout.widget.ConstraintLayout
-            xmlns:app="http://schemas.android.com/apk/res-auto"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_gravity="center">
@@ -34,6 +34,7 @@
                 android:layout_gravity="center"
                 android:scaleType="centerInside"
                 android:src="@drawable/illustration_search"
+                android:contentDescription="@null"
                 android:visibility="gone"
                 app:layout_constraintVertical_bias="0.35"
                 app:layout_constraintBottom_toBottomOf="parent"
@@ -45,7 +46,7 @@
                 android:id="@+id/emptyView"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="Search for Community"
+                android:text="@string/search_community_prompt"
                 android:gravity="center"
                 android:textSize="18sp"
                 android:layout_marginBottom="15dp"
@@ -61,7 +62,7 @@
                 android:id="@+id/emptyView2"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="Connect with your friends to chat together, be in audio room and more."
+                android:text="@string/search_community_subtext"
                 android:textSize="13sp"
                 android:fontFamily="@font/roboto_medium"
                 android:textColor="@android:color/white"
@@ -72,5 +73,45 @@
                 app:layout_constraintTop_toBottomOf="@+id/emptyView"
                 app:layout_constraintEnd_toEndOf="@+id/emptyView"/>
     </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Bottom action bar: stays above navigation and appears with a smooth layout transition.
+         The fragment can show/hide this view (setVisibility) to animate it into/out of place.
+         Place it last in the FrameLayout so it's drawn above the RecyclerView and empty state. -->
+    <LinearLayout
+        android:id="@+id/bottom_bar"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_gravity="bottom|center"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:visibility="gone"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="8dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:background="#CC121212"
+        android:elevation="8dp"
+        android:fitsSystemWindows="true">
+
+        <TextView
+            android:id="@+id/bottom_bar_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:text="@string/bottom_bar_selected_count" />
+
+        <Button
+            android:id="@+id/bottom_bar_action"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/bottom_bar_action_text"
+            android:backgroundTint="@color/primary_blue"
+            android:textColor="@android:color/white" />
+
+    </LinearLayout>
 
 </FrameLayout>

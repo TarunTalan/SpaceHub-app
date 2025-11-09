@@ -39,11 +39,13 @@ abstract class GroupsDatabase : RoomDatabase() {
             synchronized(this) {
                 try {
                     val inst = INSTANCE ?: run { getInstance(context) }
+                    // Only clear tables. Avoid closing the instance here because other threads may be
+                    // using the DB. Closing causes the connection pool to be shutdown and can throw
+                    // IllegalStateException in concurrent operations.
                     try { inst.clearAllTables() } catch (_: Exception) {}
-                    try { inst.close() } catch (_: Exception) {}
                 } catch (_: Exception) {
                 } finally {
-                    INSTANCE = null
+                    // Do not set INSTANCE = null; keep the singleton to avoid racing with active users.
                 }
             }
         }

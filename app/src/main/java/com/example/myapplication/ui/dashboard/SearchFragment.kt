@@ -13,12 +13,15 @@ import com.example.myapplication.ui.common.BaseFragment
 import androidx.navigation.fragment.findNavController
 import android.animation.ValueAnimator
 import android.widget.EditText
+import androidx.core.animation.addListener
 import androidx.fragment.app.activityViewModels
 
 class SearchFragment: BaseFragment(R.layout.fragment_search) {
     private val vm: SearchSharedViewModel by activityViewModels()
     private var previousSoftInputMode: Int? = null
     private var pageCallback: ViewPager2.OnPageChangeCallback? = null
+    // Animator reference so we can cancel width animations when a new target is requested
+    private var indicatorWidthAnimator: ValueAnimator? = null
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -40,30 +43,50 @@ class SearchFragment: BaseFragment(R.layout.fragment_search) {
 
         pager.adapter = SearchTabsAdapter(this)
 
-        fun positionIndicator(centerX: Float, width: Int, animate: Boolean) {
-            indicator?.let { ind ->
-                // Use translationX so ConstraintLayout doesn't fight with position
-                val targetX = centerX - ind.width / 2f
-                if (animate) {
-                    ind.animate().translationX(targetX).setDuration(200).start()
+        // Robust positioning helper that centers the indicator under the provided tab view
+        // Position the indicator under `tab`. onComplete receives the target width once applied (useful to set pivot/animations)
+        fun positionIndicatorForTab(tab: TextView, animate: Boolean, onComplete: ((targetWidth: Int) -> Unit)? = null) {
+            val ind = indicator ?: return
+            // Post to ensure tab measurements are up-to-date
+            ind.post {
+                try {
+                    val tabCenter = tab.x + tab.width / 2f
+                    val targetWidth = tab.width
+                    val targetX = tabCenter - targetWidth / 2f
+
+                    // Width animation: cancel previous animator and start a new one if needed
                     val startW = ind.width
-                    if (startW != width) {
-                        ValueAnimator.ofInt(startW, width).apply {
-                            duration = 200
-                            addUpdateListener {
-                                val w = it.animatedValue as Int
-                                ind.layoutParams = ind.layoutParams.apply { this.width = w }
-                                ind.requestLayout()
+                    if (startW != targetWidth) {
+                        indicatorWidthAnimator?.cancel()
+                        if (animate) {
+                            // For animated flow, animate translation and width together
+                            ind.animate().translationX(targetX).setDuration(200).start()
+                            indicatorWidthAnimator = ValueAnimator.ofInt(startW, targetWidth).apply {
+                                duration = 200
+                                addUpdateListener { anim ->
+                                    val w = anim.animatedValue as Int
+                                    ind.layoutParams = ind.layoutParams.apply { this.width = w }
+                                    ind.requestLayout()
+                                }
+                                // call onComplete at animation start with targetWidth so caller can set pivot based on final width
+                                addListener(onStart = {
+                                    try { onComplete?.invoke(targetWidth) } catch (_: Exception) {}
+                                })
+                                start()
                             }
-                        }.start()
+                        } else {
+                            // Non-animated: set width first then translation so pivot and positioning are correct immediately
+                            ind.layoutParams = ind.layoutParams.apply { this.width = targetWidth }
+                            ind.requestLayout()
+                            ind.translationX = targetX
+                            try { onComplete?.invoke(targetWidth) } catch (_: Exception) {}
+                        }
+                    } else {
+                        // width already matches - just set translation and call onComplete
+                        ind.translationX = targetX
+                        try { onComplete?.invoke(startW) } catch (_: Exception) {}
                     }
-                } else {
-                    ind.translationX = targetX
-                    if (ind.width != width) {
-                        ind.layoutParams = ind.layoutParams.apply { this.width = width }
-                        ind.requestLayout()
-                    }
-                }
+                } catch (_: Exception) { }
             }
         }
 
@@ -75,12 +98,28 @@ class SearchFragment: BaseFragment(R.layout.fragment_search) {
         view.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
                 view.viewTreeObserver.removeOnGlobalLayoutListener(this)
-                indicator?.alpha = 0f
-                indicator?.scaleX = 0f
-                val center = communityTab.x
-                positionIndicator(center, communityTab.width, animate = false)
-                indicator?.pivotX = indicator.width / 2f
-                indicator?.animate()?.alpha(1f)?.scaleX(1f)?.setDuration(250)?.start()
+                // Initialize indicator position and appearance synchronously so it appears at the correct place
+                indicator?.let { ind ->
+                    try {
+                        ind.visibility = View.VISIBLE
+                        ind.alpha = 0f
+                        ind.scaleX = 0f
+
+                        // Compute target width from the tab and apply immediately
+                        val targetWidth = communityTab.width
+                        ind.layoutParams = ind.layoutParams.apply { this.width = targetWidth }
+                        ind.requestLayout()
+
+                        // Compute target X using tab's left so indicator centers under the tab
+                        val targetX = communityTab.left + (communityTab.width - targetWidth) / 2f
+
+                        ind.translationX = targetX
+                        ind.pivotX = targetWidth / 2f
+
+                        // Run fade/scale entrance animation
+                        try { ind.animate()?.alpha(1f)?.scaleX(1f)?.setDuration(250)?.start() } catch (_: Exception) {}
+                    } catch (_: Exception) {}
+                }
                 updateSelectedStyles(communityTab, localTab)
             }
         })
@@ -89,14 +128,12 @@ class SearchFragment: BaseFragment(R.layout.fragment_search) {
         communityTab.setOnClickListener {
             pager.currentItem = 0
             updateSelectedStyles(communityTab, localTab)
-            val center = communityTab.x
-            positionIndicator(center, communityTab.width, animate = true)
+            positionIndicatorForTab(communityTab, animate = true)
         }
         localTab.setOnClickListener {
             pager.currentItem = 1
             updateSelectedStyles(localTab, communityTab)
-            val center = localTab.x
-            positionIndicator(center, localTab.width, animate = true)
+            positionIndicatorForTab(localTab, animate = true)
         }
 
         // Ensure the indicator moves when the user swipes pages as well
@@ -105,8 +142,7 @@ class SearchFragment: BaseFragment(R.layout.fragment_search) {
                 val selected = if (position == 0) communityTab else localTab
                 val other = if (position == 0) localTab else communityTab
                 updateSelectedStyles(selected, other)
-                val center = selected.x
-                positionIndicator(center, selected.width, animate = true)
+                positionIndicatorForTab(selected, animate = true)
             }
         }
         pager.registerOnPageChangeCallback(pageCallback!!)

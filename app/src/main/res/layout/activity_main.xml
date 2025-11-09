@@ -98,7 +98,7 @@
             app:layout_constraintVertical_bias="0"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            android:visibility="visible"
+            android:visibility="gone"
             app:layout_constraintBottom_toBottomOf="@+id/bottom_nav_view"
             app:layout_constraintTop_toTopOf="@+id/bottom_nav_view">
 

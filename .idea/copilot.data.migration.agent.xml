@@ -449,6 +449,21 @@
               <option value="9a085e21-3dc2-48ec-a55a-bbc1cc086c7b" />
               <option value="f008c48c-aaab-448f-9b4f-c7b2227c8b9f" />
               <option value="007b8bda-8b1c-43e4-a84c-61544cb23f63" />
+              <option value="706f245d-ebb9-4263-9fb2-b5868326720b" />
+              <option value="b9083759-cb5b-485d-aadd-95f262b69fd5" />
+              <option value="f996f048-9503-4d6c-986e-3bbef28026cb" />
+              <option value="29a39045-af47-4f41-86a3-a4ff560e105c" />
+              <option value="f16d9ce0-d4ee-4afa-bfc5-42fea0afedf3" />
+              <option value="fedfff51-9b71-4c5e-af3d-914b6aea4606" />
+              <option value="91a973a7-944c-4025-8300-6f6eb14380ed" />
+              <option value="c39db708-3860-4c8d-a3c7-1e4702bc67d1" />
+              <option value="002fa6f8-80c3-40fa-8f06-6f6970a60aba" />
+              <option value="1374a6ba-d112-47bc-a963-925e6f78cc50" />
+              <option value="c440d31f-dccc-4a59-95c8-301c26710b53" />
+              <option value="345ea66e-9412-4373-bd10-764062422ebc" />
+              <option value="67fa6efa-166f-4cbb-9379-5fe3505a471b" />
+              <option value="0e3f543c-c92f-4adc-8345-8ac9220c2c89" />
+              <option value="d39773c7-76f2-4f53-b742-c37d69eaac98" />
             </set>
           </value>
         </entry>
@@ -486,6 +501,18 @@
           <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_edit_community.xml" />
           <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/group/EditGroupFragment.kt" />
           <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/EditCommunityFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_tab_community.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_tab_local_groups.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/values/strings.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/SearchFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_search.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/MainActivity.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/DashboardFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/community/database/CommunityDatabase.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/groups/database/GroupsDatabase.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/session/SessionManager.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/activity_main.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_dashboard.xml" />
         </set>
       </entry>
     </pendingWorkingSetItems>
