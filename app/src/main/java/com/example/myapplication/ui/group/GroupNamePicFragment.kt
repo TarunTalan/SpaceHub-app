@@ -11,6 +11,8 @@ import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import com.example.myapplication.ui.common.ImagePickerHelper
 import com.bumptech.glide.Glide
+import android.widget.FrameLayout
+import androidx.core.content.ContextCompat
 
 class GroupNamePicFragment : BaseFragment(R.layout.fragment_group_name_pic) {
     private val sharedVm: ProfileSharedViewModel by activityViewModels()
@@ -25,7 +27,7 @@ class GroupNamePicFragment : BaseFragment(R.layout.fragment_group_name_pic) {
         val grpPic = view.findViewById<ImageView>(R.id.grp_pic)
         val grpPicIcon = view.findViewById<ImageView>(R.id.grp_pic_icon)
         val addIcon = view.findViewById<ImageView>(R.id.add_icon)
-        val grpPicFrame = view.findViewById<View>(R.id.grp_pic_frame)
+        val grpPicFrame = view.findViewById<FrameLayout>(R.id.grp_pic_frame)
         val etName = view.findViewById<android.widget.EditText>(R.id.etGrpName)
         val btnNext = view.findViewById<View>(R.id.btn_create_grp)
 
@@ -46,21 +48,26 @@ class GroupNamePicFragment : BaseFragment(R.layout.fragment_group_name_pic) {
                         grpPicIcon?.visibility = View.GONE
                         grpPic?.visibility = View.VISIBLE
                         try { Glide.with(this).load(bmp).circleCrop().into(grpPic) } catch (_: Exception) {}
+                        // Set solid outline when image selected (use foreground so it draws above image)
+                        try { grpPicFrame?.foreground = ContextCompat.getDrawable(requireContext(), R.drawable.outline_circle_solid_white) } catch (_: Exception) {}
                     }
                     contentUri != null -> {
                         grpPicIcon?.visibility = View.GONE
                         grpPic?.visibility = View.VISIBLE
                         try { Glide.with(this).load(contentUri).circleCrop().into(grpPic) } catch (_: Exception) {}
+                        try { grpPicFrame?.foreground = ContextCompat.getDrawable(requireContext(), R.drawable.outline_circle_solid_white) } catch (_: Exception) {}
                     }
                     !imgPath.isNullOrBlank() -> {
                         grpPicIcon?.visibility = View.GONE
                         grpPic?.visibility = View.VISIBLE
                         try { Glide.with(this).load(imgPath).circleCrop().into(grpPic) } catch (_: Exception) {}
+                        try { grpPicFrame?.foreground = ContextCompat.getDrawable(requireContext(), R.drawable.outline_circle_solid_white) } catch (_: Exception) {}
                     }
                     else -> {
                         grpPicIcon?.visibility = View.VISIBLE
                         grpPic?.visibility = View.INVISIBLE
                         grpPic?.setImageResource(R.drawable.default_profile)
+                        try { grpPicFrame?.foreground = ContextCompat.getDrawable(requireContext(), R.drawable.outline_circle_dashed_white) } catch (_: Exception) {}
                     }
                 }
             } catch (_: Exception) {}
@@ -110,5 +117,6 @@ class GroupNamePicFragment : BaseFragment(R.layout.fragment_group_name_pic) {
             sharedVm.setCommunityName(name)
             try { navigateWithDelay(R.id.action_groupNamePicFragment_to_groupDescriptionFragment) } catch (_: Exception) {}
         }
+
     }
 }

@@ -54,6 +54,10 @@ class EditCommunityFragment : Fragment(R.layout.fragment_edit_community) {
         val commPic = view.findViewById<ImageView>(R.id.comm_pic)
         val commPicIcon = view.findViewById<ImageView>(R.id.comm_pic_icon)
         val addIcon = view.findViewById<ImageView>(R.id.add_icon)
+        val backArrow = view.findViewById<ImageView>(R.id.back_arrow)
+        backArrow?.setOnClickListener {
+            try { findNavController().popBackStack() } catch (_: Exception) { }
+        }
 
         // Render preview
         fun renderPreview() {

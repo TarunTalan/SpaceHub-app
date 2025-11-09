@@ -8,6 +8,7 @@
       <option value="4e8bd3d4-a77e-4abb-ae79-7797e962ccfc" />
       <option value="51ddf032-a05c-455c-b844-098efdaf2341" />
       <option value="97412686-05d6-4972-8b37-9b761b36dc8e" />
+      <option value="f35216ec-ecee-4c6a-8f8d-d7847bfa661c" />
     </option>
     <option name="pendingTurns">
       <map>
@@ -80,40 +81,65 @@
               <option value="0ee09b67-c128-4c17-94b8-a28d536087c7" />
               <option value="1527372d-cf24-419b-a167-21ae971fb894" />
               <option value="1f081d1e-d86b-44ef-8c56-96fa8a2f6c46" />
+              <option value="208c8f99-b411-4166-a381-cb4c3b0b42dc" />
               <option value="20b3a6aa-6be7-4f21-b21a-60cedbaca818" />
               <option value="29044eba-7335-4d59-9bce-a68572d69001" />
               <option value="2bd76e02-f7fa-4432-ab2b-520f3cf305de" />
               <option value="315744fe-83f5-413e-b7d4-7338a6414478" />
               <option value="3205377a-03d1-4672-b296-e78e294f0100" />
+              <option value="35344ea7-41e5-40de-9b7b-be018c94e519" />
               <option value="3990b23e-eef9-428b-8e08-e72664f0bf50" />
+              <option value="3cc73180-4c0e-4905-856a-3cda7928c077" />
               <option value="3e5467e0-b5a5-4d4b-bcaf-227047008d2c" />
               <option value="46f8c10d-0737-4b35-8ffc-51992f2c4794" />
               <option value="47865c81-fdf9-445d-8703-182aac2eb85b" />
               <option value="527464b8-e19c-45f6-9901-03fb473f51d2" />
               <option value="53aa55a0-b28e-495b-bb3f-cb8045605e52" />
+              <option value="548387e9-36a6-4fc4-8264-94fbe8aa83eb" />
               <option value="548ebdde-77bb-43bd-9ef2-dd9554c3cc35" />
               <option value="571095f3-38c5-4be6-913d-230542c76466" />
               <option value="57f1f910-e8d8-44b8-9f34-873a52a1adc4" />
               <option value="5a41e7a4-fb88-40b0-abc0-2e4ef38bca4e" />
+              <option value="63cfc2e8-8b57-4d6e-b507-e19519460e25" />
+              <option value="65202e27-cb76-42f6-8991-a491ad95d7a6" />
               <option value="67f27b19-d900-4432-842a-a032fa2fdeaa" />
+              <option value="686bb669-1da9-46f1-ac35-d7b6c4d0594a" />
               <option value="6a3e548f-f080-4153-92ce-5a30fa37deca" />
               <option value="6cdd98f1-b3fd-4fd6-831f-d0e3477f44b9" />
+              <option value="74f5144e-f961-4126-b31d-5cf065306bb3" />
               <option value="7674075c-9ad0-4ef8-8c6e-e01e37f0f731" />
               <option value="77d7e38e-ae16-4429-911b-647acf0750bd" />
+              <option value="7d26ce7b-0b75-40c6-9243-352e27d0d598" />
               <option value="80a35f15-134d-4c12-a9d0-7a2fa8771b86" />
+              <option value="80c93c1d-ffb8-455b-8840-6a323ba419ae" />
               <option value="8d2addf3-ba38-45b1-9fde-3ef4a6a2a30b" />
               <option value="8d970a68-d3fb-4d54-bd5c-f400b6518a81" />
+              <option value="94431048-3767-4b39-96ae-edd5e909ac92" />
+              <option value="94869bf2-172e-43d6-8e69-53f39653e4d7" />
               <option value="94aa68d7-a10b-4216-b559-50da7c6f7dc0" />
+              <option value="98f6474e-4b65-4612-abcc-d5fa85718a9e" />
               <option value="9db738cb-b7a7-45bb-a5f1-3002492a77cf" />
               <option value="a489e8a3-a37e-40af-b530-93885cae609b" />
               <option value="ad30536e-e0b1-4633-b860-0c71bbca72f3" />
+              <option value="ad9b29cf-19b7-44aa-b537-4c4c5598ee09" />
+              <option value="ae7f4251-d1ee-44e7-996f-bfef9a460f42" />
+              <option value="b253ce0e-ca0c-46cd-9a00-7d923fc84911" />
+              <option value="b616ec1b-5fd5-4271-80fc-6de23e3fb485" />
               <option value="b65cf6de-a1e5-484e-a229-d74d42b6c3ee" />
               <option value="bf0a3b34-95c4-4aeb-acd3-1531cd8f7530" />
               <option value="bf83e4c8-a927-4c58-8e09-1fda00beca4c" />
+              <option value="c2fa90cf-d9ab-4cfe-825b-29caea378ed8" />
+              <option value="c6b1c562-fe1f-4eef-92b3-024e70c1535e" />
               <option value="c8305184-6451-41be-8d97-afff21610981" />
+              <option value="cef029cb-1d2b-4661-a6e7-600e28d2372a" />
               <option value="d8ee7976-a2f2-42be-b53a-726a11e01d7e" />
+              <option value="dd3c4217-f893-4f3b-b3f3-3ef0ea6fdeb2" />
               <option value="e273faab-0782-4fc2-8e59-e86ef6b10fc4" />
+              <option value="e2c54004-485a-4c81-95b1-51f31fba9384" />
+              <option value="e3200f43-fa5d-4caf-a071-16ffad41d2d7" />
+              <option value="f64c7763-e7f9-4713-94a2-38fca8906a40" />
               <option value="fcad0366-75d9-4c78-8384-753c73148881" />
+              <option value="fe6ea19c-cffd-498f-98cd-387fa021d225" />
               <option value="fff63e84-332d-42e4-9d8f-46091e39d093" />
             </set>
           </value>
@@ -416,6 +442,16 @@
             </set>
           </value>
         </entry>
+        <entry key="f35216ec-ecee-4c6a-8f8d-d7847bfa661c">
+          <value>
+            <set>
+              <option value="dafaebdb-0993-4668-9cd1-e5ee91e34ca6" />
+              <option value="9a085e21-3dc2-48ec-a55a-bbc1cc086c7b" />
+              <option value="f008c48c-aaab-448f-9b4f-c7b2227c8b9f" />
+              <option value="007b8bda-8b1c-43e4-a84c-61544cb23f63" />
+            </set>
+          </value>
+        </entry>
       </map>
     </option>
     <pendingWorkingSetItems>
@@ -426,10 +462,32 @@
           <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/auth/AuthRepository.kt" />
           <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/adapter/MemberAdapter.kt" />
           <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/MembersFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/community/repository/CommunityRepository.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/CommunityDetailFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/group/GroupDetailFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/viewmodel/CommunityDetailViewModel.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/DashboardFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/adapter/CommunityListAdapter.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/friends/model/Content.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/friends/model/UserSearchResult.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/friends/repository/FriendsRepository.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/drawable/outline_circle_dashed_white.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/drawable/outline_circle_solid_white.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_group_name_pic.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/group/GroupNamePicFragment.kt" />
         </set>
       </entry>
       <entry key="51ddf032-a05c-455c-b844-098efdaf2341" />
       <entry key="97412686-05d6-4972-8b37-9b761b36dc8e" />
+      <entry key="f35216ec-ecee-4c6a-8f8d-d7847bfa661c">
+        <set>
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_group_name_pic.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_edit_group.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_edit_community.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/group/EditGroupFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/EditCommunityFragment.kt" />
+        </set>
+      </entry>
     </pendingWorkingSetItems>
   </component>
 </project>

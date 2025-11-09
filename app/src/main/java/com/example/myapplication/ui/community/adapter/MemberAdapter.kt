@@ -16,9 +16,10 @@ import com.example.myapplication.data.community.model.Member
 
 class MemberAdapter(
     private val isAdmin: Boolean,
+    private val currentUserEmail: String?,
     private val onChangeRole: (Member, String) -> Unit,
     private val onRemove: (Member) -> Unit,
-    private val onLongClick: (Member) -> Unit = {}
+    private val onLongClick: ((Member) -> Unit)? = null
 ) : ListAdapter<Member, MemberAdapter.VH>(Diff) {
 
     object Diff : DiffUtil.ItemCallback<Member>() {
@@ -34,7 +35,7 @@ class MemberAdapter(
         private val btnRemove: Button = view.findViewById(R.id.btnRemove)
 
         fun bind(item: Member) {
-            tvName.text = item.username?.toString() ?: "Unknown"
+            tvName.text = item.username ?: "Unknown"
             tvRole.text = item.role
 
             // Load avatar (prefer previewUrl; fallback to key path if needed)
@@ -53,9 +54,13 @@ class MemberAdapter(
             val roleUpper = item.role?.trim()?.uppercase()
             val isOwner = roleUpper?.contains("OWNER") == true
 
-            // Only admins can see action buttons; never allow remove on OWNER
-            btnPromote.visibility = if (isAdmin) View.VISIBLE else View.GONE
-            btnRemove.visibility = if (isAdmin && !isOwner) View.VISIBLE else View.GONE
+            // Only admins can see action buttons; never allow remove on OWNER or on self
+            val isSelf = !currentUserEmail.isNullOrBlank() && item.email.equals(currentUserEmail, ignoreCase = true)
+            btnPromote.visibility = if (isAdmin && !isSelf) View.VISIBLE else View.GONE
+            btnRemove.visibility = if (isAdmin && !isOwner && !isSelf) View.VISIBLE else View.GONE
+
+            // Disable long-press for own card
+            itemView.isLongClickable = (onLongClick != null && !isSelf)
 
             btnPromote.setOnClickListener {
                 val next = if (roleUpper == "ADMIN") "MEMBER" else "ADMIN"
@@ -63,12 +68,10 @@ class MemberAdapter(
             }
             btnRemove.setOnClickListener { onRemove(item) }
 
-            // Long-press to open role change dialog (UI should also ensure only admins see this action)
+            // Optional long-press handler
             itemView.setOnLongClickListener {
-                if (isAdmin) {
-                    onLongClick(item)
-                    true
-                } else false
+                onLongClick?.invoke(item)
+                true
             }
         }
     }

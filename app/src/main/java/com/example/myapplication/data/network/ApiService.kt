@@ -250,7 +250,8 @@ interface ApiService {
 
     @GET("search")
     suspend fun searchUsers(
-        @Query("q") query: String,
+        @Query("query") query: String,
+        @Query("email") email: String,
         @Query("page") page: Int = 0,
         @Query("size") size: Int = 20
     ): Response<SearchUsersResponse>

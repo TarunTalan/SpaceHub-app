@@ -73,10 +73,20 @@
                 android:id="@+id/grp_pic"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:background="@drawable/outline_circle_dashed_white"
                 android:scaleType="centerCrop"
                 app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Circle"
         />
+
+        <!-- Outline overlay placed after the image so it is drawn above the image. We will toggle
+             this drawable between dashed and solid programmatically to ensure visibility on all devices. -->
+        <ImageView
+                android:id="@+id/grp_pic_outline"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/outline_circle_dashed_white"
+                android:scaleType="fitXY"
+                android:contentDescription=""
+                android:importantForAccessibility="no"/>
 
         <ImageView
                 android:id="@+id/grp_pic_icon"
@@ -88,13 +98,6 @@
                 app:layout_constraintEnd_toEndOf="@id/guideline_end"
                 app:layout_constraintStart_toStartOf="@id/guideline_start"/>
 
-        <ImageView
-                android:id="@+id/add_icon"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_gravity="top|end"
-                android:src="@drawable/add_icon"
-                android:contentDescription=""/>
     </FrameLayout>
     <TextView
             android:layout_width="wrap_content"
@@ -107,6 +110,20 @@
             app:layout_constraintStart_toStartOf="@id/grp_pic_frame"
             app:layout_constraintTop_toBottomOf="@id/grp_pic_frame"
     />
+
+    <!-- add_icon placed here (after the FrameLayout and Upload label) so it is rendered above the outline -->
+    <ImageView
+            android:id="@+id/add_icon"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/add_icon"
+            android:contentDescription=""
+            android:elevation="8dp"
+            android:translationZ="12dp"
+            app:layout_constraintTop_toTopOf="@id/grp_pic_frame"
+            app:layout_constraintEnd_toEndOf="@id/grp_pic_frame"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="-8dp"/>
 
     <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="0dp"

@@ -22,17 +22,24 @@ data class UserSearchResult(
          * Create UserSearchResult from Content model
          */
         fun fromContent(content: Content): UserSearchResult {
-            val raw = content.avatarUrl.trim()
             val resolved = when {
-                raw.isBlank() -> null
-                raw.startsWith("http://", true) || raw.startsWith("https://", true) -> raw
-                else -> BuildConfig.BASE_URL.trimEnd('/') + "/" + raw.trimStart('/')
+                !content.avatarPreviewUrl.isNullOrBlank() -> content.avatarPreviewUrl
+                !content.avatarUrl.isNullOrBlank() -> {
+                    val raw = content.avatarUrl.trim()
+                    if (raw.startsWith("http://", true) || raw.startsWith("https://", true)) raw
+                    else BuildConfig.BASE_URL.trimEnd('/') + "/" + raw.trimStart('/')
+                }
+                !content.avatarKey.isNullOrBlank() -> BuildConfig.BASE_URL.trimEnd('/') + "/" + content.avatarKey.trimStart('/')
+                else -> null
             }
+
             return UserSearchResult(
                 userId = content.userId,
                 username = content.username,
                 email = content.email,
-                avatarUrl = resolved
+                avatarUrl = resolved,
+                firstName = content.firstName,
+                lastName = content.lastName
             )
         }
     }

@@ -132,19 +132,21 @@ class CommunityRepository private constructor(private val context: Context) {
     // Delete all communities (e.g., on logout)
     suspend fun deleteAllCommunities() { communityDao.deleteAllCommunities() }
 
-    suspend fun fetchMembers(communityId: String): Result<List<Member>> {
-        // First, check in the short TTL cache
-        synchronized(_memberRequestsLock) {
-            val cached = _memberCache[communityId]
-            val now = System.currentTimeMillis()
-            val isExpired = cached?.let { (it.second + 5 * 60 * 1000) < now } ?: true // 5 minutes TTL
-            if (!isExpired) {
-                // Return cached result immediately if not expired
-                return cached.first
+    suspend fun fetchMembers(communityId: String, force: Boolean = false): Result<List<Member>> {
+        // First, check in the short TTL cache unless caller forced a fresh network call
+        if (!force) {
+            synchronized(_memberRequestsLock) {
+                val cached = _memberCache[communityId]
+                val now = System.currentTimeMillis()
+                val isExpired = cached?.let { (it.second + 5 * 60 * 1000) < now } ?: true // 5 minutes TTL
+                if (!isExpired) {
+                    // Return cached result immediately if not expired
+                    return cached.first
+                }
             }
         }
 
-        // If expired or not present in cache, proceed with network request
+        // If expired, forced or not present in cache, proceed with network request
         val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
 
         try {
@@ -163,7 +165,12 @@ class CommunityRepository private constructor(private val context: Context) {
                         val list = body?.data?.members ?: emptyList()
                         // Update relationship flags locally based on my role (handle synonyms)
                         val myRole = list.firstOrNull { it.email.equals(email, true) }?.role?.trim()?.uppercase()
+                        // Fallback: some backends omit the creator from the members list. If myRole is null,
+                        // consult the locally persisted community.creatorId to decide ownership.
+                        val creatorIdFromDb = runCatching { communityDao.getCommunityById(communityId)?.creatorId }.getOrNull()
+                        val creatorIsMe = !creatorIdFromDb.isNullOrBlank() && creatorIdFromDb.equals(email, true)
                         val isOwner = myRole == "OWNER" || myRole == "CREATOR"
+                            || (myRole == null && creatorIsMe)
                         val isModerator = when {
                             myRole == null -> false
                             myRole.contains("ADMIN") -> true
@@ -174,7 +181,7 @@ class CommunityRepository private constructor(private val context: Context) {
                         runCatching { communityDao.updateRelationship(communityId, isOwner, isMember, isModerator) }
                         // Persist member count so dashboard and other UI can reflect accurate totals
                         runCatching { communityDao.updateMemberCount(communityId, list.size) }
-                        // Cache the result with the current timestamp
+                        // Cache the result with the current timestamp (even when caller requested fresh data)
                         synchronized(_memberRequestsLock) {
                             _memberCache[communityId] = Result.success(list) to System.currentTimeMillis()
                         }
@@ -504,6 +511,9 @@ class CommunityRepository private constructor(private val context: Context) {
             val body = resp.body()
             val data = body?.data ?: return Result.success(Unit)
 
+            // Snapshot existing local communities to avoid overwriting creator/isOwner when API omits those fields
+            val existingMap: Map<String, Community> = runCatching { communityDao.getAllCommunities().associateBy { it.communityId } }.getOrDefault(emptyMap())
+
             val mapped: List<Community> = data.communities.mapNotNull { dto ->
                 try {
                     val myRoleRaw = dto.communityUsers
@@ -512,17 +522,21 @@ class CommunityRepository private constructor(private val context: Context) {
                         ?.trim()
                         ?.uppercase()
 
-                    val creatorEmail = dto.createdBy?.email
+                    // Prefer API creator if provided, otherwise preserve existing local creatorId
+                    val creatorEmailFromApi = dto.createdBy?.email
+                    val existing = existingMap[dto.communityId]
+                    val creatorEmail = if (!creatorEmailFromApi.isNullOrBlank()) creatorEmailFromApi else existing?.creatorId
+                    val creatorName = dto.createdBy?.username ?: existing?.creatorName
                     val creatorIsMe = !creatorEmail.isNullOrBlank() && creatorEmail.equals(email, true)
 
-                    // Prefer role from server; fallback to createdBy==me only if role is missing
+                    // Prefer role from server; fallback to createdBy==me or existing isOwner only if role is missing
                     val isOwner = when {
                         myRoleRaw == "OWNER" || myRoleRaw == "CREATOR" -> true
-                        myRoleRaw == null && creatorIsMe -> true
+                        myRoleRaw == null && (creatorIsMe || (existing?.isOwner == true)) -> true
                         else -> false
                     }
                     val isModerator = when {
-                        myRoleRaw == null -> false
+                        myRoleRaw == null -> existing?.isModerator ?: false
                         myRoleRaw.contains("ADMIN") -> true
                         myRoleRaw == "MODERATOR" || myRoleRaw == "MANAGER" || myRoleRaw == "OWNER" || myRoleRaw == "CREATOR" -> true
                         else -> false
@@ -532,18 +546,18 @@ class CommunityRepository private constructor(private val context: Context) {
                     Community(
                         communityId = dto.communityId,
                         name = dto.name,
-                        description = dto.description?.takeIf { it.isNotBlank() },
-                        profilePicUrl = dto.imageUrl?.takeIf { it.isNotBlank() },
-                        profilePicLocalPath = null,
-                        coverPhotoUrl = dto.bannerUrl?.takeIf { it.isNotBlank() },
-                        coverPhotoLocalPath = null,
-                        category = null,
-                        memberCount = 0,
-                        postCount = 0,
-                        isPrivate = false,
+                        description = dto.description?.takeIf { it.isNotBlank() } ?: existing?.description,
+                        profilePicUrl = dto.imageUrl?.takeIf { it.isNotBlank() } ?: existing?.profilePicUrl,
+                        profilePicLocalPath = existing?.profilePicLocalPath,
+                        coverPhotoUrl = dto.bannerUrl?.takeIf { it.isNotBlank() } ?: existing?.coverPhotoUrl,
+                        coverPhotoLocalPath = existing?.coverPhotoLocalPath,
+                        category = existing?.category,
+                        memberCount = existing?.memberCount ?: 0,
+                        postCount = existing?.postCount ?: 0,
+                        isPrivate = existing?.isPrivate ?: false,
                         creatorId = creatorEmail,
-                        creatorName = dto.createdBy?.username,
-                        createdAt = System.currentTimeMillis(),
+                        creatorName = creatorName,
+                        createdAt = existing?.createdAt ?: System.currentTimeMillis(),
                         updatedAt = System.currentTimeMillis(),
                         isOwner = isOwner,
                         isMember = isMember,
@@ -554,10 +568,15 @@ class CommunityRepository private constructor(private val context: Context) {
 
             val ids = mapped.map { it.communityId }
 
+            // Preserve locally-owned communities if server response is missing them (avoid accidental deletion)
+            val existingOwners = existingMap.filter { it.value.isOwner }.keys
+            val preservedIds = (ids + existingOwners).distinct()
+
             CommunityDatabase.getInstance(context).withTransaction {
-                if (ids.isNotEmpty()) {
-                    communityDao.deleteCommunitiesNotIn(ids)
+                if (preservedIds.isNotEmpty()) {
+                    communityDao.deleteCommunitiesNotIn(preservedIds)
                 } else {
+                    // Keep local owners; delete only non-my communities
                     communityDao.deleteAllNonMyCommunities()
                 }
                 if (mapped.isNotEmpty()) {
@@ -680,7 +699,7 @@ class CommunityRepository private constructor(private val context: Context) {
                 root == null || root.isJsonNull -> null
                 root is JsonObject -> root.asJsonObject.getAsJsonArray("data") ?: run {
                     val obj = root.asJsonObject
-                    obj.entrySet().firstOrNull { it.value.isJsonArray }?.value?.asJsonArray
+                    obj.entrySet().firstOrNull { it.value is JsonArray }?.value?.asJsonArray
                 }
                 else -> null
             }
@@ -719,6 +738,51 @@ class CommunityRepository private constructor(private val context: Context) {
             val resp = api.acceptRequest(payload)
             Log.d("CommunityRepo", "acceptJoinRequest - HTTP ${resp.code()} isSuccessful=${resp.isSuccessful} bodyStatus=${resp.body()?.status} msg=${resp.body()?.message}")
             return if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
+                // Ensure local DB preserves owner relationship for this community (defensive)
+                runCatching {
+                    val cid = request.communityId
+                    var match: Community? = null
+                    if (cid.isNotBlank()) {
+                        match = communityDao.getCommunityById(cid)
+                    }
+                    if (match == null) {
+                        // Fallback to name-based match
+                        val localList = communityDao.getAllCommunities()
+                        match = localList.firstOrNull { it.name.equals(communityName, true) }
+                    }
+                    if (match != null) {
+                        val updated = match.copy(creatorId = creatorEmail, creatorName = match.creatorName ?: "", isOwner = true, isMember = true)
+                        communityDao.insertCommunity(updated)
+                        Log.d("CommunityRepo", "acceptJoinRequest: updated local community ${updated.communityId} as owner")
+                    } else if (cid.isNotBlank()) {
+                        // Insert minimal community entry if not present locally to avoid losing owner status on refresh
+                        val newCommunity = Community(
+                            communityId = cid,
+                            name = communityName,
+                            description = null,
+                            profilePicUrl = null,
+                            profilePicLocalPath = null,
+                            coverPhotoUrl = null,
+                            coverPhotoLocalPath = null,
+                            category = null,
+                            memberCount = 0,
+                            postCount = 0,
+                            isPrivate = false,
+                            creatorId = creatorEmail,
+                            creatorName = null,
+                            createdAt = System.currentTimeMillis(),
+                            updatedAt = System.currentTimeMillis(),
+                            role = null,
+                            isOwner = true,
+                            isMember = true,
+                            isModerator = false
+                        )
+                        communityDao.insertCommunity(newCommunity)
+                        Log.d("CommunityRepo", "acceptJoinRequest: inserted minimal local community $cid as owner")
+                    } else {
+                        Log.w("CommunityRepo", "acceptJoinRequest: could not find local community to mark owner (no id and no name match)")
+                    }
+                }
                 // After accepting a request, refresh My Communities to reflect any changes immediately
                 runCatching { fetchMyCommunitiesRemote(creatorEmail) }
                 Result.success(Unit)
@@ -904,4 +968,14 @@ class CommunityRepository private constructor(private val context: Context) {
         }
     }
 
+    /**
+     * Invalidate cached members for a community so next fetchMembers() will hit the network.
+     * Useful when user explicitly requests a refresh (e.g., clicks Members) or after
+     * membership changes that should be reflected immediately.
+     */
+    fun invalidateMembersCache(communityId: String) {
+        synchronized(_memberRequestsLock) {
+            _memberCache.remove(communityId)
+        }
+    }
 }

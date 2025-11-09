@@ -37,6 +37,7 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
     val deleted: LiveData<Boolean> = _deleted
 
     private var roomsCollectJob: Job? = null
+    private var communityCollectJob: Job? = null
 
     fun setCommunityId(id: String) {
         if (_communityId.value == id) return
@@ -47,6 +48,16 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
             repo.observeRooms(id).collectLatest { entities ->
                 val mapped = entities.map { e -> DataRoom(id = e.id, name = e.name, roomCode = e.roomCode) }
                 _rooms.postValue(mapped)
+            }
+        }
+        // Observe community entity for memberCount / name updates
+        communityCollectJob?.cancel()
+        communityCollectJob = viewModelScope.launch {
+            repo.observeCommunityById(id).collectLatest { comm ->
+                comm?.let {
+                    _communityName.postValue(it.name)
+                    _totalMembers.postValue(it.memberCount)
+                }
             }
         }
         viewModelScope.launch {
@@ -113,6 +124,25 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
     // non-suspending helper for UI to request a refresh
     fun refreshRooms() {
         viewModelScope.launch { syncRooms() }
+    }
+
+
+    fun refreshDetails() {
+        viewModelScope.launch {
+            val id = _communityId.value
+            if (!id.isNullOrBlank()) {
+                try { repo.fetchMembers(id, force = true) } catch (_: Exception) {}
+            }
+            try {
+                refreshMemberCount()
+            } catch (_: Exception) {}
+            try {
+                refreshAdminCount()
+            } catch (_: Exception) {}
+            try {
+                syncRooms()
+            } catch (_: Exception) {}
+        }
     }
 
     suspend fun renameRoom(roomId: String, newName: String) {

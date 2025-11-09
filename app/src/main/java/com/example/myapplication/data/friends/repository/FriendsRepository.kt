@@ -25,7 +25,8 @@ class FriendsRepository private constructor(private val context: Context) {
 
     suspend fun searchUsers(query: String, page: Int = 0, size: Int = 20): Result<List<UserSearchResult>> {
         return try {
-            val response = api.searchUsers(query, page, size)
+            val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
+            val response = api.searchUsers(query, email, page, size)
 
             if (response.isSuccessful && response.body()?.status in listOf(200, 201)) {
                 val contentList = response.body()?.data?.content ?: emptyList()

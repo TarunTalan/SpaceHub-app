@@ -56,6 +56,10 @@ class EditGroupFragment : Fragment(R.layout.fragment_edit_group) {
         val grpPic = view.findViewById<ImageView>(R.id.grp_pic)
         val grpPicIcon = view.findViewById<ImageView>(R.id.grp_pic_icon)
         val addIcon = view.findViewById<ImageView>(R.id.add_icon)
+        val backArrow = view.findViewById<ImageView>(R.id.back_arrow)
+        backArrow?.setOnClickListener {
+            try { findNavController().popBackStack() } catch (_: Exception) { }
+        }
 
         // Prefill from shared GroupDetailViewModel if available
         sharedVm.group.observe(viewLifecycleOwner) { data ->

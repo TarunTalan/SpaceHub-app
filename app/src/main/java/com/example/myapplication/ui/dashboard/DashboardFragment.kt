@@ -387,7 +387,7 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
                         val isOwnerOrAdmin = item.isOwner || item.isModerator || (!item.creatorId.isNullOrBlank() && item.creatorId.equals(com.example.myapplication.data.user.UserDataManager.getInstance(ctx).getEmail(), true))
                         if (isOwnerOrAdmin) {
                             // Fetch members and see if there exists another admin/owner
-                            val membersRes = repo.fetchMembers(item.communityId)
+                            val membersRes = repo.fetchMembers(item.communityId, force = true)
                             val members = membersRes.getOrNull() ?: emptyList()
                             val myEmail = com.example.myapplication.data.user.UserDataManager.getInstance(ctx).getEmail()
                             val othersAdmin = members.any { m ->
