@@ -13,6 +13,7 @@ import com.example.myapplication.R
 import com.example.myapplication.data.groups.model.DataXXX
 
 class GroupMemberAdapter(
+    private val currentUserEmail: String? = null,
     private val onClick: (DataXXX) -> Unit = {}
 ) : ListAdapter<DataXXX, GroupMemberAdapter.VH>(Diff) {
 
@@ -27,7 +28,12 @@ class GroupMemberAdapter(
         private val tvEmail: TextView = view.findViewById(R.id.tvMemberEmail)
 
         fun bind(item: DataXXX) {
-            val name = item.username?.takeIf { it.isNotBlank() } ?: item.email
+            val isSelf = !currentUserEmail.isNullOrBlank() && item.email?.equals(currentUserEmail, ignoreCase = true) == true
+            val name = if (isSelf) {
+                itemView.context.getString(R.string.you)
+            } else {
+                item.username?.takeIf { it.isNotBlank() } ?: item.email
+            }
             tvName.text = name
             tvEmail.text = item.email
 

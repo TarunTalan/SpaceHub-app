@@ -16,11 +16,11 @@ import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.launch
 import com.example.myapplication.R
 import com.example.myapplication.data.community.repository.CommunityRepository
 import com.example.myapplication.data.user.UserDataManager
 import com.example.myapplication.ui.community.adapter.MemberAdapter
-import kotlinx.coroutines.launch
 
 class MembersFragment : Fragment(R.layout.fragment_members) {
     private var isAdmin = false
@@ -30,7 +30,7 @@ class MembersFragment : Fragment(R.layout.fragment_members) {
     private var swipeHelper: ItemTouchHelper? = null
 
     // Define admin roles centrally
-    private val adminRoles = setOf("OWNER", "CREATOR", "ADMIN", "MODERATOR", "MANAGER")
+    private val adminRoles = setOf("OWNER", "Admin", "ADMIN")
 
     // Determine admin status from members list and cached currentEmail
     private fun computeIsAdminFromMembers(
@@ -56,8 +56,6 @@ class MembersFragment : Fragment(R.layout.fragment_members) {
                     val res =
                         CommunityRepository.getInstance(requireContext()).changeMemberRole(communityId, email, next)
                     if (res.isSuccess) {
-                        // Reload members after role change using captured RecyclerView + ProgressBar
-                        // Invalidate cache then load members (force fresh network response)
                         loadMembers(communityId, rv, progress)
                     } else {
                         Toast.makeText(requireContext(), "Failed to change role", Toast.LENGTH_SHORT).show()
@@ -133,6 +131,8 @@ class MembersFragment : Fragment(R.layout.fragment_members) {
             Toast.makeText(requireContext(), "Missing communityId", Toast.LENGTH_SHORT).show()
             return
         }
+
+        // Header population intentionally omitted: no user card in member screen
 
         // Setup RecyclerView
         rv.layoutManager = LinearLayoutManager(requireContext())

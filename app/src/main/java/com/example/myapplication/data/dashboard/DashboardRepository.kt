@@ -169,9 +169,9 @@ class DashboardRepository(private val context: Context) {
                         val body = resp.body()
                         var downloadUrl = body?.data
                         val rawRespBodyString: String? = try { try { resp.raw().peekBody(1024 * 1024).string() } catch (_: Exception) { null } } catch (_: Exception) { null }
-                        if ((downloadUrl == null || downloadUrl.isBlank()) && !rawRespBodyString.isNullOrBlank()) {
+                        if (downloadUrl.isNullOrBlank() && !rawRespBodyString.isNullOrBlank()) {
                             try {
-                                val regex = """https?://[\w\-./?=&%:;#@+~]+""".toRegex()
+                                val regex = """https?://[\w./?=&%:;#@+~-]+""".toRegex()
                                 val m = regex.find(rawRespBodyString)
                                 if (m != null) downloadUrl = m.value
                             } catch (_: Exception) {}
@@ -233,21 +233,24 @@ class DashboardRepository(private val context: Context) {
                 val resp = api.updateProfile(emailStr, request)
                 if (resp.isSuccessful) {
                     try {
-                        val body = resp.body()
-                        val avatarUrl = body?.avatarUrl
-                        android.util.Log.d(TAG, "updateProfile: resp.body avatarUrl=$avatarUrl, coverPhotoUrl=${body?.coverPhotoUrl}")
+                        // New API shape: UpdateProfileResponse wraps profile under `data`
+                        val envelope = resp.body()
+                        val profile = envelope?.data
 
-                        // Resolve relative avatar paths to a usable finalUrl (handles signed URLs and preview URLs)
+                        val avatarKey = profile?.avatarKey
+                        val coverPhotoUrl: String? = null // not present in ProfileData
+                        android.util.Log.d(TAG, "updateProfile: resp.profile.avatarKey=$avatarKey, coverPhotoUrl=$coverPhotoUrl")
+
+                        // Resolve relative avatar keys to a usable finalUrl (handles signed URLs and preview URLs)
                         val userDataManager = UserDataManager.getInstance(context)
                         val finalAvatarUrl: String? = try {
-                            if (avatarUrl.isNullOrBlank()) {
+                            if (avatarKey.isNullOrBlank()) {
                                 null
-                            } else if (avatarUrl.startsWith("http://", ignoreCase = true) || avatarUrl.startsWith("https://", ignoreCase = true)) {
-                                avatarUrl
+                            } else if (avatarKey.startsWith("http://", ignoreCase = true) || avatarKey.startsWith("https://", ignoreCase = true)) {
+                                avatarKey
                             } else {
-                                // Use body.email if available, else fallback to emailStr
-                                val ownerEmail = body?.email ?: emailStr
-                                resolveAvatarUrl(ownerEmail, avatarUrl) ?: (com.example.myapplication.BuildConfig.BASE_URL.trimEnd('/') + "/" + avatarUrl.trimStart('/'))
+                                val ownerEmail = profile?.email ?: emailStr
+                                resolveAvatarUrl(ownerEmail, avatarKey) ?: (com.example.myapplication.BuildConfig.BASE_URL.trimEnd('/') + "/" + avatarKey.trimStart('/'))
                             }
                         } catch (e: Exception) {
                             android.util.Log.w(TAG, "Failed to resolve avatar url: ${e.message}")
@@ -256,19 +259,19 @@ class DashboardRepository(private val context: Context) {
 
                         android.util.Log.d(TAG, "updateProfile: finalAvatarUrl=$finalAvatarUrl")
                         userDataManager.updateProfile(
-                            username = body?.username,
-                            firstName = body?.firstName,
-                            lastName = body?.lastName,
-                            email = body?.email,
-                            bio = body?.bio,
-                            dateOfBirth = body?.dateOfBirth,
-                            location = body?.location?.toString(),
-                            website = body?.website?.toString(),
+                            username = profile?.username,
+                            firstName = profile?.firstName,
+                            lastName = profile?.lastName,
+                            email = profile?.email,
+                            bio = profile?.bio,
+                            dateOfBirth = profile?.dateOfBirth,
+                            location = null,
+                            website = null,
                             avatarUrl = finalAvatarUrl,
-                            coverPhotoUrl = body?.coverPhotoUrl?.toString(),
-                            followersCount = body?.followersCount,
-                            followingCount = body?.followingCount,
-                            isPrivate = body?.isPrivate
+                            coverPhotoUrl = coverPhotoUrl,
+                            followersCount = null,
+                            followingCount = null,
+                            isPrivate = null
                         )
                         // Also store into app_prefs for backward-compatible UIs
                         try {

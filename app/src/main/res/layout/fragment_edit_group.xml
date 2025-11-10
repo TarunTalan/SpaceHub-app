@@ -6,7 +6,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@drawable/background_gradient"
-        tools:context=".ui.community.EditGroupFragment">
+        tools:context=".ui.group.EditGroupFragment">
 
     <ProgressBar
             android:id="@+id/progress"
@@ -137,7 +137,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             app:layout_constraintTop_toBottomOf="@+id/grp_pic_frame"
-            app:layout_constraintBottom_toTopOf="@id/btn_create_grp"
+            app:layout_constraintBottom_toTopOf="@id/btnSave"
             app:layout_constraintEnd_toStartOf="@+id/guideline_end"
             app:layout_constraintStart_toStartOf="@+id/guideline_start"
             android:elevation="5dp"

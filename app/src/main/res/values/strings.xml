@@ -168,6 +168,9 @@
     <string name="toggle_admin">Toggle Admin</string>
     <string name="remove">Remove</string>
     <string name="promote">Promote</string>
+    <string name="more">More</string>
+    <string name="members_label">%1$d Members</string>
+    <string name="you">You</string>
 
     <!-- Search / Tabs related strings (missing, added to fix resource linking) -->
     <string name="cd_back">Back</string>

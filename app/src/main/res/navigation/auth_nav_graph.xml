@@ -268,10 +268,14 @@
             android:name="com.example.myapplication.ui.dashboard.SearchFragment"
             android:label="SearchFragment"
             tools:layout="@layout/fragment_search">
-        <action android:id="@+id/action_searchFragment_to_dashboardFragment" app:destination="@id/dashboardFragment"/>
-        <action android:id="@+id/action_searchFragment_to_communityDetailFragment" app:destination="@id/communityDetailFragment"/>
-        <action android:id="@+id/action_searchFragment_to_localGroupDetailFragment" app:destination="@id/localGroupDetailFragment"/>
-        <action android:id="@+id/action_searchFragment_to_communityOverviewFragment" app:destination="@id/communityOverviewFragment"/>
+        <action android:id="@+id/action_searchFragment_to_dashboardFragment" app:destination="@id/dashboardFragment"
+                app:enterAnim="@anim/slide_in_right" app:exitAnim="@anim/slide_out_left" app:popEnterAnim="@anim/slide_in_left" app:popExitAnim="@anim/slide_out_right"/>
+        <action android:id="@+id/action_searchFragment_to_communityDetailFragment" app:destination="@id/communityDetailFragment"
+                app:enterAnim="@anim/slide_in_right" app:exitAnim="@anim/slide_out_left" app:popEnterAnim="@anim/slide_in_left" app:popExitAnim="@anim/slide_out_right"/>
+        <action android:id="@+id/action_searchFragment_to_localGroupDetailFragment" app:destination="@id/localGroupDetailFragment"
+                app:enterAnim="@anim/slide_in_right" app:exitAnim="@anim/slide_out_left" app:popEnterAnim="@anim/slide_in_left" app:popExitAnim="@anim/slide_out_right"/>
+        <action android:id="@+id/action_searchFragment_to_communityOverviewFragment" app:destination="@id/communityOverviewFragment"
+                app:enterAnim="@anim/slide_in_right" app:exitAnim="@anim/slide_out_left" app:popEnterAnim="@anim/slide_in_left" app:popExitAnim="@anim/slide_out_right"/>
     </fragment>
 
     <fragment
@@ -297,7 +301,8 @@
             app:argType="string"/>
         <action
             android:id="@+id/action_communityDetailFragment_to_roomFragment"
-            app:destination="@id/roomFragment"/>
+            app:destination="@id/roomFragment"
+            app:enterAnim="@anim/slide_in_right" app:exitAnim="@anim/slide_out_left" app:popEnterAnim="@anim/slide_in_left" app:popExitAnim="@anim/slide_out_right"/>
     </fragment>
 
     <fragment
@@ -319,9 +324,11 @@
         android:name="com.example.myapplication.ui.group.GroupDetailFragment"
         android:label="LocalGroupDetail"
         tools:layout="@layout/fragment_local_group_overview">
-        <action android:id="@+id/action_localGroupDetailFragment_to_groupMembersFragment" app:destination="@id/groupMembersFragment" />
+        <action android:id="@+id/action_localGroupDetailFragment_to_groupMembersFragment" app:destination="@id/groupMembersFragment"
+                app:enterAnim="@anim/slide_in_right" app:exitAnim="@anim/slide_out_left" app:popEnterAnim="@anim/slide_in_left" app:popExitAnim="@anim/slide_out_right"/>
         <!-- action to edit local group -->
-        <action android:id="@+id/action_localGroupDetail_to_editGroup" app:destination="@id/editGroupFragment" />
+        <action android:id="@+id/action_localGroupDetail_to_editGroup" app:destination="@id/editGroupFragment"
+                app:enterAnim="@anim/slide_in_right" app:exitAnim="@anim/slide_out_left" app:popEnterAnim="@anim/slide_in_left" app:popExitAnim="@anim/slide_out_right"/>
     </fragment>
 
     <!-- Edit group destination for local groups -->
@@ -367,8 +374,10 @@
             tools:layout="@layout/fragment_chat_room">
         <argument android:name="chatRoomCode" app:argType="string" />
         <argument android:name="chatRoomName" app:argType="string" />
-        <action android:id="@+id/action_chatRoomFragment_to_dashboardFragment" app:destination="@id/dashboardFragment"/>
-        <action android:id="@+id/action_chatRoomFragment_to_searchFriendsFragment" app:destination="@id/searchFriendsFragment"/>
+        <action android:id="@+id/action_chatRoomFragment_to_dashboardFragment" app:destination="@id/dashboardFragment"
+                app:enterAnim="@anim/slide_in_right" app:exitAnim="@anim/slide_out_left" app:popEnterAnim="@anim/slide_in_left" app:popExitAnim="@anim/slide_out_right"/>
+        <action android:id="@+id/action_chatRoomFragment_to_searchFriendsFragment" app:destination="@id/searchFriendsFragment"
+                app:enterAnim="@anim/slide_in_right" app:exitAnim="@anim/slide_out_left" app:popEnterAnim="@anim/slide_in_left" app:popExitAnim="@anim/slide_out_right"/>
     </fragment>
 
     <fragment
@@ -383,7 +392,8 @@
             android:label="ProfileFragment"
             tools:layout="@layout/fragment_profile">
         <action android:id="@+id/action_profileFragment_to_changeProfilePicFragment"
-                app:destination="@id/changeProfilePicFragment"/>
+                app:destination="@id/changeProfilePicFragment"
+                app:enterAnim="@anim/slide_in_right" app:exitAnim="@anim/slide_out_left" app:popEnterAnim="@anim/slide_in_left" app:popExitAnim="@anim/slide_out_right"/>
     </fragment>
 
     <!-- community name & picture fragment (destination after create community) -->
@@ -393,7 +403,8 @@
             android:label="CommunityNamePicFragment"
             tools:layout="@layout/fragment_community_name_pic">
         <action android:id="@+id/action_communityNamePicFragment_to_communityDescriptionFragment"
-                app:destination="@id/communityDescriptionFragment"/>
+                app:destination="@id/communityDescriptionFragment"
+                app:enterAnim="@anim/slide_in_right" app:exitAnim="@anim/slide_out_left" app:popEnterAnim="@anim/slide_in_left" app:popExitAnim="@anim/slide_out_right"/>
     </fragment>
 
     <!-- Group name & picture flow (destination after create group) -->
@@ -404,7 +415,8 @@
             tools:layout="@layout/fragment_group_name_pic" >
         <action
             android:id="@+id/action_groupNamePicFragment_to_groupDescriptionFragment"
-            app:destination="@id/groupDescriptionFragment" />
+            app:destination="@id/groupDescriptionFragment"
+            app:enterAnim="@anim/slide_in_right" app:exitAnim="@anim/slide_out_left" app:popEnterAnim="@anim/slide_in_left" app:popExitAnim="@anim/slide_out_right"/>
     </fragment>
 
     <!-- Group description destination (was missing) -->
@@ -435,7 +447,8 @@
               android:name="com.example.myapplication.ui.dashboard.SearchFriendForChatFragment"
               android:label="SearchFriendForChatFragment">
         <action android:id="@+id/action_searchFriendForChatFragment_to_directChatFragment"
-                app:destination="@id/directChatFragment"/>
+                app:destination="@id/directChatFragment"
+                app:enterAnim="@anim/slide_in_right" app:exitAnim="@anim/slide_out_left" app:popEnterAnim="@anim/slide_in_left" app:popExitAnim="@anim/slide_out_right"/>
     </fragment>
     <fragment android:id="@+id/changeProfilePicFragment"
               android:name="com.example.myapplication.ui.dashboard.ChangeProfilePicFragment"
@@ -457,7 +470,8 @@
 
     <action
         android:id="@+id/action_communityDetail_to_editCommunity"
-        app:destination="@id/editCommunityFragment" />
+        app:destination="@id/editCommunityFragment"
+        app:enterAnim="@anim/slide_in_right" app:exitAnim="@anim/slide_out_left" app:popEnterAnim="@anim/slide_in_left" app:popExitAnim="@anim/slide_out_right"/>
 
     <fragment
         android:id="@+id/membersFragment"
@@ -469,7 +483,8 @@
 
     <action
         android:id="@+id/action_communityDetail_to_members"
-        app:destination="@id/membersFragment" />
+        app:destination="@id/membersFragment"
+        app:enterAnim="@anim/slide_in_right" app:exitAnim="@anim/slide_out_left" app:popEnterAnim="@anim/slide_in_left" app:popExitAnim="@anim/slide_out_right"/>
     <fragment
             android:id="@+id/createCommunityOrGroupFragment"
             android:name="com.example.myapplication.ui.group.CreateCommunityOrGroupFragment"
@@ -477,8 +492,10 @@
             tools:layout="@layout/fragment_create_community_or_group" />
 
     <!-- Actions to navigate from the choice screen to the specific create screens -->
-    <action android:id="@+id/action_createCommunityOrGroupFragment_to_createGroupFragment" app:destination="@id/createGroupFragment"/>
-    <action android:id="@+id/action_createCommunityOrGroupFragment_to_createCommunityFragment" app:destination="@id/createCommunityFragment"/>
+    <action android:id="@+id/action_createCommunityOrGroupFragment_to_createGroupFragment" app:destination="@id/createGroupFragment"
+            app:enterAnim="@anim/slide_in_right" app:exitAnim="@anim/slide_out_left" app:popEnterAnim="@anim/slide_in_left" app:popExitAnim="@anim/slide_out_right"/>
+    <action android:id="@+id/action_createCommunityOrGroupFragment_to_createCommunityFragment" app:destination="@id/createCommunityFragment"
+            app:enterAnim="@anim/slide_in_right" app:exitAnim="@anim/slide_out_left" app:popEnterAnim="@anim/slide_in_left" app:popExitAnim="@anim/slide_out_right"/>
     <fragment
         android:id="@+id/groupMembersFragment"
         android:name="com.example.myapplication.ui.group.GroupMembersFragment"

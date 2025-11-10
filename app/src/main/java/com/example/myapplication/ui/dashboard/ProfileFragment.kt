@@ -199,7 +199,6 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
                 dateOfBirth = apiDob,
                 firstName = firstVal,
                 lastName = lastVal,
-                newEmail = "",
                 newPassword = "",
                 username = usernameVal
             )

@@ -23,6 +23,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
+            android:maxWidth="280dp"
             android:background="@drawable/bg_message_received"
             android:paddingHorizontal="12dp"
             android:paddingVertical="4dp"
@@ -46,7 +47,7 @@
         <!-- message text: constrained width, wrap/hyphenate to avoid overflow -->
         <TextView
                 android:id="@+id/tv_message"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textColor="@color/white"
                 android:textSize="15sp"

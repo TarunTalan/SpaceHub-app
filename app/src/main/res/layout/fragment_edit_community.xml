@@ -137,7 +137,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             app:layout_constraintTop_toBottomOf="@+id/comm_pic_frame"
-            app:layout_constraintBottom_toTopOf="@id/btn_create_comm"
+            app:layout_constraintBottom_toTopOf="@id/btnSave"
             app:layout_constraintEnd_toStartOf="@+id/guideline_end"
             app:layout_constraintStart_toStartOf="@+id/guideline_start"
             android:elevation="5dp"
@@ -273,7 +273,7 @@
                 android:text="Community Name"
                 android:textSize="@dimen/label_text_size"
                 android:textColor="#FFFFFF"
-                app:layout_constraintStart_toStartOf="@+id/etCommName"
+                app:layout_constraintStart_toStartOf="@+id/etCommunityName"
                 app:layout_constraintTop_toTopOf="parent"/>
 
         <EditText
@@ -315,7 +315,7 @@
                 android:text="Community Description"
                 android:textSize="@dimen/label_text_size"
                 android:textColor="#FFFFFF"
-                app:layout_constraintStart_toStartOf="@+id/etCommDescription"
+                app:layout_constraintStart_toStartOf="@+id/etCommunityDescription"
                 app:layout_constraintTop_toTopOf="parent" />
 
         <EditText
@@ -347,8 +347,8 @@
                 android:fontFamily="@font/roboto_regular"
                 android:textColor="#C6CAD1"
                 android:textSize="12sp"
-                app:layout_constraintEnd_toEndOf="@+id/etCommDescription"
-                app:layout_constraintTop_toBottomOf="@+id/etCommDescription"
+                app:layout_constraintEnd_toEndOf="@+id/etCommunityDescription"
+                app:layout_constraintTop_toBottomOf="@+id/etCommunityDescription"
                 tools:text="0 / 100 words" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>

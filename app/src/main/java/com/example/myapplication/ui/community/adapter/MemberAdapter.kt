@@ -35,7 +35,9 @@ class MemberAdapter(
         private val btnRemove: Button = view.findViewById(R.id.btnRemove)
 
         fun bind(item: Member) {
-            tvName.text = item.username ?: "Unknown"
+            val isSelf = !currentUserEmail.isNullOrBlank() && item.email.equals(currentUserEmail, ignoreCase = true)
+            val displayName = if (isSelf) itemView.context.getString(R.string.you) else item.username?.takeIf { it.isNotBlank() } ?: item.email ?: "Unknown"
+            tvName.text = displayName
             tvRole.text = item.role
 
             // Load avatar (prefer previewUrl; fallback to key path if needed)
@@ -55,7 +57,6 @@ class MemberAdapter(
             val isOwner = roleUpper?.contains("OWNER") == true
 
             // Only admins can see action buttons; never allow remove on OWNER or on self
-            val isSelf = !currentUserEmail.isNullOrBlank() && item.email.equals(currentUserEmail, ignoreCase = true)
             btnPromote.visibility = if (isAdmin && !isSelf) View.VISIBLE else View.GONE
             btnRemove.visibility = if (isAdmin && !isOwner && !isSelf) View.VISIBLE else View.GONE
 
