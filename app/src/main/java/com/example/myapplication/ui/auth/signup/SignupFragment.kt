@@ -53,6 +53,7 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
 
     private lateinit var emailTextDefault: ColorStateList
     private lateinit var passwordTextDefault: ColorStateList
+    private lateinit var phoneTextDefault: ColorStateList
 
     // store original margins so we can restore on IME hide
     private var originalContentTopMargin: Int? = null
@@ -62,6 +63,7 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
     private var originalPasswordGroupTop: Int? = null
     private var originalConfirmGroupTop: Int? = null
     private var originalSignupGroupTop: Int? = null
+    private var originalPhoneGroupTop: Int? = null
 
     // Runnable used to delay margin restore to avoid bouncing
     private var imeRestoreRunnable: Runnable? = null
@@ -149,15 +151,18 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
             val pwdLp = binding.passwordGroup.layoutParams as? CLP
             val confLp = binding.confirmGroup.layoutParams as? CLP
             val signupLp = binding.signupGroup.layoutParams as? CLP
+            val phoneLp = binding.phoneGroup.layoutParams as? CLP
             originalPasswordGroupTop = pwdLp?.topMargin ?: 0
             originalConfirmGroupTop = confLp?.topMargin ?: 0
             originalSignupGroupTop = signupLp?.topMargin ?: 0
+            originalPhoneGroupTop = phoneLp?.topMargin ?: 0
         } catch (_: Exception) {
             originalContentTopMargin = 0
             originalInputTopMargin = 0
             originalPasswordGroupTop = 0
             originalConfirmGroupTop = 0
             originalSignupGroupTop = 0
+            originalPhoneGroupTop = 0
         }
 
         // Listen for IME (keyboard) visibility and update margins accordingly.
@@ -204,8 +209,11 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                             animateTopMargin(binding.contentLayout, imeContentTop)
                             animateTopMargin(binding.inputContainer, px20)
                             animateTopMargin(binding.passwordGroup, compactPx)
+                            animateTopMargin(binding.phoneGroup, compactPx)
                             animateTopMargin(binding.confirmGroup, compactPx)
                             animateTopMargin(binding.signupGroup, compactPx.coerceAtLeast(signupMin))
+                            // hide subtitle when keyboard appears
+                            try { binding.tvSubtitle.visibility = View.GONE } catch (_: Exception) {}
                             // lock UI so subsequent IME inset changes (focus switches) don't change layout
                             imeLockedWhileVisible = true
                         } catch (_: Exception) {
@@ -228,6 +236,10 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                                     ?: (resources.getDimensionPixelSize(R.dimen.spacing_form_group))
                             )
                             animateTopMargin(
+                                binding.phoneGroup,
+                                originalPhoneGroupTop ?: (resources.getDimensionPixelSize(R.dimen.spacing_form_group))
+                            )
+                            animateTopMargin(
                                 binding.confirmGroup,
                                 originalConfirmGroupTop ?: (resources.getDimensionPixelSize(R.dimen.spacing_form_group))
                             )
@@ -236,6 +248,8 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                                 originalSignupGroupTop
                                     ?: (resources.getDimensionPixelSize(R.dimen.margin_input_container_top) / 2)
                             )
+                            // restore subtitle when keyboard hides
+                            try { binding.tvSubtitle.visibility = View.VISIBLE } catch (_: Exception) {}
                         } catch (_: Exception) {
                             // ignore
                         }
@@ -295,8 +309,11 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                                         animateTopMargin(binding.contentLayout, imeContentTop)
                                         animateTopMargin(binding.inputContainer, px20)
                                         animateTopMargin(binding.passwordGroup, compactPx)
+                                        animateTopMargin(binding.phoneGroup, compactPx)
                                         animateTopMargin(binding.confirmGroup, compactPx)
                                         animateTopMargin(binding.signupGroup, compactPx.coerceAtLeast(signupMin))
+                                        // hide subtitle when keyboard appears (animation path)
+                                        try { binding.tvSubtitle.visibility = View.GONE } catch (_: Exception) {}
                                         imeLockedWhileVisible = true
                                         lastImeVisible = true
                                         lastImeHeight = imeHeight
@@ -337,7 +354,6 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                     }
                 })
         } catch (_: Exception) {
-            // If animation callback isn't supported, we'll keep the fallback listener
         }
     }
 
@@ -507,9 +523,15 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
         binding.btnSignup.alpha = if (loading) 0.5f else 1.0f
     }
 
+    override fun onStart() {
+        super.onStart()
+        // ensure prefix is visible and phone field hint is correct; phoneTextDefault captured in initializeDefaults
+    }
+
     private fun initializeDefaults() {
         emailTextDefault = binding.etEmail.textColors
         passwordTextDefault = binding.etPassword.textColors
+        phoneTextDefault = binding.etPhone.textColors
 
         // Ensure eye behavior: closed = masked, open = visible on both fields
         PasswordToggleUtil.attach(binding.passwordLayout, binding.etPassword)
@@ -628,6 +650,24 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                 }
             }
         })
+
+        // Phone field text watcher - clear phone error when user edits the phone number
+        binding.etPhone.addTextChangedListener(object : TextWatcher {
+            private var previousText = ""
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
+                previousText = s?.toString() ?: ""
+            }
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+
+            override fun afterTextChanged(s: Editable?) {
+                val currentText = s?.toString() ?: ""
+                if (previousText != currentText && binding.tvPhoneError.isVisible) {
+                    hidePhoneError()
+                }
+            }
+        })
     }
 
     private fun setupClickListeners() {
@@ -654,13 +694,20 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                 val password = binding.etPassword.text.toString()
                 val firstName = arguments?.getString("firstName").orEmpty()
                 val lastName = arguments?.getString("lastName").orEmpty()
+                // Read user's local phone (10 digits) and normalize to international format.
+                val phone = binding.etPhone.text.toString().trim()
+                val phoneFull = when {
+                    phone.startsWith("+") -> phone
+                    phone.startsWith("91") -> "+$phone"
+                    else -> "+91$phone"
+                }
 
                 // Persist email
                 try {
                     val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
                     prefs.edit { putString("email", email) }
                 } catch (_: Exception) {}
-                viewModel.signUp(firstName, lastName, email, password)
+                viewModel.signUp(firstName, lastName, email, password, phoneFull)
             }
         }
 
@@ -681,6 +728,7 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
         val email = binding.etEmail.text.toString().trim()
         val password = binding.etPassword.text.toString().trim()
         val confirmPassword = binding.etConfirmPassword.text.toString().trim()
+        val phone = binding.etPhone.text.toString().trim()
 
         var isValid = true
 
@@ -712,7 +760,7 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
             }
         }
 
-        // --- Stronger password validation: require length 8..25, no spaces, at least one uppercase, lowercase, digit, special char ---
+        // Stronger password validation: require length 8..25, no spaces, at least one uppercase, lowercase, digit, special char ---
         if (password.isEmpty()) {
             showPasswordError(getString(R.string.password_required))
             isValid = false
@@ -768,6 +816,23 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
             }
         }
 
+        // Phone: must be non-empty, exactly 10 digits, and start with 6/7/8/9
+        val phonePattern = Regex("^[6-9][0-9]{9}$")
+        if (phone.isBlank()) {
+            showPhoneError(getString(R.string.phone_required))
+            // show error outline
+            InputValidationHelper.applyEditTextInvalid(binding.etPhone, redColor, R.drawable.edit_text_outline_error)
+            isValid = false
+        } else if (!phonePattern.matches(phone)) {
+            showPhoneError(getString(R.string.invalid_phone))
+            InputValidationHelper.applyEditTextInvalid(binding.etPhone, redColor, R.drawable.edit_text_outline_error)
+            isValid = false
+        } else {
+            hidePhoneError()
+            // restore normal outline
+            InputValidationHelper.clearEditTextInvalid(binding.etPhone, phoneTextDefault, R.drawable.edit_text_outline_selector)
+        }
+
         return isValid
     }
 
@@ -794,6 +859,22 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
     private fun hidePasswordError() {
         binding.tvPasswordError.visibility = View.INVISIBLE
         clearPasswordInvalidVisuals()
+    }
+
+    private fun showPhoneError(message: String) {
+        binding.tvPhoneError.text = message
+        binding.tvPhoneError.visibility = View.VISIBLE
+        // show error outline on the plain EditText
+        try {
+            InputValidationHelper.applyEditTextInvalid(binding.etPhone, redColor, R.drawable.edit_text_outline_error)
+        } catch (_: Exception) { }
+    }
+
+    private fun hidePhoneError() {
+        binding.tvPhoneError.visibility = View.INVISIBLE
+        try {
+            InputValidationHelper.clearEditTextInvalid(binding.etPhone, phoneTextDefault, R.drawable.edit_text_outline_selector)
+        } catch (_: Exception) { }
     }
 
     private fun applyEmailInvalidVisuals() {
@@ -942,10 +1023,9 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                     override fun onAnimationRepeat(animation: android.animation.Animator) {}
                 })
             }
-
             runningAnimators[view] = animator
             animator.start()
-        } catch (_: Exception) { /* ignore animation failures */
+        } catch (_: Exception) {
         }
     }
 }

@@ -15,7 +15,7 @@
             android:background="@drawable/background_gradient">
 
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+        <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/communityDetailHeader"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
@@ -24,47 +24,48 @@
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toTopOf="@+id/hr_guideline_top">
 
-        <ImageView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:src="@drawable/back_icon"
-                android:contentDescription="@string/cd_back"
-                android:paddingVertical="4dp"
-                android:paddingEnd="4dp"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintStart_toStartOf="@id/guideline_start_top"
-                android:id="@+id/imageView" app:layout_constraintBottom_toBottomOf="parent"/>
+            <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/back_icon"
+                    android:contentDescription="@string/cd_back"
+                    android:paddingVertical="4dp"
+                    android:paddingEnd="4dp"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintStart_toStartOf="@id/guideline_start_top"
+                    android:id="@+id/imageView" app:layout_constraintBottom_toBottomOf="parent"/>
 
-        <TextView
-                android:id="@+id/tvUsername"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:text="User Name"
-                android:textColor="@android:color/white"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:ellipsize="marquee"
-                android:layout_marginHorizontal="10dp"
-                android:marqueeRepeatLimit="marquee_forever"
-                android:singleLine="true"
-                android:gravity="center"
-                android:scrollHorizontally="true"
-                android:focusable="true"
-                android:focusableInTouchMode="true"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintEnd_toStartOf="@+id/setting_community"
-                app:layout_constraintStart_toEndOf="@+id/imageView" app:layout_constraintBottom_toBottomOf="parent"/>
+            <TextView
+                    android:id="@+id/tvCommunityDetailHeader"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="User Name"
+                    android:textColor="@android:color/white"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:ellipsize="marquee"
+                    android:layout_marginHorizontal="10dp"
+                    android:marqueeRepeatLimit="marquee_forever"
+                    android:singleLine="true"
+                    android:gravity="center"
+                    android:scrollHorizontally="true"
+                    android:focusable="true"
+                    android:focusableInTouchMode="true"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintEnd_toStartOf="@+id/setting_community"
+                    app:layout_constraintStart_toEndOf="@+id/imageView"
+                    app:layout_constraintBottom_toBottomOf="parent"/>
 
-        <ImageView
-                android:id="@+id/setting_community"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:padding="4dp"
-                android:src="@drawable/setting"
-                android:tint="@android:color/white"
-                app:layout_constraintEnd_toEndOf="@id/guideline_end_top"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"/>
+            <ImageView
+                    android:id="@+id/setting_community"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:padding="4dp"
+                    android:src="@drawable/setting"
+                    android:tint="@android:color/white"
+                    app:layout_constraintEnd_toEndOf="@id/guideline_end_top"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"/>
 
             <androidx.constraintlayout.widget.Guideline
                     android:layout_width="wrap_content"
@@ -90,176 +91,161 @@
 
         <!-- Swipe-to-refresh + scrollable content below the fixed header -->
         <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-            android:id="@+id/swipe_refresh"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            app:layout_constraintTop_toBottomOf="@id/communityDetailHeader"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:background="@color/transparent">
-
-
-        <androidx.core.widget.NestedScrollView
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:fillViewport="true"
+                android:id="@+id/swipe_refresh"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                app:layout_constraintTop_toBottomOf="@id/communityDetailHeader"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
                 android:background="@color/transparent">
 
 
-        <androidx.constraintlayout.widget.ConstraintLayout
+            <androidx.core.widget.NestedScrollView
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
+                    android:fillViewport="true"
                     android:background="@color/transparent">
 
 
-        <ImageView
-                        android:id="@+id/community_banner"
-                        android:layout_width="0dp"
-                        android:layout_height="120dp"
-                        android:src="@drawable/banner"
-                        android:scaleType="fitXY"
-                        app:layout_constraintTop_toTopOf="parent"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintEnd_toEndOf="parent"/>
+                <androidx.constraintlayout.widget.ConstraintLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@color/transparent">
+
 
                     <ImageView
-                        android:layout_width="80dp"
-                        android:layout_height="80dp"
-                        android:id="@+id/community_image"
-                        android:src="@drawable/default_comm_icon"
-                        android:layout_marginBottom="-40dp"
-                        app:layout_constraintBottom_toBottomOf="@id/community_banner"
-                        app:layout_constraintStart_toStartOf="@+id/guideline_start"/>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:id="@+id/community_name"
-                        android:text="Community Name"
-                        android:textColor="@android:color/white"
-                        android:fontFamily="@font/roboto_medium"
-                        android:textSize="16sp"
-                        android:layout_marginTop="8dp"
-                        app:layout_constraintTop_toBottomOf="@id/community_image"
-                        app:layout_constraintStart_toStartOf="@+id/guideline_start"/>
-
-                    <TextView
-                        android:id="@+id/member_count_tv"
-                        android:layout_marginTop="4dp"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0"
-                        android:textColor="@android:color/white"
-                        android:textSize="14sp"
-                        app:layout_constraintTop_toBottomOf="@+id/community_name"
-                        app:layout_constraintStart_toStartOf="@+id/guideline_start"/>
-
-                    <TextView
-                        android:id="@+id/members_tv"
-                        android:layout_marginTop="4dp"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Members"
-                        android:textColor="@android:color/white"
-                        android:textSize="14sp"
-                        app:layout_constraintTop_toBottomOf="@+id/member_count_tv"
-                        app:layout_constraintStart_toStartOf="@+id/guideline_start"/>
-
-                    <TextView
-                        android:id="@+id/admin_count_tv"
-                        android:layout_marginTop="4dp"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0"
-                        android:textColor="@android:color/white"
-                        android:textSize="14sp"
-                        app:layout_constraintTop_toBottomOf="@+id/community_name"
-                        app:layout_constraintStart_toStartOf="@id/admin_tv"/>
-
-                    <TextView
-                        android:id="@+id/admin_tv"
-                        android:layout_marginTop="4dp"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Admins"
-                        android:textColor="@android:color/white"
-                        android:textSize="14sp"
-                        android:layout_marginStart="15dp"
-                        app:layout_constraintTop_toBottomOf="@+id/admin_count_tv"
-                        app:layout_constraintStart_toEndOf="@id/members_tv"/>
+                            android:id="@+id/community_banner"
+                            android:layout_width="0dp"
+                            android:layout_height="120dp"
+                            android:src="@drawable/banner"
+                            android:scaleType="fitXY"
+                            app:layout_constraintTop_toTopOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"/>
 
                     <ImageView
-                        android:id="@+id/divider_line"
-                        android:layout_marginTop="20dp"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:src="@drawable/line"
-                        app:layout_constraintTop_toBottomOf="@id/members_tv"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintEnd_toEndOf="parent"/>
+                            android:layout_width="80dp"
+                            android:layout_height="80dp"
+                            android:id="@+id/community_image"
+                            android:src="@drawable/default_comm_icon"
+                            app:layout_constraintBottom_toBottomOf="@id/community_banner"
+                            app:layout_constraintStart_toStartOf="@+id/guideline_start"
+                            app:layout_constraintTop_toBottomOf="@+id/community_banner"/>
 
-            <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rv_rooms"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:nestedScrollingEnabled="false"
-                    app:layout_constraintTop_toBottomOf="@id/divider_line"
-                    app:layout_constraintStart_toStartOf="@+id/guideline_start"
-                    android:background="@color/transparent"
-                    android:layout_marginTop="15dp"
-                    app:layout_constraintEnd_toStartOf="@+id/guideline_end_2"/>
 
-                    <LinearLayout
-                        android:id="@+id/empty_rooms_view"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center"
-                        android:paddingTop="24dp"
-                        android:paddingBottom="24dp"
-                        android:background="@color/transparent"
-                        android:visibility="gone"
-                        app:layout_constraintTop_toBottomOf="@id/divider_line"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintEnd_toEndOf="parent">
-
-                        <TextView
+                    <TextView
+                            android:id="@+id/member_count_tv"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="No rooms yet"
+                            android:text="100"
+                            android:layout_marginTop="10dp"
+                            android:textColor="#CCCCCC"
+                            android:textSize="14sp"
+                            app:layout_constraintStart_toStartOf="@+id/members_tv"
+                            app:layout_constraintTop_toBottomOf="@+id/community_image"/>
+
+                    <TextView
+                            android:id="@+id/members_tv"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Members"
                             android:textColor="@android:color/white"
-                            android:textSize="16sp"
-                            android:layout_marginTop="8dp"/>
+                            android:textSize="15sp"
+                            app:layout_constraintStart_toStartOf="@+id/guideline_start"
+                            android:layout_marginStart="8dp"
+                            app:layout_constraintTop_toBottomOf="@+id/member_count_tv"/>
+                    <TextView
+                            android:id="@+id/admin_count_tv"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="100"
+                            android:textColor="#CCCCCC"
+                            android:textSize="14sp"
+                            app:layout_constraintBottom_toTopOf="@+id/admin_tv"
+                            app:layout_constraintStart_toStartOf="@+id/admin_tv"/>
+
+                    <TextView
+                            android:id="@+id/admin_tv"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Admins"
+                            android:textColor="@android:color/white"
+                            android:textSize="15sp"
+                            android:layout_marginStart="10dp"
+                            app:layout_constraintStart_toEndOf="@+id/members_tv"
+                            app:layout_constraintBottom_toBottomOf="@+id/members_tv"/>
+                    <ImageView
+                            android:id="@+id/divider_line"
+                            android:layout_marginTop="20dp"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:src="@drawable/line"
+                            app:layout_constraintTop_toBottomOf="@id/members_tv"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"/>
+
+                    <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rv_rooms"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:nestedScrollingEnabled="false"
+                            app:layout_constraintTop_toBottomOf="@id/divider_line"
+                            app:layout_constraintStart_toStartOf="@+id/guideline_start"
+                            android:background="@color/transparent"
+                            android:layout_marginTop="15dp"
+                            app:layout_constraintEnd_toStartOf="@+id/guideline_end_2"/>
+
+                    <LinearLayout
+                            android:id="@+id/empty_rooms_view"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:gravity="center"
+                            android:paddingTop="24dp"
+                            android:paddingBottom="24dp"
+                            android:background="@color/transparent"
+                            android:visibility="gone"
+                            app:layout_constraintTop_toBottomOf="@id/divider_line"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent">
+
+                        <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="No rooms yet"
+                                android:textColor="@android:color/white"
+                                android:textSize="16sp"
+                                android:layout_marginTop="8dp"/>
 
                     </LinearLayout>
-            <androidx.constraintlayout.widget.Guideline
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:id="@+id/guideline_end_2"
-                    app:layout_constraintGuide_percent="0.94"
-                    android:orientation="vertical"/>
                     <androidx.constraintlayout.widget.Guideline
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:id="@+id/guideline_start"
-                        app:layout_constraintGuide_percent="0.06"
-                        android:orientation="vertical"/>
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:id="@+id/guideline_end_2"
+                            app:layout_constraintGuide_percent="0.94"
+                            android:orientation="vertical"/>
+                    <androidx.constraintlayout.widget.Guideline
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:id="@+id/guideline_start"
+                            app:layout_constraintGuide_percent="0.06"
+                            android:orientation="vertical"/>
 
                 </androidx.constraintlayout.widget.ConstraintLayout>
             </androidx.core.widget.NestedScrollView>
         </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fab_create_room"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@android:drawable/ic_input_add"
-            android:contentDescription="Create room"
-            android:visibility="gone"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_margin="16dp" />
+                android:id="@+id/fab_create_room"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@android:drawable/ic_input_add"
+                android:contentDescription="Create room"
+                android:visibility="gone"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_margin="16dp"/>
 
         <androidx.constraintlayout.widget.Guideline
                 android:layout_width="wrap_content"

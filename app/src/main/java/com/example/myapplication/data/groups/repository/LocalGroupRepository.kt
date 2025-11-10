@@ -161,6 +161,15 @@ class LocalGroupRepository private constructor(private val context: Context) {
         } catch (t: Throwable) { Result.failure(t) }
     }
 
+    // Delete all persisted local groups (used on logout to avoid cross-account residues)
+    suspend fun deleteAllGroups() = withContext(Dispatchers.IO) {
+        try {
+            groupDao.deleteAllGroups()
+        } catch (t: Throwable) {
+            android.util.Log.w("LocalGroupRepo", "deleteAllGroups failed: ${t.message}")
+        }
+    }
+
     suspend fun getLocalGroupMembers(localGroupId: String): Result<List<DataXXX>> = withContext(Dispatchers.IO) {
         try {
             val resp = api.getLocalGroupMembers(localGroupId)

@@ -18,6 +18,7 @@ class TokenInterceptor(private val tokenStore: TokenStore) : Interceptor {
             "registration",
             "login",
             "forgotpassword",
+            "resendotp",
             "validateforgototp",
             "resetpassword",
             "resendforgototp",

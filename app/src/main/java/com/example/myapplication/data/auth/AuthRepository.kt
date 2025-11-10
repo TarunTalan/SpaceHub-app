@@ -1,6 +1,8 @@
 package com.example.myapplication.data.auth
 
 import android.content.Context
+import android.content.SharedPreferences
+import androidx.core.content.edit
 import com.example.myapplication.data.auth.model.*
 import com.example.myapplication.data.network.NetworkModule
 import com.example.myapplication.data.network.SharedPrefsTokenStore
@@ -17,6 +19,8 @@ class AuthRepository(context: Context) {
     private val tokens = SharedPrefsTokenStore(context)
     private val userDataManager = UserDataManager.getInstance(context)
     private val communityRepo = CommunityRepository.getInstance(context)
+    // keep a reference to application context for preferences
+    private val appContext: Context = context.applicationContext
 
     // Small helper to run network calls and centralize exception handling
     private suspend inline fun <T> safeApiCall(
@@ -37,17 +41,14 @@ class AuthRepository(context: Context) {
     }
 
     // Signup: submit user details. Server may respond with status 200/201 meaning signup accepted and OTP required.
-    suspend fun signUp(firstName: String, lastName: String, email: String, password: String): AuthResult {
+    suspend fun signUp(firstName: String, lastName: String, email: String, password: String, phoneNumber: String?): AuthResult {
         return safeApiCall(
-            call = { api.signup(SignupRequest(firstName, lastName, email, password)) },
+            call = { api.signup(SignupRequest(firstName, lastName, email, password, phoneNumber ?: "")) },
             handle = { resp ->
                 if (resp.isSuccessful) {
                     val body = resp.body()
-                    // If backend returns a data field (temp token), expose it in Success.tempToken
                     if (body?.status == 200 || body?.status == 201) {
                         val dataStr = try { body.data } catch (_: Exception) { null }
-                        // Persist the temporary token so OTP endpoints automatically get Authorization header
-                        dataStr?.let { if (it.isNotBlank()) tokens.setAccessToken(it) }
                         return@safeApiCall AuthResult.Success(requiresVerification = true, tempToken = dataStr)
                     } else {
                         return@safeApiCall AuthResult.Error(body?.message ?: "Signup failed.")
@@ -59,15 +60,11 @@ class AuthRepository(context: Context) {
         )
     }
 
-    // Now the flow requires presenting the temporary token (from signup) as Authorization header, so callers should
-    // pass the tempToken which will be saved temporarily into SharedPrefsTokenStore just for this call.
     suspend fun sendSignupOtp(email: String, tempToken: String? = null): AuthResult {
-        // persist temp token if provided so TokenInterceptor will attach it
-        tempToken?.let { tokens.setAccessToken(it) }
         val sessionTokenForBody = tempToken ?: tokens.getAccessToken() ?: ""
         return safeApiCall(
             call = {
-                api.sendSignupOtp(SigupOtpRequest(email = email, otp = null, type = "REGISTRATION", sessionToken = sessionTokenForBody))
+                api.sendSignupOtp(SigupOtpRequest(identifier = email, otp = null, type = "REGISTRATION", sessionToken = sessionTokenForBody))
             },
             handle = { resp ->
                 if (resp.isSuccessful) {
@@ -85,20 +82,21 @@ class AuthRepository(context: Context) {
 
     // Resend signup OTP using temporary token returned by signup/OTP endpoints.
     suspend fun resendSignupOtp(email: String, sessionToken: String? = null): AuthResult {
-        // Persist the sessionToken so interceptor adds it to the request if present
-        sessionToken?.let { tokens.setAccessToken(it) }
-        val req = ResendSignupOtpRequest(email = email, sessionToken = sessionToken ?: "")
+        // Do NOT persist sessionToken into global token store - this endpoint is expected to work without attaching
+        // the global Authorization header. Instead, pass X-Skip-Auth header to the API so TokenInterceptor skips adding it.
+        val req = ResendSignupOtpRequest(identifier = email, sessionToken = sessionToken ?: "")
         return safeApiCall(
             call = { api.resendSignupOtp(req) },
             handle = { resp ->
                 if (resp.isSuccessful) {
                     val body = resp.body()
-                    val dataStr = try { body?.data } catch (_: Exception) { null }
-                    if (!dataStr.isNullOrBlank()) {
-                        AuthResult.Success(requiresVerification = true, tempToken = dataStr)
-                    } else {
-                        AuthResult.Success(requiresVerification = true)
-                    }
+                    // Prefer explicit `data` field if present (back-compat). Otherwise use `message` as fallback.
+                    val tokenCandidate = try { body?.javaClass?.getDeclaredField("data")?.let { f -> f.isAccessible = true; f.get(body) as? String } } catch (_: Exception) { null }
+                    val fallback = body?.let { try { it::class.java.getMethod("getMessage").invoke(it) as? String } catch (_: Exception) { null } }
+                    val dataStr = tokenCandidate?.takeIf { it.isNotBlank() } ?: fallback?.takeIf { it.isNotBlank() }
+
+                    if (!dataStr.isNullOrBlank()) AuthResult.Success(requiresVerification = true, tempToken = dataStr)
+                    else AuthResult.Success(requiresVerification = true)
                 } else {
                     AuthResult.Error(ResponseParser.parseError(resp.errorBody()))
                 }
@@ -106,23 +104,18 @@ class AuthRepository(context: Context) {
         )
     }
 
-    // Verify signup OTP. The same endpoint is used; success expected when status == 200
-    // On success the server returns final access/refresh tokens inside SignupOtpResponse.data
     suspend fun verifySignup(email: String, otp: String, sessionToken: String? = null): AuthResult {
         val sessionTokenForBody = sessionToken ?: tokens.getAccessToken() ?: ""
-        // If a sessionToken was provided explicitly, ensure it's persisted so interceptor attaches it
-        sessionToken?.let { tokens.setAccessToken(it) }
 
         return try {
-            val resp = api.sendSignupOtp(SigupOtpRequest(email = email, otp = otp, type = "REGISTRATION", sessionToken = sessionTokenForBody), skipAuth = "1")
+            val resp = api.sendSignupOtp(SigupOtpRequest(identifier = email, otp = otp, type = "REGISTRATION", sessionToken = sessionTokenForBody), skipAuth = "1")
             if (resp.isSuccessful) {
                 val body = resp.body()
                 if (body?.status == 200) {
                     try {
-                        val otpBody = body
-                        val data = otpBody?.`data`
-                        val access = data?.accessToken
-                        val refresh = data?.refreshToken
+                        val data = body.`data`
+                        val access = data.accessToken
+                        val refresh = data.refreshToken
                         access?.let { tokens.setAccessToken(it) }
                         refresh?.let { tokens.setRefreshToken(it) }
                     } catch (_: Exception) { }
@@ -133,7 +126,7 @@ class AuthRepository(context: Context) {
             } else {
                 AuthResult.Error(ResponseParser.parseError(resp.errorBody()))
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             AuthResult.Error("Network error during OTP verification.")
         }
     }
@@ -224,18 +217,50 @@ class AuthRepository(context: Context) {
 
                     val ok = !access.isNullOrBlank() && !refresh.isNullOrBlank()
                     if (ok) {
-                        // Persist email as source of truth in DataStore
-                        try { userDataManager.setEmail(email) } catch (_: Exception) {}
+                        // Try to extract the email from the login response
+                        var emailToPersist: String = email
+                        try {
+                            val rawRespBodyString: String? = try { resp.raw().peekBody(1024 * 1024).string() } catch (_: Exception) { null }
+                            if (!rawRespBodyString.isNullOrBlank()) {
+                                try {
+                                    val gson = com.google.gson.Gson()
+                                    val json = gson.fromJson(rawRespBodyString, com.google.gson.JsonObject::class.java)
+                                    val dataObj = json?.getAsJsonObject("data")
+                                    // Check common possible fields for email in the login response
+                                    val candidate = when {
+                                        dataObj == null -> null
+                                        dataObj.has("email") -> dataObj.get("email")?.asString
+                                        dataObj.has("userEmail") -> dataObj.get("userEmail")?.asString
+                                        dataObj.has("identifier") -> dataObj.get("identifier")?.asString
+                                        dataObj.has("user") && dataObj.getAsJsonObject("user").has("email") -> dataObj.getAsJsonObject("user").get("email")?.asString
+                                        else -> null
+                                    }
+                                    if (!candidate.isNullOrBlank()) emailToPersist = candidate
+                                } catch (_: Exception) { /* ignore parsing errors */ }
+                            }
+                        } catch (_: Exception) { }
+
+                        // Persist email as source of truth in DataStore (prefer the email found in response)
+                        try { userDataManager.setEmail(emailToPersist) } catch (_: Exception) {}
+
+                        // Also persist in SharedPreferences for backward-compatible code that relies on it
+                        try {
+                            val prefs: SharedPreferences = appContext.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                            prefs.edit {
+                                putString("email", emailToPersist)
+                                putString("user_email", emailToPersist)
+                            }
+                        } catch (_: Exception) {}
 
                         // Prefetch "My communities" into local DB. Pass explicit email to avoid a race
                         // where DataStore write may not be visible to Background network calls immediately.
                         try {
-                            communityRepo.fetchMyCommunitiesRemote(requesterEmail = email)
+                            communityRepo.fetchMyCommunitiesRemote(requesterEmail = emailToPersist)
                         } catch (_: Exception) { /* ignore fetch failure */ }
 
                         // Fetch full profile immediately and persist into DataStore so UI shows updated profile data.
                         try {
-                            val profileResp = api.getProfile(email)
+                            val profileResp = api.getProfile(emailToPersist)
                             if (profileResp.isSuccessful) {
                                 val envelope = profileResp.body()
                                 val p = envelope?.data
@@ -297,20 +322,21 @@ class AuthRepository(context: Context) {
         firstName: String,
         lastName: String,
         email: String,
-        password: String
+        password: String,
+        phoneNumber: String? = null
     ): AuthResult = withContext(Dispatchers.IO) {
-        when (val s = signUp(firstName, lastName, email, password)) {
-            is AuthResult.Error -> return@withContext s
-            is AuthResult.Success -> {
-                if (!s.requiresVerification) return@withContext AuthResult.Error("Unexpected state: verification not required after signup.")
-            }
-        }
+        when (val s = signUp(firstName, lastName, email, password, phoneNumber)) {
+             is AuthResult.Error -> return@withContext s
+             is AuthResult.Success -> {
+                 if (!s.requiresVerification) return@withContext AuthResult.Error("Unexpected state: verification not required after signup.")
+             }
+         }
 
         when (val o = sendSignupOtp(email)) {
-            is AuthResult.Error -> return@withContext o
-            is AuthResult.Success -> { /* continue */ }
-        }
+             is AuthResult.Error -> return@withContext o
+             is AuthResult.Success -> {  }
+         }
 
-        return@withContext login(email, password)
-    }
-}
+         return@withContext login(email, password)
+     }
+ }

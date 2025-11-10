@@ -10,6 +10,7 @@ import com.example.myapplication.data.groups.model.LocalGroup
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
 class LocalGroupsViewModel(app: Application) : AndroidViewModel(app) {
@@ -29,14 +30,26 @@ class LocalGroupsViewModel(app: Application) : AndroidViewModel(app) {
     init {
         // Observe DB immediately so UI shows cached groups without waiting for network
         viewModelScope.launch {
-            groupDao.getAllGroupsFlow().collectLatest { list ->
-                try {
-                    val mapped = list.map { entity -> localGroupToDataX(entity) }
-                    android.util.Log.d("LocalGroupsVM", "DB emitted ${mapped.size} groups")
-                    _groups.value = mapped
-                } catch (t: Throwable) {
-                    _error.value = t.message
-                }
+            try {
+                // Use catch to convert any upstream exceptions (no such table, db closed) into an empty list
+                groupDao.getAllGroupsFlow()
+                    .catch { t ->
+                        android.util.Log.e("LocalGroupsVM", "DB flow error", t)
+                        _error.value = t.message
+                        emit(emptyList())
+                    }
+                    .collectLatest { list ->
+                        try {
+                            val mapped = list.map { entity -> localGroupToDataX(entity) }
+                            android.util.Log.d("LocalGroupsVM", "DB emitted ${mapped.size} groups")
+                            _groups.value = mapped
+                        } catch (t: Throwable) {
+                            _error.value = t.message
+                        }
+                    }
+            } catch (t: Throwable) {
+                android.util.Log.e("LocalGroupsVM", "Failed to start DB collector", t)
+                _error.value = t.message
             }
         }
     }

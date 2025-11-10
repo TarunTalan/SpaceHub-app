@@ -30,6 +30,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
 
     private val vm: CommunityDetailViewModel by viewModels()
+    private val TAG = "CommunityDetail"
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -63,20 +64,31 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
             try {
                 tb.inflateMenu(R.menu.menu_community_detail)
                 tb.setOnMenuItemClickListener { menuItem ->
+                    // For admin-only actions we will refresh member roles first to ensure local DB has the latest role flags.
                     when (menuItem.itemId) {
                         R.id.action_edit_community -> {
-                            // Use outer communityId
-                            val args = Bundle().apply { putString("communityId", communityId) }
-                            findNavController().navigate(R.id.action_communityDetail_to_editCommunity, args)
+                            viewLifecycleOwner.lifecycleScope.launch {
+                                val repo = CommunityRepository.getInstance(requireContext())
+                                try { repo.fetchMembers(communityId, force = true) } catch (_: Exception) {}
+                                val comm = repo.getCommunityById(communityId)
+                                val email = UserDataManager.getInstance(requireContext()).getEmail()
+                                val roleRaw = comm?.role?.trim()?.uppercase()
+                                val roleIndicatesAdmin = roleRaw != null && listOf("ADMIN", "OWNER", "CREATOR", "MANAGER", "MODERATOR").any { roleRaw.contains(it) }
+                                val isAdmin = comm?.isOwner == true || comm?.isModerator == true || roleIndicatesAdmin || (!comm?.creatorId.isNullOrBlank() && comm.creatorId.equals(email, true))
+                                if (!isAdmin) {
+                                    Toast.makeText(requireContext(), "Only admins can edit", Toast.LENGTH_SHORT).show()
+                                    return@launch
+                                }
+                                val args = Bundle().apply { putString("communityId", communityId) }
+                                findNavController().navigate(R.id.action_communityDetail_to_editCommunity, args)
+                            }
                             true
                         }
                         R.id.action_invite -> {
-                            // Use outer communityId
                             viewLifecycleOwner.lifecycleScope.launch {
                                 val repo = CommunityRepository.getInstance(requireContext())
                                 val dlg = com.example.myapplication.ui.common.AppDialogHelper.createProgressDialog(requireContext(), title = "Creating invite link...", cancelable = false)
                                 try { dlg.show() } catch (_: Exception) {}
-
                                 val res = repo.createInviteLink(communityId)
                                 try { dlg.dismiss() } catch (_: Exception) {}
                                 res.onSuccess { data ->
@@ -92,7 +104,6 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                             true
                         }
                         R.id.action_members -> {
-                            // Use outer communityId
                             findNavController().navigate(R.id.action_communityDetail_to_members, Bundle().apply { putString("communityId", communityId) })
                             true
                         }
@@ -125,60 +136,49 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                              true
                         }
                         R.id.action_delete_community -> {
-                            com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(requireContext(), R.string.delete_confirm_title, R.string.delete_confirm_message, positiveRes = R.string.delete_confirm_yes, negativeRes = android.R.string.cancel, onPositive = { vm.deleteCommunity() })
-                             true
+                            // Fetch members/roles then ask parent ViewModel to delete (so UI toast mapping remains)
+                            viewLifecycleOwner.lifecycleScope.launch {
+                                val repo = CommunityRepository.getInstance(requireContext())
+                                try { repo.fetchMembers(communityId, force = true) } catch (_: Exception) {}
+                                // show confirmation then proceed
+                                com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(requireContext(), R.string.delete_confirm_title, R.string.delete_confirm_message, positiveRes = R.string.delete_confirm_yes, negativeRes = android.R.string.cancel, onPositive = { vm.deleteCommunity() })
+                            }
+                            true
                         }
                         R.id.action_add_room -> {
-                            try {
-                                val inflater = layoutInflater
-                                val dialogView = inflater.inflate(R.layout.dialog_create_chat_room, null)
-                                val etName = dialogView.findViewById<EditText>(R.id.et_room_name)
-                                val tvError = dialogView.findViewById<TextView>(R.id.dialog_error)
-                                val btnCreate = dialogView.findViewById<android.widget.Button>(R.id.btn_create)
-                                val btnCancel = dialogView.findViewById<android.widget.Button>(R.id.btn_cancel)
+                            // Adding room is admin-only; refresh roles before showing dialog
+                            viewLifecycleOwner.lifecycleScope.launch {
+                                val repo = CommunityRepository.getInstance(requireContext())
+                                try { repo.fetchMembers(communityId, force = true) } catch (_: Exception) {}
+                                val comm = repo.getCommunityById(communityId)
+                                val email = UserDataManager.getInstance(requireContext()).getEmail()
+                                val roleRaw = comm?.role?.trim()?.uppercase()
+                                val roleIndicatesAdmin = roleRaw != null && listOf("ADMIN", "OWNER", "CREATOR", "MANAGER", "MODERATOR").any { roleRaw.contains(it) }
+                                val isAdmin = comm?.isOwner == true || comm?.isModerator == true || roleIndicatesAdmin || (!comm?.creatorId.isNullOrBlank() && comm.creatorId.equals(email, true))
+                                if (!isAdmin) { Toast.makeText(requireContext(), "Only admins can add rooms", Toast.LENGTH_SHORT).show(); return@launch }
+                                try {
+                                    val inflater = layoutInflater
+                                    val dialogView = inflater.inflate(R.layout.dialog_create_chat_room, null)
+                                    val etName = dialogView.findViewById<EditText>(R.id.et_room_name)
+                                    val tvError = dialogView.findViewById<TextView>(R.id.dialog_error)
+                                    val btnCreate = dialogView.findViewById<android.widget.Button>(R.id.btn_create)
+                                    val btnCancel = dialogView.findViewById<android.widget.Button>(R.id.btn_cancel)
 
-                                val dialog = try {
-                                    com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
-                                        .setView(dialogView)
-                                        .create()
-                                } catch (_: Exception) {
-                                    com.example.myapplication.ui.common.AppDialogHelper.createViewDialog(requireContext(), title = null, customView = dialogView, positiveText = null, negativeText = null, cancelable = true)
-                                }
+                                    val dialog = try { com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext()).setView(dialogView).create() } catch (_: Exception) { com.example.myapplication.ui.common.AppDialogHelper.createViewDialog(requireContext(), title = null, customView = dialogView, positiveText = null, negativeText = null, cancelable = true) }
 
-                                fun setLoading(loading: Boolean) {
-                                    btnCreate.isEnabled = !loading
-                                    btnCancel.isEnabled = !loading
-                                    etName.isEnabled = !loading
-                                }
-
-                                btnCreate.setOnClickListener {
-                                    val name = etName.text?.toString()?.trim().orEmpty()
-                                    if (name.isEmpty()) {
-                                        tvError.text = "Name is required"
-                                        tvError.visibility = View.VISIBLE
-                                        return@setOnClickListener
-                                    }
-                                    tvError.visibility = View.GONE
-                                    setLoading(true)
-                                    viewLifecycleOwner.lifecycleScope.launch {
-                                        try {
-                                            // Call VM to create room (VM handles API and DB updates)
-                                            vm.createRoom(name)
-                                            Toast.makeText(requireContext(), "Chat room created: $name", Toast.LENGTH_SHORT).show()
-                                            dialog.dismiss()
-                                        } catch (e: Exception) {
-                                            com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to create room: ${e.message}", com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE)
-                                                .setAction("Retry") { btnCreate.performClick() }
-                                                .show()
-                                        } finally {
-                                            setLoading(false)
+                                    fun setLoading(loading: Boolean) { btnCreate.isEnabled = !loading; btnCancel.isEnabled = !loading; etName.isEnabled = !loading }
+                                    btnCreate.setOnClickListener {
+                                        val name = etName.text?.toString()?.trim().orEmpty()
+                                        if (name.isEmpty()) { tvError.text = "Name is required"; tvError.visibility = View.VISIBLE; return@setOnClickListener }
+                                        tvError.visibility = View.GONE
+                                        setLoading(true)
+                                        viewLifecycleOwner.lifecycleScope.launch {
+                                            try { vm.createRoom(name); Toast.makeText(requireContext(), "Chat room created: $name", Toast.LENGTH_SHORT).show(); dialog.dismiss() } catch (e: Exception) { com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to create room: ${e.message}", com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE).setAction("Retry") { btnCreate.performClick() }.show() } finally { setLoading(false) }
                                         }
                                     }
-                                }
-                                btnCancel.setOnClickListener { dialog.dismiss() }
-                                dialog.show()
-                            } catch (_: Exception) {
-                                try { Toast.makeText(requireContext(), "Failed to open dialog", Toast.LENGTH_SHORT).show() } catch (_: Exception) {}
+                                    btnCancel.setOnClickListener { dialog.dismiss() }
+                                    dialog.show()
+                                } catch (_: Exception) { Toast.makeText(requireContext(), "Failed to open dialog", Toast.LENGTH_SHORT).show() }
                             }
                             true
                         }
@@ -302,34 +302,34 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
             }
         } catch (_: Exception) {}
 
-        val emptyView = view.findViewById<View>(R.id.empty_rooms_view)
-        val rv = view.findViewById<RecyclerView>(R.id.rv_rooms)
-        val memberCount = view.findViewById<TextView>(R.id.member_count_tv)
-        val adminCount = view.findViewById<TextView>(R.id.admin_count_tv)
-        val tvUser = view.findViewById<TextView>(R.id.tvUsername)
-        // Make marquee scroll without focus requirement
-        tvUser.isSelected = true
+        val emptyView = view.findViewById<View?>(R.id.empty_rooms_view)
+        val rv = view.findViewById<RecyclerView?>(R.id.rv_rooms)
+        val memberCount = view.findViewById<TextView?>(R.id.member_count_tv)
+        val adminCount = view.findViewById<TextView?>(R.id.admin_count_tv)
+        // Header title in this layout
+        val headerTv = view.findViewById<TextView?>(R.id.tvCommunityDetailHeader)
+        // Make marquee scroll without focus requirement when present
+        headerTv?.isSelected = true
         val img = view.findViewById<ImageView>(R.id.community_image)
-        val nameTv = view.findViewById<TextView>(R.id.community_name)
+        // community name view (may be absent in some layout variants)
+        // val nameTv intentionally not used in this layout variant
 
         // Back icon in header
         view.findViewById<View>(R.id.imageView)?.setOnClickListener { findNavController().navigateUp() }
 
-        // Load username from DataStore
-        viewLifecycleOwner.lifecycleScope.launch {
-            UserDataManager.getInstance(requireContext()).usernameFlow.collect { uname ->
-                tvUser.text = uname ?: tvUser.text
-            }
-        }
-
         // Populate community name, image, counts from local repo
-        viewLifecycleOwner.lifecycleScope.launch {
-            val repo = CommunityRepository.getInstance(requireContext())
-            val c = repo.getCommunityById(communityId)
-            c?.let { comm ->
-                nameTv.text = comm.name
-                // Member/admin counts if available
-                if (comm.memberCount > 0) memberCount.text = comm.memberCount.toString()
+         viewLifecycleOwner.lifecycleScope.launch {
+             val repo = CommunityRepository.getInstance(requireContext())
+             val c = repo.getCommunityById(communityId)
+             c?.let { comm ->
+                 try {
+                    // Set header title to community name when available
+                    headerTv?.text = comm.name
+                    // Member/admin counts if available
+                    if (comm.memberCount > 0) memberCount?.text = comm.memberCount.toString()
+                 } catch (e: Exception) {
+                     android.util.Log.e(TAG, "Failed to populate community header", e)
+                 }
                 // Admin count not tracked locally; leave default 0 unless you have it
                 // Load community profile image
                 val url = comm.profilePicUrl
@@ -392,24 +392,30 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                 }
             }
         )
-        rv.layoutManager = LinearLayoutManager(requireContext())
-        rv.adapter = adapter
+        rv?.layoutManager = LinearLayoutManager(requireContext())
+        rv?.adapter = adapter
         // Ensure RecyclerView is above other views (fix overlay issues)
-        try { rv.bringToFront(); rv.elevation = 12f } catch (_: Exception) {}
+        try { rv?.bringToFront(); rv?.elevation = 12f } catch (_: Exception) {}
 
          vm.rooms.observe(viewLifecycleOwner) { list: List<DataRoom> ->
             adapter.submitList(list) {
-                // run after list is committed to adapter
-                val isEmpty = list.isEmpty()
-                emptyView?.visibility = if (isEmpty) View.VISIBLE else View.GONE
-                rv.visibility = if (isEmpty) View.GONE else View.VISIBLE
-                if (!isEmpty) {
-                    try { rv.post { rv.scrollToPosition(0) } } catch (_: Exception) {}
-                 }
-             }
-        }
-        vm.totalMembers.observe(viewLifecycleOwner) { count -> memberCount.text = count.toString() }
-        vm.adminCount.observe(viewLifecycleOwner) { count -> adminCount.text = count.toString() }
+                 // run after list is committed to adapter
+                 val isEmpty = list.isEmpty()
+                try {
+                    emptyView?.visibility = if (isEmpty) View.VISIBLE else View.GONE
+                    rv?.visibility = if (isEmpty) View.GONE else View.VISIBLE
+                    if (!isEmpty) {
+                        try {
+                            rv?.let { r -> r.post { r.scrollToPosition(0) } }
+                        } catch (_: Exception) {}
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e(TAG, "Failed to update rooms list visibility", e)
+                }
+              }
+         }
+        vm.totalMembers.observe(viewLifecycleOwner) { count -> memberCount?.text = count.toString() }
+        vm.adminCount.observe(viewLifecycleOwner) { count -> adminCount?.text = count.toString() }
         vm.toast.observe(viewLifecycleOwner) { msg -> if (!msg.isNullOrBlank()) Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show() }
         vm.deleted.observe(viewLifecycleOwner) { deleted -> if (deleted == true) findNavController().popBackStack() }
 

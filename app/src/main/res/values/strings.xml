@@ -172,6 +172,10 @@
     <string name="members_label">%1$d Members</string>
     <string name="you">You</string>
 
+    <!-- Phone validation messages -->
+    <string name="phone_required">Phone number is required</string>
+    <string name="invalid_phone">Invalid phone number</string>
+
     <!-- Search / Tabs related strings (missing, added to fix resource linking) -->
     <string name="cd_back">Back</string>
     <string name="cd_search_icon">Search Icon</string>
@@ -208,6 +212,7 @@
     <string name="leave_confirm_title">Leave community</string>
     <string name="leave_confirm_message">Are you sure you want to leave this community?</string>
     <string name="leave_confirm_yes">Leave</string>
+    <string name="name_required">Name is required</string>
     <string name="delete_confirm_title">Delete</string>
     <string name="delete_confirm_message">Are you sure you want to delete?</string>
     <string name="delete_confirm_yes">Delete</string>

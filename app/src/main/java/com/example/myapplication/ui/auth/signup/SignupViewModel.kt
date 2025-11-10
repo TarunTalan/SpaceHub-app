@@ -55,10 +55,10 @@ class SignupViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun signUp(firstName: String, lastName: String, email: String, password: String) {
+    fun signUp(firstName: String, lastName: String, email: String, password: String, phoneNumber: String?) {
         viewModelScope.launch {
             _uiState.value = UiState.Loading
-            when (val result = repo.signUp(firstName, lastName, email, password)) {
+            when (val result = repo.signUp(firstName, lastName, email, password, phoneNumber)) {
                 is AuthResult.Success -> {
                     // If backend returned a tempToken with signup, persist it and notify UI that email/OTP was sent
                     if (!result.tempToken.isNullOrBlank()) {

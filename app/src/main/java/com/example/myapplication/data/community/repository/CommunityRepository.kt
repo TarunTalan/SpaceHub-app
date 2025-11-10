@@ -451,9 +451,15 @@ class CommunityRepository private constructor(private val context: Context) {
             // Ensure current user email is known
             val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
 
-            // Check admin/owner permission. Use isOwner when available, otherwise compare creatorId if present.
-            val isAdmin = community.isOwner || (!community.creatorId.isNullOrBlank() && community.creatorId == email)
-            if (!isAdmin) return Result.failure(IllegalAccessException("Only admins can delete community"))
+            // Check admin/owner permission. Consider various signals: isOwner flag, isModerator, explicit role string,
+            // or creatorId equality. Role checks are case-insensitive and allow values like "ADMIN", "OWNER", "CREATOR".
+            val roleRaw = community.role?.trim()?.uppercase()
+            val roleIndicatesAdmin = roleRaw != null && listOf("ADMIN", "OWNER", "CREATOR", "MANAGER", "MODERATOR").any { roleRaw.contains(it) }
+            val isAdmin = community.isOwner || community.isModerator || roleIndicatesAdmin || (!community.creatorId.isNullOrBlank() && community.creatorId.equals(email, true))
+            if (!isAdmin) {
+                Log.w("CommunityRepo", "deleteCommunityRemote denied: user=$email not admin of community=${community.communityId}; role=$roleRaw, isOwner=${community.isOwner}, isModerator=${community.isModerator}, creatorId=${community.creatorId}")
+                return Result.failure(IllegalAccessException("Only admins can delete community"))
+            }
 
             // Build request body per new API
             val req = DeleteCommunityRequest(name = community.name, userEmail = email)
@@ -559,6 +565,8 @@ class CommunityRepository private constructor(private val context: Context) {
                         creatorName = creatorName,
                         createdAt = existing?.createdAt ?: System.currentTimeMillis(),
                         updatedAt = System.currentTimeMillis(),
+                        // Important: attach the role string from server so UI can classify admin/owner correctly
+                        role = dto.role?.takeIf { it.isNotBlank() } ?: existing?.role,
                         isOwner = isOwner,
                         isMember = isMember,
                         isModerator = isModerator
@@ -568,22 +576,38 @@ class CommunityRepository private constructor(private val context: Context) {
 
             val ids = mapped.map { it.communityId }
 
-            // Preserve locally-owned communities if server response is missing them (avoid accidental deletion)
-            val existingOwners = existingMap.filter { it.value.isOwner }.keys
+            // Preserve only those existing communities that are owners AND whose creatorId matches the requester email.
+            // This avoids preserving communities created by a different account when the user has switched accounts.
+            val existingOwners = existingMap.filter { (_, v) ->
+                v.isOwner && !v.creatorId.isNullOrBlank() && v.creatorId.equals(email, true)
+            }.keys
             val preservedIds = (ids + existingOwners).distinct()
 
-            CommunityDatabase.getInstance(context).withTransaction {
+            // fetchMyCommunitiesRemote: server returned ${mapped.size} communities
+
+             CommunityDatabase.getInstance(context).withTransaction {
                 if (preservedIds.isNotEmpty()) {
                     communityDao.deleteCommunitiesNotIn(preservedIds)
                 } else {
-                    // Keep local owners; delete only non-my communities
-                    communityDao.deleteAllNonMyCommunities()
+                    // Server returned empty list and no preserved owners for this email -> remove all local communities.
+                    // This avoids retaining communities created by previously-signed-in accounts.
+                    communityDao.deleteAllCommunities()
                 }
                 if (mapped.isNotEmpty()) {
                     communityDao.insertCommunities(mapped)
                 }
-            }
-            Result.success(Unit)
+                // debug log: report resulting DB contents after transaction
+                try {
+                    // read back to warm DB caches (no debug logging)
+                    communityDao.getAllCommunities()
+                } catch (_: Exception) {
+                    // ignore read failures during debug cleanup
+                }
+             }
+             // Trigger a small backfill to fetch relationship flags for a few communities so
+             // the 'isOwner'/'isMember' flags are populated quickly (helps getMyCommunitiesFlow).
+             runCatching { backfillRolesIfMissing(limit = 8) }
+             Result.success(Unit)
         } catch (t: Throwable) {
             Result.failure(t)
         }

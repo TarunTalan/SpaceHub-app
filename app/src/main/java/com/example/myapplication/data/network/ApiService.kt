@@ -49,7 +49,7 @@ interface ApiService {
     suspend fun resendForgotOtp(@Body body: ResendForgotOtpRequest): Response<ResendForgotOtpResponse>
 
     @POST("resendotp")
-    suspend fun resendSignupOtp(@Body body: ResendSignupOtpRequest): Response<ResendSignupOtpResponse>
+    suspend fun resendSignupOtp(@Body body: ResendSignupOtpRequest ): Response<ResendSignupOtpResponse>
 
     // Upload profile: sends email and image information
     // with email as first field and image uri as second.

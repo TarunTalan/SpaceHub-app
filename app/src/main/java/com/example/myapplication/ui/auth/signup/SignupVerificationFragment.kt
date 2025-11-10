@@ -343,23 +343,26 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
                             updateLoading(false)
                             // Reset attempts on success
                             failedAttempts = 0
-                            // Navigate to choose profile pic after successful signup verification
-                            try {
-                                val bundle = Bundle().apply { putString("email", emailArg ?: "") }
-                                val navOptions = androidx.navigation.NavOptions.Builder()
-                                    .setPopUpTo(R.id.auth_nav_graph, true)
-                                    .build()
-                                findNavController().navigate(R.id.action_signupVerificationFragment_to_chooseProfilePicFragment, bundle, navOptions)
-                            } catch (_: Exception) {
-                                // fallback to navigate without args
+                            // Only navigate when the success indicates final verification/login completed
+                            if (!state.requiresVerification) {
+                                // Navigate to choose profile pic after successful signup verification or login
                                 try {
+                                    val bundle = Bundle().apply { putString("email", emailArg ?: "") }
                                     val navOptions = androidx.navigation.NavOptions.Builder()
                                         .setPopUpTo(R.id.auth_nav_graph, true)
                                         .build()
-                                    findNavController().navigate(R.id.action_signupVerificationFragment_to_chooseProfilePicFragment, null, navOptions)
-                                } catch (_: Exception) {}
+                                    findNavController().navigate(R.id.action_signupVerificationFragment_to_chooseProfilePicFragment, bundle, navOptions)
+                                } catch (_: Exception) {
+                                    // fallback to navigate without args
+                                    try {
+                                        val navOptions = androidx.navigation.NavOptions.Builder()
+                                            .setPopUpTo(R.id.auth_nav_graph, true)
+                                            .build()
+                                        findNavController().navigate(R.id.action_signupVerificationFragment_to_chooseProfilePicFragment, null, navOptions)
+                                    } catch (_: Exception) {}
+                                }
+                                viewModel.reset()
                             }
-                            viewModel.reset()
                         }
                         is SignupViewModel.UiState.Error -> {
                             updateLoading(false)
@@ -646,6 +649,28 @@ class SignupVerificationFragment : BaseFragment(R.layout.fragment_verify_signup)
     override fun onDestroyView() {
         super.onDestroyView()
         cooldownHelper?.cancel()
+        // Restore toolbar navigation click to default (allow NavigationUI to re-wire if needed)
+        try {
+            val toolbar = requireActivity().findViewById<androidx.appcompat.widget.Toolbar?>(R.id.toolbar)
+            toolbar?.setNavigationOnClickListener(null)
+        } catch (_: Exception) {}
         _binding = null
+    }
+
+    override fun onResume() {
+        super.onResume()
+
+        try {
+            val toolbar = requireActivity().findViewById<androidx.appcompat.widget.Toolbar?>(R.id.toolbar)
+            toolbar?.setNavigationOnClickListener { showExitSignupConfirmation() }
+        } catch (_: Exception) { }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        try {
+            val toolbar = requireActivity().findViewById<androidx.appcompat.widget.Toolbar?>(R.id.toolbar)
+            toolbar?.setNavigationOnClickListener(null)
+        } catch (_: Exception) { }
     }
 }

@@ -24,6 +24,9 @@ import com.example.myapplication.data.chat.websocket.DirectChatWebSocketService
 import com.example.myapplication.data.chat.websocket.ChatWebSocketService
 import com.example.myapplication.ui.common.ProfileSharedViewModel
 import android.animation.ValueAnimator
+import android.view.ViewTreeObserver
+import androidx.core.content.edit
+import androidx.core.view.size
 
 class MainActivity : AppCompatActivity() {
 
@@ -31,8 +34,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var navController: NavController
     private var defaultToolbarColor: Int = 0
     private var defaultStatusBarColor: Int = 0
+
     // Animator for bottom nav indicator width changes
     private var bottomIndicatorWidthAnimator: ValueAnimator? = null
+
     // Cached item width to handle layout changes
     private var bottomNavItemWidth: Int = 0
 
@@ -49,14 +54,24 @@ class MainActivity : AppCompatActivity() {
             val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
             val deleteOnRestart = prefs.getBoolean("delete_db_on_restart", false)
             if (deleteOnRestart) {
-                try { deleteDatabase("community_database") } catch (_: Exception) {}
-                try { deleteDatabase("groups_database") } catch (_: Exception) {}
-                prefs.edit().putBoolean("delete_db_on_restart", false).apply()
+                try {
+                    deleteDatabase("community_database")
+                } catch (_: Exception) {
+                }
+                try {
+                    deleteDatabase("groups_database")
+                } catch (_: Exception) {
+                }
+                prefs.edit { putBoolean("delete_db_on_restart", false) }
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
         // Ensure the center add overlay is hidden by default; navigation listener will make it visible
         // only for top-level destinations where the bottom nav is visible.
-        try { binding.centerAddOverlay.visibility = View.GONE } catch (_: Exception) {}
+        try {
+            binding.centerAddOverlay.visibility = View.GONE
+        } catch (_: Exception) {
+        }
         defaultToolbarColor = ContextCompat.getColor(this, R.color.dashboard_toolbar)
         defaultStatusBarColor = window.statusBarColor
         binding.toolbar.setBackgroundColor(defaultToolbarColor)
@@ -101,15 +116,18 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val overlay = findViewById<View>(R.id.center_add_overlay)
                     overlay?.visibility = if (isVisible) View.VISIBLE else View.GONE
-                } catch (_: Exception) {}
+                } catch (_: Exception) {
+                }
             }
         }
-        // Keep bottom nav fixed. We'll handle IME insets per-fragment so content can scroll while nav stays put.
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
-        val token = SharedPrefsTokenStore(this).getAccessToken()
+        val tokenStore = SharedPrefsTokenStore(this)
+        val accessToken = tokenStore.getAccessToken()
+        val refreshToken = tokenStore.getRefreshToken()
+        val isAuthenticated = !accessToken.isNullOrBlank() && !refreshToken.isNullOrBlank()
         val navInflater = navController.navInflater
         val graph = navInflater.inflate(R.navigation.auth_nav_graph)
-        if (!token.isNullOrEmpty()) {
+        if (isAuthenticated) {
             graph.setStartDestination(R.id.dashboardFragment)
         }
         navController.graph = graph
@@ -124,11 +142,20 @@ class MainActivity : AppCompatActivity() {
             val iv = findViewById<android.widget.ImageView>(R.id.iv_center_add)
             android.util.Log.d("MainActivity", "center overlay iv found=${iv != null}")
             android.util.Log.d("MainActivity", "center overlay iv drawable=${iv?.drawable}")
-            centerOverlay?.setOnClickListener { try { bottomNav.selectedItemId = R.id.createCommunityOrGroupFragment } catch (_: Exception) {} }
+            centerOverlay?.setOnClickListener {
+                try {
+                    bottomNav.selectedItemId = R.id.createCommunityOrGroupFragment
+                } catch (_: Exception) {
+                }
+            }
             // Hide overlay when bottom nav is not visible
             navController.addOnDestinationChangedListener { _, destination, _ ->
                 val bottomVisible = destination.id in setOf(
-                    R.id.dashboardFragment, R.id.searchFragment, R.id.createCommunityOrGroupFragment, R.id.searchFriendForChatFragment, R.id.profileFragment
+                    R.id.dashboardFragment,
+                    R.id.searchFragment,
+                    R.id.createCommunityOrGroupFragment,
+                    R.id.searchFriendForChatFragment,
+                    R.id.profileFragment
                 )
                 centerOverlay?.visibility = if (bottomVisible) View.VISIBLE else View.GONE
             }
@@ -141,7 +168,8 @@ class MainActivity : AppCompatActivity() {
                     centerOverlay?.requestLayout()
                     iv?.requestLayout()
                     bottomNav.invalidate()
-                } catch (_: Exception) {}
+                } catch (_: Exception) {
+                }
             }
             // Extra safety: ensure overlay is front after whole root is laid out (do NOT force visibility)
             binding.root.post {
@@ -151,14 +179,16 @@ class MainActivity : AppCompatActivity() {
                     centerOverlay?.elevation = 96f
                     centerOverlay?.requestLayout()
                     bottomNav.invalidate()
-                } catch (_: Exception) {}
+                } catch (_: Exception) {
+                }
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
         // Setup animated indicator bar
         setupBottomNavIndicator()
         // NOTE: logout receiver registration removed. If you need app-wide logout handling via broadcast,
         // reintroduce a local broadcast or a centralized session manager callback instead of a dynamic receiver.
-        if (!token.isNullOrEmpty()) {
+        if (isAuthenticated) {
             val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
             val lastScreen = prefs.getString("last_screen", null)
             when (lastScreen) {
@@ -185,6 +215,29 @@ class MainActivity : AppCompatActivity() {
         }
         onBackPressedDispatcher.addCallback(this) {
             val currentId = navController.currentDestination?.id
+
+            // If we're on signup verification, always show an exit-confirmation dialog.
+            // This is a lifecycle-robust fallback in case fragment-local back handlers are not active
+            // after background/resume.
+            if (currentId == R.id.signupVerificationFragment) {
+                try {
+                    com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(
+                        this@MainActivity,
+                        R.string.exit_signup_title,
+                        R.string.exit_signup_message,
+                        onPositive = {
+                            try {
+                                navController.navigate(R.id.action_signupVerificationFragment_to_nameSignupFragment)
+                            } catch (_: Exception) {
+                                try { navController.popBackStack(R.id.nameSignupFragment, false) } catch (_: Exception) { }
+                            }
+                        },
+                        themeRes = R.style.ThemeOverlay_MyApplication_MaterialAlertDialog
+                    )
+                } catch (_: Exception) {}
+                return@addCallback
+            }
+
             val goToOnboardingWhenBack = setOf(R.id.loginFragment, R.id.nameSignupFragment)
             if (currentId != null && currentId in goToOnboardingWhenBack) {
                 val startDest = navController.graph.startDestinationId
@@ -285,66 +338,76 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupBottomNavIndicator() {
-        // Wait for layout to be ready
-        binding.bottomNavView.post {
-            val menuItemCount = binding.bottomNavView.menu.size()
-            if (menuItemCount == 0) return@post
-
-            // Calculate width of each menu item
-            val bottomNavWidth = binding.bottomNavView.width
-            val itemWidth = if (menuItemCount > 0) bottomNavWidth / menuItemCount else 0
-            bottomNavItemWidth = itemWidth
-
-            val initialIndicatorWidth = itemWidth
-            try {
-                binding.bottomNavIndicator.layoutParams = binding.bottomNavIndicator.layoutParams.apply { width = initialIndicatorWidth }
-                binding.bottomNavIndicator.requestLayout()
-            } catch (_: Exception) {}
-
-            // Set initial position based on selected item
-            updateIndicatorPosition(binding.bottomNavView.selectedItemId, itemWidth, false)
-
-            // Position center add overlay to sit above the center menu item
-            try {
-                val centerOverlay = findViewById<View>(R.id.center_add_overlay)
-                val centerIndex = menuItemCount / 2
-                val itemCenterX = (centerIndex * itemWidth) + itemWidth / 2f
-                val navCenterX = binding.bottomNavView.width / 2f
-                centerOverlay?.translationX = itemCenterX - navCenterX
-            } catch (_: Exception) {}
-
-            // Listen for item selections
-            binding.bottomNavView.setOnItemSelectedListener { menuItem ->
-                updateIndicatorPosition(menuItem.itemId, itemWidth, true)
-                NavigationUI.onNavDestinationSelected(menuItem, navController)
-                true
-            }
-
-            // Also update when navigation changes
-            navController.addOnDestinationChangedListener { _, destination, _ ->
-                updateIndicatorPosition(destination.id, itemWidth, true)
-            }
-
-            // If the bottom nav resizes (rotation, window insets), update measurements and reposition immediately
-            binding.bottomNavView.addOnLayoutChangeListener { v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
+        // Use a global layout listener to ensure the BottomNavigationView has been measured
+        // and its Menu is populated before computing item widths. This avoids the indicator
+        // being left at match_parent when initialization ran too early.
+        val vto = binding.bottomNavView.viewTreeObserver
+        vto.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+            override fun onGlobalLayout() {
                 try {
-                    val newWidth = v.width
-                    val oldWidth = (oldRight - oldLeft)
-                    if (newWidth != oldWidth && menuItemCount > 0) {
-                        val newItemWidth = newWidth / menuItemCount
-                        bottomNavItemWidth = newItemWidth
-                        // reposition indicator without animation to avoid jumpiness
-                        updateIndicatorPosition(binding.bottomNavView.selectedItemId, newItemWidth, false)
-                        // reposition center overlay as well
+                    val menuItemCount = binding.bottomNavView.menu.size
+                    val bottomNavWidth = binding.bottomNavView.width
+                    if (menuItemCount == 0 || bottomNavWidth == 0) return
+
+                    // We have valid measurements — remove listener
+                    binding.bottomNavView.viewTreeObserver.removeOnGlobalLayoutListener(this)
+
+                    // Calculate width of each menu item
+                    val itemWidth = bottomNavWidth / menuItemCount
+                    bottomNavItemWidth = itemWidth
+
+                    val initialIndicatorWidth = itemWidth
+                    try {
+                        binding.bottomNavIndicator.layoutParams = binding.bottomNavIndicator.layoutParams.apply { width = initialIndicatorWidth }
+                        binding.bottomNavIndicator.requestLayout()
+                    } catch (_: Exception) {}
+
+                    // Set initial position based on selected item
+                    updateIndicatorPosition(binding.bottomNavView.selectedItemId, itemWidth, false)
+
+                    // Position center add overlay to sit above the center menu item
+                    try {
                         val centerOverlay = findViewById<View>(R.id.center_add_overlay)
                         val centerIndex = menuItemCount / 2
-                        val itemCenterX = (centerIndex * newItemWidth) + newItemWidth / 2f
+                        val itemCenterX = (centerIndex * itemWidth) + itemWidth / 2f
                         val navCenterX = binding.bottomNavView.width / 2f
                         centerOverlay?.translationX = itemCenterX - navCenterX
+                    } catch (_: Exception) {}
+
+                    // Listen for item selections
+                    binding.bottomNavView.setOnItemSelectedListener { menuItem ->
+                        updateIndicatorPosition(menuItem.itemId, itemWidth, true)
+                        NavigationUI.onNavDestinationSelected(menuItem, navController)
+                        true
+                    }
+
+                    // Also update when navigation changes
+                    navController.addOnDestinationChangedListener { _, destination, _ ->
+                        updateIndicatorPosition(destination.id, itemWidth, true)
+                    }
+
+                    // If the bottom nav resizes (rotation, window insets), update measurements and reposition immediately
+                    binding.bottomNavView.addOnLayoutChangeListener { v, _, _, _, _, oldLeft, _, oldRight, _ ->
+                        try {
+                            val newWidth = v.width
+                            val oldWidth = (oldRight - oldLeft)
+                            if (newWidth != oldWidth && menuItemCount > 0) {
+                                val newItemWidth = newWidth / menuItemCount
+                                bottomNavItemWidth = newItemWidth
+                                // reposition indicator without animation to avoid jumpiness
+                                updateIndicatorPosition(binding.bottomNavView.selectedItemId, newItemWidth, false)
+                                // reposition center overlay as well
+                                val centerOverlay = findViewById<View>(R.id.center_add_overlay)
+                                val centerIndex = menuItemCount / 2
+                                val itemCenterX = (centerIndex * newItemWidth) + newItemWidth / 2f
+                                val navCenterX = binding.bottomNavView.width / 2f
+                                centerOverlay?.translationX = itemCenterX - navCenterX
+                            }
+                        } catch (_: Exception) {}
                     }
                 } catch (_: Exception) {}
             }
-        }
+        })
     }
 
     private fun updateIndicatorPosition(menuItemId: Int, itemWidth: Int, animate: Boolean) {
@@ -390,7 +453,10 @@ class MainActivity : AppCompatActivity() {
                 ind.requestLayout()
                 ind.translationX = targetX.toFloat()
             } catch (_: Exception) {
-                try { ind.translationX = targetX.toFloat() } catch (_: Exception) {}
+                try {
+                    ind.translationX = targetX.toFloat()
+                } catch (_: Exception) {
+                }
             }
         }
     }
@@ -404,8 +470,12 @@ class MainActivity : AppCompatActivity() {
                 centerOverlay?.translationZ = 120f
                 centerOverlay?.elevation = 120f
                 centerOverlay?.requestLayout()
-                android.util.Log.d("MainActivity", "onWindowFocusChanged: centerOverlay visible=${centerOverlay?.visibility}")
-            } catch (_: Exception) {}
+                android.util.Log.d(
+                    "MainActivity",
+                    "onWindowFocusChanged: centerOverlay visible=${centerOverlay?.visibility}"
+                )
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -414,26 +484,38 @@ class MainActivity : AppCompatActivity() {
         override fun onReceive(context: Context?, intent: android.content.Intent?) {
             try {
                 // Disconnect websockets
-                try { DirectChatWebSocketService.getInstance(applicationContext).disconnect() } catch (_: Exception) {}
-                try { ChatWebSocketService.getInstance(applicationContext).disconnect() } catch (_: Exception) {}
+                try {
+                    DirectChatWebSocketService.getInstance(applicationContext).disconnect()
+                } catch (_: Exception) {
+                }
+                try {
+                    ChatWebSocketService.getInstance(applicationContext).disconnect()
+                } catch (_: Exception) {
+                }
 
                 // Clear any in-memory shared viewmodels (profile image / selection)
                 try {
                     val vm = ViewModelProvider(this@MainActivity).get(ProfileSharedViewModel::class.java)
                     vm.clear()
-                } catch (_: Exception) {}
+                } catch (_: Exception) {
+                }
 
-                // Close and delete databases to ensure clean state
-                try { com.example.myapplication.data.community.database.CommunityDatabase.clearAndClose(applicationContext) } catch (_: Exception) {}
-                try { com.example.myapplication.data.groups.database.GroupsDatabase.clearAndClose(applicationContext) } catch (_: Exception) {}
+                // Set flag to delete databases on next cold start
+                try {
+                    val prefs = applicationContext.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                    prefs.edit().putBoolean("delete_db_on_restart", true).apply()
+                } catch (_: Exception) {}
 
                 // Optionally, clear navigation backstack and navigate to onboarding
                 try {
                     val nav = navController
-                    val navOptions = androidx.navigation.NavOptions.Builder().setPopUpTo(R.id.auth_nav_graph, true).build()
+                    val navOptions =
+                        androidx.navigation.NavOptions.Builder().setPopUpTo(R.id.auth_nav_graph, true).build()
                     nav.navigate(R.id.action_dashboardFragment_to_onboardingFragment, null, navOptions)
-                } catch (_: Exception) { }
-            } catch (_: Exception) {}
+                } catch (_: Exception) {
+                }
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -441,6 +523,7 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         try {
             unregisterReceiver(logoutReceiver)
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
     }
 }

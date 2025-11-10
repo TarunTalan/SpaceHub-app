@@ -13,6 +13,7 @@ import com.example.myapplication.R
 import com.example.myapplication.data.community.model.Community
 
 class YourCommunityAdapter(
+    private val showRoleBadge: Boolean = true,
     private val onClick: (Community) -> Unit
 ) : ListAdapter<Community, YourCommunityAdapter.VH>(Diff) {
 
@@ -35,22 +36,26 @@ class YourCommunityAdapter(
             tvName.text = item.name
             tvDesc.text = item.description ?: ""
 
-            // Show role badge for OWNER/ADMIN/MODERATOR
-            val role = item.role?.uppercase()
-            when {
-                role in listOf("OWNER", "CREATOR") -> {
-                    tvRoleBadge.visibility = View.VISIBLE
-                    tvRoleBadge.text = "OWNER"
-                    tvRoleBadge.setBackgroundResource(R.drawable.rounded_button_bg_blue)
+            // Show role badge for OWNER/ADMIN/MODERATOR only when enabled
+            if (showRoleBadge) {
+                val role = item.role?.uppercase()
+                when {
+                    role in listOf("OWNER", "CREATOR") -> {
+                        tvRoleBadge.visibility = View.VISIBLE
+                        tvRoleBadge.text = "OWNER"
+                        tvRoleBadge.setBackgroundResource(R.drawable.rounded_button_bg_blue)
+                    }
+                    role in listOf("ADMIN", "MODERATOR", "MANAGER") -> {
+                        tvRoleBadge.visibility = View.VISIBLE
+                        tvRoleBadge.text = "ADMIN"
+                        tvRoleBadge.setBackgroundResource(R.drawable.rounded_button_bg_blue)
+                    }
+                    else -> {
+                        tvRoleBadge.visibility = View.GONE
+                    }
                 }
-                role in listOf("ADMIN", "MODERATOR", "MANAGER") -> {
-                    tvRoleBadge.visibility = View.VISIBLE
-                    tvRoleBadge.text = "ADMIN"
-                    tvRoleBadge.setBackgroundResource(R.drawable.rounded_button_bg_blue)
-                }
-                else -> {
-                    tvRoleBadge.visibility = View.GONE
-                }
+            } else {
+                tvRoleBadge.visibility = View.GONE
             }
 
             val url = item.profilePicUrl ?: item.coverPhotoUrl

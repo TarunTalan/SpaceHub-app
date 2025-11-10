@@ -11,7 +11,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.first
 import android.content.Intent
 
 // Use the same name as old SharedPreferences for signup email compatibility
@@ -33,46 +32,18 @@ object SessionManager {
                     .clear()
             }
 
-            // Perform DB clear/close and related cleanup sequentially on the IO scope to avoid races
-            scope.launch {
-                try {
-                    // 1) Clear all tables on community DB
-                    runCatching {
-                        com.example.myapplication.data.community.database.CommunityDatabase
-                            .getInstance(context)
-                            .clearAllTables()
-                    }
+            // NOTE: Do NOT clear or close Room databases immediately from here. Clearing tables while other
+            // coroutines or threads are using Room can cause SQLite "database is locked" or
+            // "connection pool has been closed" errors. To avoid races, mark DB files for deletion on next
+            // app restart and perform any destructive DB file operations when the process is not actively
+            // using the DB (for example, in Activity.onCreate on next cold start).
+            // The MainActivity already checks the `delete_db_on_restart` flag at startup and will delete
+            // the DB files before any DB instances are created.
 
-                    // 2) Clear tables and perform safe close operations (our clearAndClose no longer closes Room instance)
-                    try {
-                        com.example.myapplication.data.community.database.CommunityDatabase.clearAndClose(context)
-                    } catch (_: Exception) {}
-                    try {
-                        com.example.myapplication.data.groups.database.GroupsDatabase.clearAndClose(context)
-                    } catch (_: Exception) {}
-
-                    // 3) Clear chat tables from the community DB (safely collect snapshot)
-                    try {
-                        val db = com.example.myapplication.data.community.database.CommunityDatabase.getInstance(context)
-                        try {
-                            val chatDao = db.chatDao()
-                            val convs = runCatching { chatDao.getAllConversations().first() }.getOrNull() ?: emptyList()
-                            convs.forEach { conv ->
-                                runCatching { chatDao.deleteMessagesForConversation(conv.id) }
-                                runCatching { chatDao.deleteConversation(conv.id) }
-                            }
-                        } catch (_: Exception) {}
-                    } catch (_: Exception) {}
-
-                    // 4) Mark DB files for deletion on next app restart to avoid deleting active DB while app is running.
-                    try {
-                        val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-                        prefs.edit().putBoolean("delete_db_on_restart", true).apply()
-                    } catch (_: Exception) {}
-                } catch (_: Exception) {
-                    // ignore
-                }
-            }
+            try {
+                val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                prefs.edit().putBoolean("delete_db_on_restart", true).apply()
+            } catch (_: Exception) {}
 
             // Clear app-level SharedPreferences used by UI (like last_screen)
             runCatching {
