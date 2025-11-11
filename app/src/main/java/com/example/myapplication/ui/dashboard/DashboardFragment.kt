@@ -355,10 +355,21 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         rvJoinedCommunities?.adapter = joinedAdapter
         // Setup local groups RecyclerView and adapter (DB-backed list shown on fast-path)
         rvLocalGroups = view.findViewById(R.id.rv_local_groups_dashboard)
+        // Find the local groups header text view (id used in layouts is tv_local_groups)
+        tvLocalGroupsHeader = view.findViewById(R.id.tv_local_groups)
         val localGroupsAdapter = CommunityListAdapter({ item ->
             // Navigate to community detail (reuse community detail action). If you have a specific
             // local-group detail screen, replace this action id.
-            runCatching { navigateWithDelay(R.id.action_dashboardFragment_to_communityDetailFragment, Bundle().apply { putString("communityId", item.communityId) }) }
+            // Use the dedicated local group detail destination so the app calls LocalGroup APIs
+            runCatching {
+                val args = Bundle().apply {
+                    putString("communityId", item.communityId)
+                    putString("name", item.name)
+                    putString("imageUrl", item.imageUrl)
+                }
+                // Navigate directly to the fragment id to avoid mistakenly calling community APIs
+                navigateWithDelay(R.id.localGroupDetailFragment, args)
+            }
         })
         rvLocalGroups?.layoutManager = LinearLayoutManager(requireContext())
         rvLocalGroups?.adapter = localGroupsAdapter
@@ -381,9 +392,13 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
                     )
                 }
                 try { localGroupsAdapter.submitList(uiList) } catch (_: Exception) {}
-                // update emptiness tracker used for illustration
+                // update emptiness tracker used for illustration and header visibility
                 isLocalGroupsEmpty = uiList.isEmpty()
-                try { updateIllustrationVisibility() } catch (_: Exception) {}
+                try {
+                    // Show/hide local groups header based on emptiness
+                    tvLocalGroupsHeader?.visibility = if (isLocalGroupsEmpty) View.GONE else View.VISIBLE
+                    updateIllustrationVisibility()
+                } catch (_: Exception) {}
             } catch (_: Exception) {}
         }
 

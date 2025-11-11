@@ -8,7 +8,6 @@ import com.bumptech.glide.Registry
 import com.bumptech.glide.annotation.GlideModule
 import com.bumptech.glide.load.model.GlideUrl
 import com.bumptech.glide.module.AppGlideModule
-import com.example.myapplication.data.network.SharedPrefsTokenStore
 import java.io.InputStream
 import com.bumptech.glide.integration.okhttp3.OkHttpUrlLoader
 import okhttp3.OkHttpClient
@@ -19,7 +18,7 @@ class AuthenticatedGlideModule : AppGlideModule() {
     override fun registerComponents(context: Context, glide: Glide, registry: Registry) {
         Log.d("AuthGlideModule", "Registering authenticated Glide components")
 
-        // Create OkHttpClient with auth interceptor
+        // Create OkHttpClient without adding Authorization header
         val client = OkHttpClient.Builder()
             .addInterceptor { chain ->
                 val original = chain.request()
@@ -38,32 +37,21 @@ class AuthenticatedGlideModule : AppGlideModule() {
                 val requestHost = try { url.host } catch (_: Exception) { null }
                 val requestPath = try { url.encodedPath } catch (_: Exception) { "" }
 
-                // Only add auth header for our backend API host or requests under /api/ path
-                val needsAuth = when {
+                // Only log whether request is to our backend; do not add auth header
+                val isBackend = when {
                     requestHost == null -> false
                     requestHost.contains(apiHost ?: "codewithketan.me", ignoreCase = true) -> true
                     requestPath.startsWith("/api/") -> true
                     else -> false
                 }
 
-                if (needsAuth) {
-                    val token = SharedPrefsTokenStore(context).getAccessToken()
-                    Log.d("AuthGlideModule", "URL needs auth: $needsAuth, Token present: ${!token.isNullOrEmpty()}")
-
-                    val request = if (!token.isNullOrEmpty()) {
-                        Log.d("AuthGlideModule", "Adding Bearer token to Glide request for host=$requestHost")
-                        original.newBuilder()
-                            .header("Authorization", "Bearer $token")
-                            .build()
-                    } else {
-                        Log.w("AuthGlideModule", "No token available for Glide request")
-                        original
-                    }
-                    chain.proceed(request)
+                if (isBackend) {
+                    Log.d("AuthGlideModule", "Glide request to backend host=$requestHost path=$requestPath (no auth will be added)")
                 } else {
-                    Log.d("AuthGlideModule", "URL does not need auth (skipping): host=$requestHost path=$requestPath")
-                    chain.proceed(original)
+                    Log.d("AuthGlideModule", "Glide request to external host=$requestHost path=$requestPath")
                 }
+
+                chain.proceed(original)
             }
             .build()
 

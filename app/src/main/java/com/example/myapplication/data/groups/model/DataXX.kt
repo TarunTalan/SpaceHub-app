@@ -10,5 +10,6 @@ data class DataXX(
     val memberEmails: List<String>,
     val name: String,
     val totalMembers: Int,
-    val updatedAt: String
+    val updatedAt: String,
+    val imageKey: String,
 )

@@ -120,13 +120,10 @@ class ChatRoomFragment: BaseFragment(R.layout.fragment_chat_room) {
                 if (this@ChatRoomFragment.prevImeBottom == 0 && imeBottom > 0) {
                     messagesRv.post {
                         try {
-                            val lastIndex = (messagesRv.adapter?.itemCount ?: 0) - 1
-                            if (lastIndex >= 0) {
-                                messagesRv.smoothScrollToPosition(lastIndex)
-                                scrolledOnImeOpen = true
-                                // clear the flag shortly after to allow subsequent normal scrolling
-                                messagesRv.postDelayed({ scrolledOnImeOpen = false }, 300)
-                            }
+                            safeScrollToBottom(messagesRv)
+                            scrolledOnImeOpen = true
+                            // clear the flag shortly after to allow subsequent normal scrolling
+                            messagesRv.postDelayed({ scrolledOnImeOpen = false }, 300)
                         } catch (_: Exception) {}
                     }
                 }
@@ -155,8 +152,7 @@ class ChatRoomFragment: BaseFragment(R.layout.fragment_chat_room) {
                     messagesRv.post {
                         try {
                             if (!scrolledOnImeOpen) {
-                                val lastIndex = (list.size - 1).coerceAtLeast(0)
-                                if (lastIndex >= 0) messagesRv.smoothScrollToPosition(lastIndex)
+                                safeScrollToBottom(messagesRv)
                             }
                         } catch (_: Exception) {}
                     }
@@ -174,10 +170,10 @@ class ChatRoomFragment: BaseFragment(R.layout.fragment_chat_room) {
                 input?.setText("")
                 // let adapter/appended optimistic update take effect, then smoothly scroll to bottom (unless IME just triggered a scroll)
                 try { messagesRv.post {
-                    if (!scrolledOnImeOpen) messagesRv.smoothScrollToPosition((messagesRv.adapter?.itemCount ?: 1) - 1)
-                } } catch (_: Exception) {}
-             }
-         }
+                    if (!scrolledOnImeOpen) safeScrollToBottom(messagesRv)
+                 } } catch (_: Exception) {}
+              }
+          }
     }
 
     override fun onDestroyView() {
@@ -198,6 +194,18 @@ class ChatRoomFragment: BaseFragment(R.layout.fragment_chat_room) {
             if (window != null && prevSoftInputMode != null) {
                 window.setSoftInputMode(prevSoftInputMode!!)
                 prevSoftInputMode = null
+            }
+        } catch (_: Exception) {}
+    }
+
+    // Helper: safely scroll to the last adapter position if valid. Guards against invalid target positions.
+    private fun safeScrollToBottom(rv: RecyclerView) {
+        try {
+            val count = rv.adapter?.itemCount ?: 0
+            val target = count - 1
+            if (target >= 0 && target < count) {
+                // Only call smoothScroll if the RecyclerView is attached to window
+                if (rv.isAttachedToWindow && isAdded) rv.smoothScrollToPosition(target)
             }
         } catch (_: Exception) {}
     }

@@ -13,6 +13,7 @@ import com.example.myapplication.data.groups.model.DeleteLocalGroupRequest
 import com.example.myapplication.data.groups.model.DeleteLocalGroupResponse
 import com.example.myapplication.data.groups.model.GetAllLocalGroupsResponse
 import com.example.myapplication.data.groups.model.GetLocalGroupDetailsResponse
+import com.example.myapplication.data.groups.model.GroupGetAllMembersResponse
 import com.example.myapplication.data.groups.model.JoinGroupByLinkRequest
 import com.example.myapplication.data.groups.model.JoinGroupByLinkResponse
 import com.example.myapplication.data.groups.model.UpdateLocalGroupProfileResponse
@@ -103,7 +104,7 @@ interface ApiService {
     @POST("community/members")
     suspend fun getAllMembers(
         @Body body: GetAllMembersRequest
-    ): Response<com.example.myapplication.data.community.model.CommunityGetAllMembersResponse>
+    ): Response<CommunityGetAllMembersResponse>
 
     @POST("community/changeRole")
     suspend fun changeRole(
@@ -271,9 +272,10 @@ interface ApiService {
         @Query("requesterEmail") requesterEmail: String
     ): Response<GetAllLocalGroupsResponse>
 
-    @GET("local-group/{groupId}")
+    @POST("local-group/{groupId}/enter")
     suspend fun getLocalGroupDetails(
-        @Path("groupId") groupId: String
+        @Path("groupId") groupId: String,
+        @Query("requesterEmail") requesterEmail: String
     ): Response<GetLocalGroupDetailsResponse>
 
     @HTTP(method = "DELETE", path = "local-group/delete", hasBody = true)
@@ -283,8 +285,9 @@ interface ApiService {
 
     @GET("local-group/{localGroupId}/members")
     suspend fun getLocalGroupMembers(
-        @Path("localGroupId") localGroupId: String
-    ): Response<com.example.myapplication.data.groups.model.GroupGetAllMembersResponse>
+        @Path("localGroupId") localGroupId: String,
+        @Query("requesterEmail") requesterEmail: String
+    ): Response<GroupGetAllMembersResponse>
 
     @Multipart
     @POST("local-group/{localGroupId}/settings")

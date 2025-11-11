@@ -267,28 +267,53 @@ class AuthRepository(context: Context) {
                                 p?.let {
                                     try {
                                         // Map available fields from GetProfileResponse (all nullable now)
-                                        userDataManager.updateProfile(
-                                            username = it.username?.takeIf { v -> v.isNotBlank() },
-                                            firstName = it.firstName?.takeIf { v -> v.isNotBlank() },
-                                            lastName = it.lastName?.takeIf { v -> v.isNotBlank() },
-                                            email = it.email,
-                                            bio = it.bio,
-                                            dateOfBirth = it.dateOfBirth,
-                                            location = null,
-                                            website = null,
-                                            avatarUrl = it.avatarPreviewUrl?.takeIf { v -> v.isNotBlank() } ?: it.avatarKey?.takeIf { v -> v.isNotBlank() },
-                                            coverPhotoUrl = null,
-                                            followersCount = null,
-                                            followingCount = null,
-                                            isPrivate = null
-                                        )
+                                        // Persist profile synchronously so that downstream UI (e.g., nav header)
+                                        // observing DataStore sees the values immediately after login completes.
+                                        val avatarFinal = it.avatarPreviewUrl?.takeIf { v -> v.isNotBlank() } ?: it.avatarKey?.takeIf { v -> v.isNotBlank() }
+                                        try {
+                                            // Use blocking variant to ensure write completes before we continue
+                                            userDataManager.updateProfileBlocking(
+                                                username = it.username?.takeIf { v -> v.isNotBlank() },
+                                                firstName = it.firstName?.takeIf { v -> v.isNotBlank() },
+                                                lastName = it.lastName?.takeIf { v -> v.isNotBlank() },
+                                                email = it.email,
+                                                bio = it.bio,
+                                                dateOfBirth = it.dateOfBirth,
+                                                location = null,
+                                                website = null,
+                                                avatarUrl = avatarFinal,
+                                                coverPhotoUrl = null,
+                                                followersCount = null,
+                                                followingCount = null,
+                                                isPrivate = null
+                                            )
+                                        } catch (_: Exception) {
+                                            // Fallback to async update if blocking update fails for any reason
+                                            try {
+                                                userDataManager.updateProfile(
+                                                    username = it.username?.takeIf { v -> v.isNotBlank() },
+                                                    firstName = it.firstName?.takeIf { v -> v.isNotBlank() },
+                                                    lastName = it.lastName?.takeIf { v -> v.isNotBlank() },
+                                                    email = it.email,
+                                                    bio = it.bio,
+                                                    dateOfBirth = it.dateOfBirth,
+                                                    location = null,
+                                                    website = null,
+                                                    avatarUrl = avatarFinal,
+                                                    coverPhotoUrl = null,
+                                                    followersCount = null,
+                                                    followingCount = null,
+                                                    isPrivate = null
+                                                )
+                                            } catch (_: Exception) { /* ignore */ }
+                                        }
 
                                         // Also set profile image explicitly (convenience)
-                                        userDataManager.updateProfileImage(it.avatarPreviewUrl ?: it.avatarKey)
-                                    } catch (_: Exception) { /* ignore persistence errors */ }
-                                }
-                            }
-                        } catch (_: Exception) { /* ignore profile fetch failure */ }
+                                        try { userDataManager.updateProfileImage(avatarFinal) } catch (_: Exception) {}
+                                     } catch (_: Exception) { /* ignore persistence errors */ }
+                                 }
+                             }
+                         } catch (_: Exception) { /* ignore profile fetch failure */ }
 
                         AuthResult.Success(requiresVerification = false)
                     }

@@ -110,6 +110,14 @@ class GroupDescriptionFragment : BaseFragment(R.layout.fragment_group_descriptio
                     // result is Result<CreateLocalGroupResponse>
                     if (result.isSuccess) {
                         val created = result.getOrNull()?.data
+                        // After successful creation, fetch authoritative list from server so DB is updated
+                        try {
+                            val repo = LocalGroupRepository.getInstance(requireContext())
+                            // Fire-and-forget authoritative refresh to update DB; we don't need to block UI
+                            lifecycleScope.launch(Dispatchers.IO) {
+                                try { repo.getAllLocalGroups() } catch (_: Exception) {}
+                            }
+                        } catch (_: Exception) {}
                         // Prepare a small bundle with created group details so dashboard/tab can update immediately
                         try {
                             val nav = findNavController()

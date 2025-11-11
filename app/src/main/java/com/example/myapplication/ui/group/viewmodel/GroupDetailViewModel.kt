@@ -47,6 +47,13 @@ class GroupDetailViewModel(app: Application) : AndroidViewModel(app) {
         _toast.value = null
         if (_groupId.value == id) {
             android.util.Log.d("GroupDetailVM", "setGroupId: same id, skipping reload")
+            // If we have no cached group data for this id (e.g. VM was retained but fragment recreated),
+            // trigger a refresh so the UI receives the required network calls.
+            if (_group.value == null) {
+                android.util.Log.d("GroupDetailVM", "setGroupId: same id but group empty — forcing refresh")
+                refreshDetails()
+                loadMembers()
+            }
             return
         }
         _groupId.value = id

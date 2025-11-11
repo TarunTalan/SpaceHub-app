@@ -29,6 +29,7 @@ class GroupMembersFragment : Fragment(R.layout.fragment_group_members) {
         super.onViewCreated(view, savedInstanceState)
 
         val rv = view.findViewById<RecyclerView>(R.id.rv_group_members)
+        val memberCountTv = view.findViewById<TextView>(R.id.member_count_tv)
         rv.layoutManager = LinearLayoutManager(requireContext())
         rv.addItemDecoration(DividerItemDecoration(requireContext(), DividerItemDecoration.VERTICAL))
         // obtain current user's email to show "You" in the list for own entry
@@ -42,6 +43,10 @@ class GroupMembersFragment : Fragment(R.layout.fragment_group_members) {
             // observe members and submit to adapter
             vm.members.observe(viewLifecycleOwner) { list ->
                 android.util.Log.d("GroupMembersFragment", "members observer: received list size=${list.size}")
+                try {
+                    val count = list.size
+                    memberCountTv?.text = resources.getQuantityString(R.plurals.members_count, count, count)
+                } catch (_: Exception) {}
                 val submit = list.toList()
                 adapter.submitList(submit) {
                     android.util.Log.d("GroupMembersFragment", "submitList commitCallback: adapter.itemCount=${adapter.itemCount}")

@@ -38,6 +38,13 @@ object NetworkModule {
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .addInterceptor(TokenInterceptor(tokenStore))
+            // Interceptor to log presence of Authorization header on outgoing requests (no token value printed)
+            .addInterceptor { chain ->
+                val req = chain.request()
+                val hasAuth = req.header("Authorization") != null
+                try { android.util.Log.d("NetworkAuthLog", "Outgoing ${req.method} ${req.url} hasAuth=$hasAuth") } catch (_: Exception) {}
+                chain.proceed(req)
+            }
 
         builder.addInterceptor(logging)
 

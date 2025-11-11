@@ -19,6 +19,7 @@ import com.example.myapplication.ui.dashboard.adapter.CommunityUi
 import com.example.myapplication.ui.group.LocalGroupsViewModel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class LocalGroupsTabFragment : BaseFragment(R.layout.fragment_tab_local_groups) {
     private lateinit var recycler: RecyclerView
@@ -88,7 +89,9 @@ class LocalGroupsTabFragment : BaseFragment(R.layout.fragment_tab_local_groups) 
                                 isMember = true
                             )
                         }
-                        adapter.submitList(ui)
+                        // sort local groups by name (case-insensitive) before submitting
+                        val sortedUi = ui.sortedBy { it.name.lowercase(Locale.getDefault()) }
+                        adapter.submitList(sortedUi)
                     }
                 }
                 // trigger load once when started
@@ -135,7 +138,9 @@ class LocalGroupsTabFragment : BaseFragment(R.layout.fragment_tab_local_groups) 
                             isMember = true
                         )
                         val updated = listOf(newUi) + adapter.currentList
-                        adapter.submitList(updated)
+                        // insert new and re-sort to preserve alphabetical order
+                        val resorted = (listOf(newUi) + adapter.currentList).sortedBy { it.name.lowercase(Locale.getDefault()) }
+                        adapter.submitList(resorted)
                         try { recycler.scrollToPosition(0) } catch (_: Exception) {}
                         entry.savedStateHandle.remove<Bundle>("local_group_created_item")
                         emptyView?.visibility = View.GONE
@@ -157,7 +162,9 @@ class LocalGroupsTabFragment : BaseFragment(R.layout.fragment_tab_local_groups) 
                 if (!deletedId.isNullOrBlank()) {
                     try {
                         val updated = adapter.currentList.filterNot { it.communityId == deletedId }
-                        adapter.submitList(updated)
+                        // keep sorted order after deletion
+                        val resorted = updated.sortedBy { it.name.lowercase(Locale.getDefault()) }
+                        adapter.submitList(resorted)
                         try { recycler.scrollToPosition(0) } catch (_: Exception) {}
                         emptyView?.visibility = if (adapter.itemCount == 0) View.VISIBLE else View.GONE
                         emptyIllustration?.visibility = if (adapter.itemCount == 0) View.VISIBLE else View.GONE

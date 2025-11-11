@@ -82,11 +82,6 @@ class DirectChatWebSocketService private constructor(private val context: Contex
         }
 
         val token = SharedPrefsTokenStore(context).getAccessToken()
-        if (token.isNullOrEmpty()) {
-            _connectionState.value = ConnectionState.ERROR("No auth token")
-            return
-        }
-
         // Build URL with optional query params (senderEmail, receiverEmail)
         val urlBuilder = StringBuilder(WS_URL)
         val params = mutableListOf<String>()
@@ -103,7 +98,7 @@ class DirectChatWebSocketService private constructor(private val context: Contex
 
         val request = Request.Builder()
             .url(finalUrl)
-            .addHeader("Authorization", "Bearer $token")
+            // Do not add Authorization header per requirement
             .addHeader("Sec-WebSocket-Protocol", "v10.stomp")
             .build()
 

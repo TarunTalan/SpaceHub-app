@@ -79,10 +79,34 @@ class LocalGroupRepository private constructor(private val context: Context) {
 
     suspend fun getLocalGroupDetails(groupId: String): Result<DataXX> = withContext(Dispatchers.IO) {
         try {
-            val resp = api.getLocalGroupDetails(groupId)
-            if (!resp.isSuccessful) return@withContext Result.failure(RuntimeException("HTTP ${resp.code()}"))
+            val email = userData.getEmail() ?: return@withContext Result.failure(IllegalStateException("Email not set"))
+            // Debug: log requester email to help diagnose failures
+            try {
+                android.util.Log.d("LocalGroupRepo", "getLocalGroupDetails: groupId=$groupId requesterEmail=$email")
+            } catch (_: Exception) { }
+
+            val resp = api.getLocalGroupDetails(groupId, email)
+            if (!resp.isSuccessful) {
+                val code = resp.code()
+                val errBody = try { resp.errorBody()?.string() } catch (_: Exception) { null }
+                android.util.Log.w("LocalGroupRepo", "getLocalGroupDetails: HTTP $code errorBody=$errBody")
+                return@withContext Result.failure(RuntimeException("HTTP $code - ${errBody ?: "no body"}"))
+            }
+
             val body = resp.body()
-            val data = body?.data ?: return@withContext Result.failure(RuntimeException("Empty body"))
+            if (body == null) {
+                android.util.Log.w("LocalGroupRepo", "getLocalGroupDetails: empty response body")
+                return@withContext Result.failure(RuntimeException("Empty body"))
+            }
+
+            // Handle API-level status field if server uses it for errors
+            if (body.status !in listOf(200, 201)) {
+                android.util.Log.w("LocalGroupRepo", "getLocalGroupDetails: API status=${body.status} message=${body.message}")
+                return@withContext Result.failure(RuntimeException("API ${body.status} - ${body.message}"))
+            }
+
+            val data = body.data ?: return@withContext Result.failure(RuntimeException("Missing data"))
+
             // Persist single group
             try {
                 val entity = LocalGroup(
@@ -103,7 +127,10 @@ class LocalGroupRepository private constructor(private val context: Context) {
             } catch (e: Exception) { android.util.Log.e("LocalGroupRepo", "Failed to persist group details", e) }
 
             Result.success(data)
-        } catch (t: Throwable) { Result.failure(t) }
+        } catch (t: Throwable) {
+            android.util.Log.e("LocalGroupRepo", "getLocalGroupDetails: exception", t)
+            Result.failure(t)
+        }
     }
 
     suspend fun createLocalGroup(
@@ -172,14 +199,42 @@ class LocalGroupRepository private constructor(private val context: Context) {
 
     suspend fun getLocalGroupMembers(localGroupId: String): Result<List<DataXXX>> = withContext(Dispatchers.IO) {
         try {
-            val resp = api.getLocalGroupMembers(localGroupId)
-            if (!resp.isSuccessful) return@withContext Result.failure(RuntimeException("HTTP ${resp.code()}"))
+            val email = userData.getEmail() ?: return@withContext Result.failure(IllegalStateException("Email not set"))
+            // Remove token presence logging; just log request details
+            try {
+                android.util.Log.d("LocalGroupRepo", "getLocalGroupMembers: localGroupId=$localGroupId requesterEmail=$email")
+            } catch (_: Exception) { }
+
+            val resp = api.getLocalGroupMembers(localGroupId, email)
+            if (!resp.isSuccessful) {
+                val code = resp.code()
+                val errBody = try { resp.errorBody()?.string() } catch (_: Exception) { null }
+                android.util.Log.w("LocalGroupRepo", "getLocalGroupMembers: HTTP $code errorBody=$errBody")
+                return@withContext Result.failure(RuntimeException("HTTP $code - ${errBody ?: "no body"}"))
+            }
             val body = resp.body()
-            // API returns data as an array of member objects for local groups
+            if (body == null) {
+                android.util.Log.w("LocalGroupRepo", "getLocalGroupMembers: empty response body")
+                return@withContext Result.failure(RuntimeException("Empty body"))
+            }
+            // API might return enveloped response; if status is present and not success, return failure
+            if ((body as? com.example.myapplication.data.groups.model.GroupGetAllMembersResponse)?.status != null) {
+                try {
+                    val statusField = (body as com.example.myapplication.data.groups.model.GroupGetAllMembersResponse).status
+                    val msg = (body as com.example.myapplication.data.groups.model.GroupGetAllMembersResponse).message
+                    if (statusField !in listOf(200, 201)) {
+                        android.util.Log.w("LocalGroupRepo", "getLocalGroupMembers: API status=$statusField message=$msg")
+                        return@withContext Result.failure(RuntimeException("API $statusField - $msg"))
+                    }
+                } catch (_: Exception) { }
+            }
             val list: List<DataXXX> = body?.data ?: emptyList()
             android.util.Log.d("LocalGroupRepo", "getLocalGroupMembers: parsed list size=${list.size} for id=$localGroupId")
             Result.success(list)
-        } catch (t: Throwable) { Result.failure(t) }
+        } catch (t: Throwable) {
+            android.util.Log.e("LocalGroupRepo", "getLocalGroupMembers: exception", t)
+            Result.failure(t)
+        }
     }
 
     suspend fun updateLocalGroupSettings(

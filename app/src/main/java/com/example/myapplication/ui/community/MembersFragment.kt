@@ -6,6 +6,7 @@ import android.graphics.RectF
 import android.os.Bundle
 import android.view.View
 import android.widget.ProgressBar
+import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.drawable.DrawableCompat
@@ -125,6 +126,7 @@ class MembersFragment : Fragment(R.layout.fragment_members) {
         super.onViewCreated(view, savedInstanceState)
         val rv = view.findViewById<RecyclerView>(R.id.rv_members)
         val progress = view.findViewById<ProgressBar>(R.id.progress)
+        val memberCountTv = view.findViewById<TextView>(R.id.member_count_tv)
 
         val communityId = arguments?.getString("communityId")
         if (communityId.isNullOrBlank()) {
@@ -154,6 +156,11 @@ class MembersFragment : Fragment(R.layout.fragment_members) {
             val membersResult = repo.fetchMembers(communityId, force = true)
 
             membersResult.onSuccess { members ->
+                // Update member count in header
+                try {
+                    val count = members.size
+                    memberCountTv?.text = resources.getQuantityString(R.plurals.members_count, count, count)
+                } catch (_: Exception) {}
                 // Compute admin: user is admin if they appear in members with an admin role
                 isAdmin = computeIsAdminFromMembers(members, currentEmail)
 
@@ -181,6 +188,12 @@ class MembersFragment : Fragment(R.layout.fragment_members) {
                     try { swipeHelper?.attachToRecyclerView(null); swipeHelper = null } catch (_: Exception) {}
                 }
             }.onFailure { err ->
+                // On failure, attempt to fall back to cached community data to show count
+                try {
+                    val cached = repo.getCommunityById(communityId)
+                    val cachedCount = cached?.memberCount ?: 0
+                    memberCountTv?.text = resources.getQuantityString(R.plurals.members_count, cachedCount, cachedCount)
+                } catch (_: Exception) {}
                 // Fallback: try local community cache for a best-effort admin flag
                 android.util.Log.w(
                     "MembersFragment",

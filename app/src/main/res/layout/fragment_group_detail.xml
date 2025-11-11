@@ -18,11 +18,13 @@
         <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/grpDetailHeader"
                 android:layout_width="match_parent"
-                android:layout_height="0dp"
+                android:layout_height="56dp"
                 android:background="#20262F"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toTopOf="@+id/hr_guideline_top">
+                app:layout_constraintTop_toTopOf="parent">
 
             <ImageView
                     android:layout_width="wrap_content"
@@ -30,41 +32,60 @@
                     android:src="@drawable/back_icon"
                     android:contentDescription="@string/cd_back"
                     android:paddingVertical="4dp"
-                    android:paddingEnd="4dp"
+                    android:layout_marginStart="6dp"
+                    android:paddingEnd="6dp"
                     app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintStart_toStartOf="@id/guideline_start_top"
+                    app:layout_constraintStart_toStartOf="parent"
                     android:id="@+id/imageView" app:layout_constraintBottom_toBottomOf="parent"/>
 
+
+            <com.google.android.material.imageview.ShapeableImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:id="@+id/grp_image"
+                    android:src="@drawable/default_comm_icon"
+                    android:scaleType="centerCrop"
+                    android:layout_marginStart="12dp"
+                    android:clipToOutline="true"
+                    android:contentDescription="@null"
+                    app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Circle"
+                    app:layout_constraintStart_toEndOf="@+id/imageView"
+                    app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintTop_toTopOf="parent"/>
+
             <TextView
-                    android:id="@+id/tvUsername"
+                    android:id="@+id/tvGroupName"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="User Name"
+                    android:text="Group Name"
                     android:textColor="@android:color/white"
                     android:textSize="20sp"
-                    android:textStyle="bold"
+                    android:fontFamily="@font/roboto_medium"
                     android:ellipsize="marquee"
                     android:layout_marginHorizontal="10dp"
                     android:marqueeRepeatLimit="marquee_forever"
                     android:singleLine="true"
-                    android:gravity="center"
+                    android:gravity="start|center_vertical"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginEnd="12dp"
                     android:scrollHorizontally="true"
                     android:focusable="true"
+                    android:paddingHorizontal="4dp"
                     android:focusableInTouchMode="true"
-                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintTop_toTopOf="@+id/grp_image"
                     app:layout_constraintEnd_toStartOf="@+id/setting_grp"
-                    app:layout_constraintStart_toEndOf="@+id/imageView" app:layout_constraintBottom_toBottomOf="parent"/>
+                    app:layout_constraintBottom_toBottomOf="@+id/grp_image"
+                    app:layout_constraintStart_toEndOf="@+id/grp_image"/>
 
             <ImageView
                     android:id="@+id/setting_grp"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_width="25dp"
+                    android:layout_height="25dp"
                     android:padding="4dp"
-                    android:src="@drawable/setting"
-                    android:tint="@android:color/white"
-                    app:layout_constraintEnd_toEndOf="@id/guideline_end_top"
+                    android:src="@drawable/dots_menu"
+                    android:layout_marginEnd="6dp"
+                    app:tint="@android:color/white"
                     app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"/>
+                    app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent"/>
 
             <androidx.constraintlayout.widget.Guideline
                     android:layout_width="wrap_content"
@@ -119,21 +140,12 @@
                             android:layout_height="120dp"
                             android:src="@drawable/banner"
                             android:scaleType="fitXY"
+                            android:visibility="gone"
                             app:layout_constraintTop_toTopOf="parent"
                             app:layout_constraintStart_toStartOf="parent"
                             app:layout_constraintEnd_toEndOf="parent"/>
 
-                    <com.google.android.material.imageview.ShapeableImageView
-                            android:layout_width="80dp"
-                            android:layout_height="80dp"
-                            android:id="@+id/grp_image"
-                            android:src="@drawable/default_comm_icon"
-                            android:layout_marginBottom="-40dp"
-                            android:scaleType="centerCrop"
-                            android:clipToOutline="true"
-                            app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Circle"
-                            app:layout_constraintBottom_toBottomOf="@id/grp_banner"
-                            app:layout_constraintStart_toStartOf="@+id/guideline_start"/>
+
 
                     <TextView
                             android:layout_width="wrap_content"
@@ -142,31 +154,34 @@
                             android:text="Group Name"
                             android:textColor="@android:color/white"
                             android:textSize="16sp"
+                            android:visibility="gone"
                             android:fontFamily="@font/roboto_medium"
                             android:layout_marginTop="8dp"
-                            app:layout_constraintTop_toBottomOf="@id/grp_image"
-                            app:layout_constraintStart_toStartOf="@+id/guideline_start"/>
-
+                            app:layout_constraintTop_toTopOf="parent"
+                            app:layout_constraintStart_toStartOf="@+id/guideline_start"
+                            android:layout_marginStart="88dp"/>
                     <TextView
                             android:id="@+id/member_count_tv"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="0"
                             android:textColor="#ffffff"
+                            android:visibility="gone"
                             android:textSize="13sp"
                             android:layout_marginStart="5dp"
-                            app:layout_constraintStart_toEndOf="@+id/members_tv"
-                            app:layout_constraintBottom_toBottomOf="@+id/admin_count_tv"/>
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent"/>
                     <TextView
                             android:id="@+id/members_tv"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Members"
+                            android:visibility="gone"
                             android:textColor="@android:color/white"
                             android:textSize="14sp"
-                            app:layout_constraintStart_toEndOf="@+id/grp_name"
-                            android:layout_marginStart="20dp"
-                            app:layout_constraintBottom_toBottomOf="@+id/admin_count_tv"/>
+                            app:layout_constraintTop_toTopOf="parent"
+                            app:layout_constraintStart_toStartOf="@+id/guideline_start"
+                            android:layout_marginStart="15dp"/>
                     <TextView
                             android:id="@+id/admin_count_tv"
                             android:layout_marginTop="4dp"
@@ -198,6 +213,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:src="@drawable/line"
+                            android:visibility="gone"
                             app:layout_constraintTop_toBottomOf="@id/members_tv"
                             app:layout_constraintStart_toStartOf="parent"
                             app:layout_constraintEnd_toEndOf="parent"/>

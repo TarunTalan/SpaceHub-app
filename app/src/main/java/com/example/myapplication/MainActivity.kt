@@ -27,6 +27,10 @@ import android.animation.ValueAnimator
 import android.view.ViewTreeObserver
 import androidx.core.content.edit
 import androidx.core.view.size
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import com.example.myapplication.data.groups.repository.LocalGroupRepository
 
 class MainActivity : AppCompatActivity() {
 
@@ -131,6 +135,18 @@ class MainActivity : AppCompatActivity() {
             graph.setStartDestination(R.id.dashboardFragment)
         }
         navController.graph = graph
+        // If user is authenticated, prefetch local groups on app startup so DB is populated
+        if (isAuthenticated) {
+            try {
+                lifecycleScope.launch(Dispatchers.IO) {
+                    try {
+                        LocalGroupRepository.getInstance(applicationContext).getAllLocalGroups()
+                    } catch (t: Throwable) {
+                        android.util.Log.w("MainActivity", "Prefetch getAllLocalGroups failed: ${t.message}")
+                    }
+                }
+            } catch (_: Exception) {}
+        }
         val bottomNav = binding.bottomNavView
         NavigationUI.setupWithNavController(bottomNav, navController)
 

@@ -43,16 +43,11 @@ class ChatWebSocketService private constructor(private val context: Context) {
             return
         }
 
-        val token = SharedPrefsTokenStore(context).getAccessToken()
-        if (token.isNullOrEmpty()) {
-            Log.e(TAG, "No auth token available")
-            _connectionState.value = ConnectionState.ERROR("No auth token")
-            return
-        }
+        val tokenNullable = SharedPrefsTokenStore(context).getAccessToken()
 
-        // Log masked token and BASE_URL for diagnostics
+        // Log masked token and BASE_URL for diagnostics (safe for null)
         try {
-            val masked = if (token.length <= 8) "****" else token.take(4) + "..." + token.takeLast(4)
+            val masked = tokenNullable?.let { t -> if (t.length <= 8) "****" else t.take(4) + "..." + t.takeLast(4) } ?: "****"
             Log.d(TAG, "Using auth token (masked): $masked")
             Log.d(TAG, "BuildConfig.BASE_URL = ${BuildConfig.BASE_URL}")
         } catch (_: Exception) {}
@@ -75,7 +70,7 @@ class ChatWebSocketService private constructor(private val context: Context) {
         try {
             sockJsClient = SockJsWebSocketClient(
                 URI(sockJsUrl),
-                token,
+                tokenNullable ?: "",
                 onOpen = {
                     Log.d(TAG, "SockJS WebSocket connected successfully")
                     _connectionState.value = ConnectionState.CONNECTED
@@ -105,17 +100,16 @@ class ChatWebSocketService private constructor(private val context: Context) {
     }
 
     private fun sendStompConnect() {
-        val token = SharedPrefsTokenStore(context).getAccessToken() ?: ""
+        // Do not include Authorization header in STOMP CONNECT frame per requirement
         val stompFrame = """
             CONNECT
             accept-version:1.1,1.0
             heart-beat:10000,10000
-            Authorization:Bearer $token
             
             ${'\u0000'}
         """.trimIndent()
         sockJsClient?.send(stompFrame)
-        Log.d(TAG, "Sent STOMP CONNECT frame")
+        Log.d(TAG, "Sent STOMP CONNECT frame (no auth)")
     }
 
     private fun handleSockJsMessage(message: String) {
@@ -261,7 +255,7 @@ class ChatWebSocketService private constructor(private val context: Context) {
     // WebSocket client for SockJS protocol
     private class SockJsWebSocketClient(
         uri: URI,
-        @Suppress("unused") private val token: String,
+        @Suppress("unused") private val token: String?,
         private val onOpen: () -> Unit,
         @Suppress("unused") private val onMessage: (String) -> Unit,
         private val onClose: (Int, String) -> Unit,

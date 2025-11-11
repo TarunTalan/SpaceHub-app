@@ -10,78 +10,9 @@ import okhttp3.Response
 class TokenInterceptor(private val tokenStore: TokenStore) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
+        // Do not modify requests; do not add Authorization header to any API.
+        // This interceptor intentionally acts as a passthrough to ensure no auth header is attached.
         val original = chain.request()
-        val path = original.url.encodedPath
-
-        // Skip adding Authorization header for unauthenticated endpoints
-        val unauthEndpoints = listOf(
-            "registration",
-            "login",
-            "forgotpassword",
-            "resendotp",
-            "validateforgototp",
-            "resetpassword",
-            "resendforgototp",
-            "profile/getProfile",
-            "community/my-communities",
-            "community/create",
-            "profile/updateProfile",
-            "profile/avatar",
-            "community/members",
-            "community/changeRole",
-            "community/removeMember",
-            "community/leave",
-            "community/updateInfo",
-            "community/{communityId}/upload-banner",
-            "community/delete",
-            "community/my-communities",
-            "community/blockMember",
-            "community/requestJoin",
-            "community/{communityId}/rooms/create",
-            "community/{communityId}/rooms/{roomId}",
-            "community/{communityId}/rooms/all",
-            "community/{communityId}/rooms/{roomId}/rename",
-            "community/search",
-            "community/my-pending-requests",
-            "community/rejectRequest",
-            "community/acceptRequest",
-            "community/invites/{communityId}/create",
-            "community/invites/accept",
-            "new-chatroom/create",
-            "rooms/all",
-            "friends/request",
-            "friends/respond",
-            "friends/list",
-            "friends/pending/incoming",
-            "search",
-            "local-group/create",
-            "local-group/all",
-            "local-group/{groupId}",
-            "local-group/delete",
-            "local-group/{localGroupId}/members",
-            "local-group/{localGroupId}/settings",
-            "local-group/join"
-
-        )
-        val isUnauthEndpoint = unauthEndpoints.any { path.contains(it, ignoreCase = true) }
-
-        // If request sets X-Skip-Auth header, skip adding Authorization regardless of path
-        val hasSkipHeader = original.header("X-Skip-Auth") != null
-
-        val token = tokenStore.getAccessToken()
-        val tokenPresent = !token.isNullOrBlank()
-        val willAttach = !isUnauthEndpoint && tokenPresent && !hasSkipHeader
-
-        val newReq = if (willAttach) {
-            original.newBuilder()
-                .header("Authorization", "Bearer $token")
-                .build()
-        } else {
-            original
-        }
-
-        val resp = chain.proceed(newReq)
-
-        return resp
+        return chain.proceed(original)
     }
 }

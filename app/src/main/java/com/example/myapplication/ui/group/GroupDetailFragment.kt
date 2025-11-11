@@ -39,6 +39,8 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
         view.findViewById<View>(R.id.imageView)?.setOnClickListener { try { findNavController().navigateUp() } catch (_: Exception) {} }
 
         val tvUser = view.findViewById<TextView>(R.id.tvUsername)
+        // Header group name TextView (show group name in header)
+        val tvGroupNameHeader = view.findViewById<TextView>(R.id.tvGroupName)
         val grpImage = view.findViewById<ShapeableImageView>(R.id.grp_image)
         val grpName = view.findViewById<TextView>(R.id.grp_name)
         val memberCountTv = view.findViewById<TextView>(R.id.member_count_tv)
@@ -50,6 +52,8 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
 
         // Make marquee scroll without focus requirement (header username)
         tvUser?.isSelected = true
+        // Allow group name in header to marquee as well
+        tvGroupNameHeader?.isSelected = true
 
         // Load username into header
         lifecycleScope.launch {
@@ -73,6 +77,8 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
         val passedName = arguments?.getString("name")
         val passedImage = arguments?.getString("imageUrl")
         if (!passedName.isNullOrBlank()) grpName?.text = passedName
+        // Also show the passed name in the header title to avoid empty header
+        if (!passedName.isNullOrBlank()) tvGroupNameHeader?.text = passedName
         if (!passedImage.isNullOrBlank()) {
             try {
                 // Let ShapeableImageView apply circular mask; use centerCrop for correct scaling
@@ -134,6 +140,8 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
             data?.let { it ->
                 // DataXX fields are non-nullable in the model: name:String, totalMembers:Int
                 grpName?.text = it.name
+                // update header title as well
+                tvGroupNameHeader?.text = it.name
                 memberCountTv?.text = it.totalMembers.toString()
                 val imgUrl = (it.imageUrl as? String)
                 if (!imgUrl.isNullOrBlank()) {
@@ -175,7 +183,15 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
 
         vm.toast.observe(viewLifecycleOwner) { msg ->
             msg?.let {
-                Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show()
+                // Show detailed message via Snackbar with a Retry action to re-trigger network fetch
+                try {
+                    val parent = view ?: return@observe
+                    com.google.android.material.snackbar.Snackbar.make(parent, it, com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
+                        .setAction("Retry") { try { vm.refreshDetails(); vm.loadMembers() } catch (_: Exception) {} }
+                        .show()
+                } catch (_: Exception) {
+                    try { Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show() } catch (_: Exception) {}
+                }
                 // mark toast consumed
                 try { vm.clearToast() } catch (_: Exception) {}
             }
