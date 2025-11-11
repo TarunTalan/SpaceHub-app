@@ -18,8 +18,8 @@
 
         <ImageView
                 android:id="@+id/ivCover"
-                android:layout_width="60dp"
-                android:layout_height="60dp"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
                 android:scaleType="centerCrop"
                 android:src="@drawable/default_comm_icon"
                 app:layout_constraintStart_toStartOf="parent"
@@ -33,7 +33,7 @@
                 android:text="Community Name"
                 android:textColor="@android:color/white"
                 android:textSize="17sp"
-                android:fontFamily="@font/roboto_semibold"
+                android:fontFamily="@font/roboto_medium"
                 app:layout_constraintStart_toEndOf="@+id/ivCover"
                 app:layout_constraintTop_toTopOf="@+id/ivCover"
                 app:layout_constraintEnd_toStartOf="@+id/btnJoinRequest"
@@ -48,7 +48,7 @@
                 android:text="OWNER"
                 android:textColor="@android:color/white"
                 android:textSize="10sp"
-                android:fontFamily="@font/roboto_medium"
+                android:fontFamily="@font/roboto_regular"
                 android:background="@drawable/rounded_button_bg_blue"
                 android:paddingHorizontal="6dp"
                 android:paddingVertical="2dp"
@@ -68,11 +68,10 @@
                 android:textSize="13sp"
                 android:maxLines="2"
                 android:ellipsize="end"
-                app:layout_constraintStart_toEndOf="@+id/tvRoleBadge"
                 app:layout_constraintTop_toBottomOf="@+id/tvName"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="@+id/tvName"
-                android:layout_marginStart="8dp"/>
+                 app:layout_constraintStart_toStartOf="@+id/tvName"/>
 
 
         <!-- Small progress indicator displayed while join request is in flight -->

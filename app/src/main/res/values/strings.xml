@@ -216,4 +216,23 @@
     <string name="delete_confirm_title">Delete</string>
     <string name="delete_confirm_message">Are you sure you want to delete?</string>
     <string name="delete_confirm_yes">Delete</string>
+    <!-- Voice room strings -->
+    <string name="mute">Mute</string>
+    <string name="end_call">End call</string>
+    <string name="member_avatar">Member avatar</string>
+    <string name="member_name_placeholder">Member name</string>
+    <string name="rooms_header">%1$s - Chat Rooms</string>
+    <string name="room_name">Room</string>
+    <!-- Layout strings used by fragment_room.xml -->
+    <string name="community_banner_cd">Community banner</string>
+    <string name="community_image_cd">Community image</string>
+    <string name="community_name">Community Name</string>
+    <string name="zero">0</string>
+    <string name="members">Members</string>
+    <string name="admins">Admins</string>
+    <string name="chat_rooms"># Chat Rooms</string>
+    <string name="no_chat_rooms">No chat rooms yet</string>
+    <string name="speaker">Speaker</string>
+    <string name="voice_rooms">Voice Rooms</string>
+    <string name="no_voice_rooms">No voice rooms yet</string>
 </resources>

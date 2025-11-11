@@ -18,6 +18,9 @@ import com.example.myapplication.data.groups.model.JoinGroupByLinkRequest
 import com.example.myapplication.data.groups.model.JoinGroupByLinkResponse
 import com.example.myapplication.data.groups.model.UpdateLocalGroupProfileResponse
 import com.example.myapplication.data.search.model.*
+import com.example.myapplication.data.voice.model.CreateVoiceRoomResponse
+import com.example.myapplication.data.voice.model.GetAllVoiceRoomsResponse
+import com.example.myapplication.data.voice.model.JoinVoiceRoomResponse
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Response
@@ -319,5 +322,22 @@ interface ApiService {
         @Query("roomCode") roomCode: String
     ): Response<GetChatRoomSummaryResponse>
 
+    @POST("voice-room/create")
+    suspend fun createVoiceRoom(
+        @Query("chatRoomId") chatRoomId: String,
+        @Query("roomName") roomName: String,
+        @Query("createdBy") createdBy: String,
+    ): Response<CreateVoiceRoomResponse>
+
+    @GET("voice-room/list/{roomId}")
+    suspend fun getVoiceRooms(
+        @Path("roomId") roomId: String
+    ): Response<GetAllVoiceRoomsResponse>
+
+    @POST("voice-room/join")
+    suspend fun joinVoiceRoom(
+        @Query("janusRoomId") janusRoomId: Int,
+        @Query("displayName") displayName: String
+    ): Response<JoinVoiceRoomResponse>
 
 }

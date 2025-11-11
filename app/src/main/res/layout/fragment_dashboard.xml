@@ -122,6 +122,7 @@
                     <!-- My communities header row -->
                     <androidx.constraintlayout.widget.ConstraintLayout
                             android:layout_width="match_parent"
+                            android:layout_marginBottom="5dp"
                             android:layout_height="wrap_content">
 
                         <TextView
@@ -132,7 +133,7 @@
                                 android:textColor="@color/white"
                                 android:textSize="18sp"
                                 android:layout_marginStart="25dp"
-                                android:fontFamily="@font/roboto_semibold"
+                                android:fontFamily="@font/roboto_medium"
                                 app:layout_constraintTop_toTopOf="parent"
                                 app:layout_constraintBottom_toBottomOf="parent"
                                 app:layout_constraintStart_toStartOf="parent"/>
@@ -162,7 +163,9 @@
                     <!-- Joined communities header row (with toggle) -->
                     <androidx.constraintlayout.widget.ConstraintLayout
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content">
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="5dp"
+                    >
 
                         <TextView
                                 android:id="@+id/tv_joined_communities"
@@ -173,7 +176,7 @@
                                 android:textSize="18sp"
                                 android:layout_marginStart="25dp"
                                 android:layout_marginTop="12dp"
-                                android:fontFamily="@font/roboto_semibold"
+                                android:fontFamily="@font/roboto_medium"
                                 app:layout_constraintStart_toStartOf="parent"
                                 app:layout_constraintTop_toTopOf="parent"
                                 app:layout_constraintBottom_toBottomOf="parent"/>
@@ -255,7 +258,7 @@
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintBottom_toTopOf="@id/textView" />
+                    app:layout_constraintBottom_toTopOf="@id/textView"/>
 
             <TextView
                     android:id="@+id/textView"

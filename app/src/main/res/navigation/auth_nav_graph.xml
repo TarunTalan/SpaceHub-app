@@ -516,4 +516,15 @@
         android:name="com.example.myapplication.ui.notifications.NotificationsFragment"
         android:label="NotificationsFragment"
         tools:layout="@layout/fragment_notifications" />
+
+    <!-- Voice room destination -> used when opening/creating/joining a voice room -->
+    <fragment
+        android:id="@+id/voiceRoomFragment"
+        android:name="com.example.myapplication.ui.voice.VoiceRoomFragment"
+        android:label="VoiceRoomFragment"
+        tools:layout="@layout/fragment_voice_room">
+        <argument android:name="roomId" app:argType="string" />
+        <argument android:name="janusRoomId" app:argType="integer" android:defaultValue="-1" />
+        <argument android:name="voiceRoomName" app:argType="string" android:defaultValue="" />
+    </fragment>
 </navigation>
