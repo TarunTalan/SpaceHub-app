@@ -28,6 +28,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import com.example.myapplication.data.voice.VoiceRoomRepository
 
 class RoomFragment : Fragment(R.layout.fragment_room) {
 
@@ -37,10 +38,6 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
     private val chatRooms = mutableListOf<DataRoom>()
     private lateinit var chatRoomsAdapter: RoomAdapter
     private var chatRoomsExpanded = true
-
-    // Track whether we have attempted/created default rooms during this fragment lifecycle
-    private var chatDefaultCreated = false
-    private var voiceDefaultCreated = false
 
     private val voiceRooms = mutableListOf<com.example.myapplication.data.voice.model.VoiceRoomX>()
     private lateinit var voiceRoomsAdapter: VoiceRoomAdapter
@@ -52,6 +49,9 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // Keep a non-null reference to the fragment view for use inside nested lambdas/coroutines
+        val rootView: View = view
 
         // Get arguments
         val communityId = arguments?.getString("communityId")
@@ -88,20 +88,20 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
         }
 
         // Initialize views
-        val backButton: ImageView? = view.findViewById(R.id.imageView)
-        val tvRoomNameHeader: TextView? = view.findViewById(R.id.tvRoomName)
-        val tvUsername: TextView? = view.findViewById(R.id.tvUsername)
-        val settingsButton = view.findViewById<ImageView>(R.id.setting_community)
-        val communityImage = view.findViewById<ImageView>(R.id.community_image)
-        val communityNameTv = view.findViewById<TextView>(R.id.community_name)
-        val memberCountTv = view.findViewById<TextView>(R.id.member_count_tv)
-        val adminCountTv = view.findViewById<TextView>(R.id.admin_count_tv)
-        val rvChatRooms = view.findViewById<RecyclerView>(R.id.rv_chat_rooms)
-        val fabCreateRoom = view.findViewById<FloatingActionButton>(R.id.fab_create_room)
+        val backButton: ImageView? = rootView.findViewById(R.id.imageView)
+        val tvRoomNameHeader: TextView? = rootView.findViewById(R.id.tvRoomName)
+        val tvUsername: TextView? = rootView.findViewById(R.id.tvUsername)
+        val settingsButton = rootView.findViewById<ImageView>(R.id.setting_community)
+        val communityImage = rootView.findViewById<ImageView>(R.id.community_image)
+        val communityNameTv = rootView.findViewById<TextView>(R.id.community_name)
+        val memberCountTv = rootView.findViewById<TextView>(R.id.member_count_tv)
+        val adminCountTv = rootView.findViewById<TextView>(R.id.admin_count_tv)
+        val rvChatRooms = rootView.findViewById<RecyclerView>(R.id.rv_chat_rooms)
+        val fabCreateRoom = rootView.findViewById<FloatingActionButton>(R.id.fab_create_room)
 
-        val ivToggleVoice = view.findViewById<ImageView>(R.id.iv_toggle_voice_comm)
-        val rvVoiceRooms = view.findViewById<RecyclerView>(R.id.rv_voice_rooms)
-        val fabCreateVoice = view.findViewById<FloatingActionButton>(R.id.fab_create_voice_room)
+        val ivToggleVoice = rootView.findViewById<ImageView>(R.id.iv_toggle_voice_comm)
+        val rvVoiceRooms = rootView.findViewById<RecyclerView>(R.id.rv_voice_rooms)
+        val fabCreateVoice = rootView.findViewById<FloatingActionButton>(R.id.fab_create_voice_room)
 
         // Set back button
         backButton?.setOnClickListener {
@@ -172,24 +172,53 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
         rvChatRooms?.layoutManager = LinearLayoutManager(requireContext())
         rvChatRooms?.adapter = chatRoomsAdapter
 
-        // Setup voice rooms adapter: clicking a voice room opens the voice UI
+        // Setup voice rooms adapter: clicking a voice room will call join API then open the voice UI
         voiceRoomsAdapter = VoiceRoomAdapter(onClick = { vr ->
-            // Safely navigate to VoiceRoomFragment passing required args
-            try {
-                val args = Bundle().apply {
-                    // roomId: prefer server-side navRoomId, fallback to currentRoomId or vr.roomCode
-                    putString("roomId", navRoomId.ifBlank { currentRoomId ?: vr.roomCode })
-                    // janusRoomId expected by VoiceRoomFragment (int)
-                    putInt("janusRoomId", vr.janusRoomId)
-                    putString("voiceRoomName", vr.name)
+            // Use a coroutine to call join API and wait for the terminal state, avoiding StateFlow races by calling the repository directly.
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    // show progress indicator
+                    view?.findViewById<View>(R.id.progress_voice)?.visibility = View.VISIBLE
+
+                    // Determine displayName for join (use email as display name if available)
+                    val displayName = withContext(Dispatchers.IO) {
+                        try { UserDataManager.getInstance(requireContext()).getEmail() ?: "" } catch (_: Exception) { "" }
+                    }
+
+                    // Call repository directly to perform the join and get an immediate Result
+                    val res = withContext(Dispatchers.IO) {
+                        try {
+                            VoiceRoomRepository.getInstance(requireContext()).joinVoiceRoom(vr.janusRoomId, displayName)
+                        } catch (t: Throwable) {
+                            Result.failure<com.example.myapplication.data.voice.model.JoinVoiceRoomResponse>(t)
+                        }
+                    }
+
+                    // stop showing progress
+                    view?.findViewById<View>(R.id.progress_voice)?.visibility = View.GONE
+
+                    if (res.isSuccess) {
+                        val resp = res.getOrNull()!!
+                        // Navigate to VoiceRoomFragment and include session/handle data returned by join API
+                        val args = Bundle().apply {
+                            putString("roomId", navRoomId.ifBlank { currentRoomId ?: vr.roomCode })
+                            putInt("janusRoomId", vr.janusRoomId)
+                            putString("voiceRoomName", vr.name)
+                            putString("sessionId", resp.sessionId)
+                            putString("handleId", resp.handleId)
+                        }
+                        try {
+                            findNavController().navigate(R.id.voiceRoomFragment, args)
+                        } catch (e: Exception) {
+                            showUiMessage("Cannot open voice room: ${e.message}")
+                        }
+                    } else {
+                        showUiMessage("Failed to join voice room: ${res.exceptionOrNull()?.message}")
+                    }
+                } catch (e: Exception) {
+                    view?.findViewById<View>(R.id.progress_voice)?.visibility = View.GONE
+                    showUiMessage("Failed to join voice room: ${e.message}")
                 }
-                // Use safe navigation with try/catch to guard against illegal state
-                try { findNavController().navigate(R.id.voiceRoomFragment, args) } catch (e: Exception) {
-                    // Fallback: if navController unavailable, show a message and attempt direct join
-                    showUiMessage("Cannot open voice room: ${e.message}")
-                }
-            } catch (e: Exception) {
-                showUiMessage("Failed to open voice room: ${e.message}", Snackbar.LENGTH_LONG)
             }
         })
         rvVoiceRooms?.layoutManager = LinearLayoutManager(requireContext())
@@ -200,12 +229,12 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
             voiceVm.listState.collect { state ->
                 when (state) {
                     is VoiceRoomViewModel.ListState.Loading -> {
-                        view.findViewById<View>(R.id.progress_voice).visibility = View.VISIBLE
+                        rootView.findViewById<View>(R.id.progress_voice).visibility = View.VISIBLE
                     }
                     is VoiceRoomViewModel.ListState.Success -> {
-                        view.findViewById<View>(R.id.progress_voice).visibility = View.GONE
+                        rootView.findViewById<View>(R.id.progress_voice).visibility = View.GONE
                         try {
-                            val list = state.resp.voiceRooms ?: emptyList()
+                            val list = state.resp.voiceRooms
                             voiceRooms.clear()
                             voiceRooms.addAll(list)
                             updateVoiceRoomsUI()
@@ -214,11 +243,11 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
                         }
                     }
                     is VoiceRoomViewModel.ListState.Error -> {
-                        view.findViewById<View>(R.id.progress_voice).visibility = View.GONE
+                        rootView.findViewById<View>(R.id.progress_voice).visibility = View.GONE
                         showUiMessage(state.msg ?: "Failed to load voice rooms", Snackbar.LENGTH_LONG)
                     }
                     is VoiceRoomViewModel.ListState.Idle -> {
-                        view.findViewById<View>(R.id.progress_voice).visibility = View.GONE
+                        rootView.findViewById<View>(R.id.progress_voice).visibility = View.GONE
                     }
                 }
             }
@@ -229,7 +258,7 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
         updateVoiceRoomsUI()
 
         // Setup expand/collapse toggle
-        val ivToggle = view.findViewById<ImageView>(R.id.iv_toggle_your_comm)
+        val ivToggle = rootView.findViewById<ImageView>(R.id.iv_toggle_your_comm)
         ivToggle?.setOnClickListener {
             chatRoomsExpanded = !chatRoomsExpanded
             applyChatRoomsToggleState(ivToggle)
@@ -304,29 +333,6 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
                 })
                 updateChatRoomsUI()
 
-                // If no chat rooms exist, attempt to create a default one (idempotent per fragment lifecycle and persisted)
-                if (chatRoomsList.isEmpty() && !chatDefaultCreated) {
-                    chatDefaultCreated = true
-                    // Ensure we don't try to create across app restarts if already created earlier
-                    val cid = communityId ?: return@collect
-                    val rid = currentRoomId ?: roomId ?: return@collect
-                    try {
-                        val udm = UserDataManager.getInstance(requireContext())
-                        val alreadyCreated = try {
-                            // DataStore read
-                            withContext(Dispatchers.IO) { udm.isDefaultRoomCreated(cid, rid, "chat") }
-                        } catch (e: Exception) {
-                            false
-                        }
-
-                        if (!alreadyCreated) {
-                            createDefaultChatRoom(cid, rid)
-                        }
-                    } catch (e: Exception) {
-                        showUiMessage("Failed to create default chat room: ${e.message}", Snackbar.LENGTH_LONG)
-                    }
-                }
-
                 // If header is still generic, try resolving the parent room's name from repository (network/local)
                 communityId.let { cid ->
                     viewLifecycleOwner.lifecycleScope.launch {
@@ -356,22 +362,10 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
                     is VoiceRoomViewModel.ListState.Success -> {
                         val list = state.resp.voiceRooms
                         val nonEmpty = (list != null && list.isNotEmpty())
-                        if (!nonEmpty && !voiceDefaultCreated) {
-                            voiceDefaultCreated = true
-                            val cid = communityId ?: return@collect
-                            val rid = navRoomId
-                            try {
-                                val udm = UserDataManager.getInstance(requireContext())
-                                val alreadyCreated = try {
-                                    withContext(Dispatchers.IO) { udm.isDefaultRoomCreated(cid, rid, "voice") }
-                                } catch (e: Exception) { false }
-
-                                if (!alreadyCreated) {
-                                    createDefaultVoiceRoom(cid, rid)
-                                }
-                            } catch (e: Exception) {
-                                showUiMessage("Failed to create default voice room: ${e.message}", Snackbar.LENGTH_LONG)
-                            }
+                        // Removed automatic default voice room creation on join.
+                        // Previously: if (!nonEmpty && !voiceDefaultCreated) { ... createDefaultVoiceRoom ... }
+                        if (!nonEmpty) {
+                            // no-op: do not auto-create voice room. Leave to explicit creation paths or community bootstrap.
                         }
                     }
                     else -> { /* no-op for other states */ }
@@ -485,11 +479,13 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
             btn.setOnClickListener {
                 val name = input.text?.toString()?.trim().orEmpty()
                 if (name.isBlank()) {
+                    // use safe showUiMessage which falls back to Toast
                     showUiMessage(getString(R.string.name_required), Snackbar.LENGTH_SHORT)
                     return@setOnClickListener
                 }
 
-                viewLifecycleOwner.lifecycleScope.launch {
+                // Use fragment lifecycleScope to avoid viewLifecycleOwner lapses
+                lifecycleScope.launch {
                     try {
                         // show progress if possible
                         view?.findViewById<View>(R.id.progress_voice)?.visibility = View.VISIBLE
@@ -546,10 +542,17 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
         // Confirm first
         com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(requireContext(), "Delete Chat Room", "Are you sure you want to delete '${chatRoom.name}'?", positiveText = "Delete", negativeText = "Cancel", onPositive = {
             // Proceed with delete
-            viewLifecycleOwner.lifecycleScope.launch {
+            lifecycleScope.launch {
                 try {
                     val repo = CommunityRepository.getInstance(requireContext())
-                    val res = repo.deleteRoom(currentCommunityId ?: return@launch, chatRoom.id)
+                    // capture community id before switching context to avoid prohibited returns inside withContext
+                    val cid = currentCommunityId
+                    if (cid.isNullOrBlank()) {
+                        showUiMessage("Missing community id", Snackbar.LENGTH_SHORT)
+                        return@launch
+                    }
+                    val res = withContext(Dispatchers.IO) { repo.deleteRoom(cid, chatRoom.id) }
+
                     if (res.isSuccess) {
                         // Remove from list and update UI
                         chatRooms.remove(chatRoom)
@@ -566,15 +569,15 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
     }
 
     private fun updateChatRoomsUI() {
-        val rvChatRooms = view?.findViewById<RecyclerView>(R.id.rv_chat_rooms)
+        val rvChat = view?.findViewById<RecyclerView>(R.id.rv_chat_rooms)
         val emptyRoomsView = view?.findViewById<View>(R.id.empty_rooms_view)
 
         if (chatRooms.isEmpty()) {
             emptyRoomsView?.visibility = View.VISIBLE
-            rvChatRooms?.visibility = View.GONE
+            rvChat?.visibility = View.GONE
         } else {
             emptyRoomsView?.visibility = View.GONE
-            rvChatRooms?.visibility = if (chatRoomsExpanded) View.VISIBLE else View.GONE
+            rvChat?.visibility = if (chatRoomsExpanded) View.VISIBLE else View.GONE
             chatRoomsAdapter.submitList(chatRooms.toList())
         }
     }
@@ -619,18 +622,42 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
     }
 
     // small helpers to safely show Snackbars/Toasts even if fragment view is destroyed
+    private fun findSnackbarParent(): View? {
+        // Prefer fragment view when attached
+        val v = view
+        if (v != null && v.isAttachedToWindow) return v
+        val activityRoot = activity?.findViewById<View>(android.R.id.content)
+        if (activityRoot != null && activityRoot.isAttachedToWindow) return activityRoot
+        val decor = activity?.window?.decorView
+        if (decor != null && decor.isAttachedToWindow) return decor
+        return null
+    }
+
     private fun showUiMessage(msg: String, length: Int = Snackbar.LENGTH_SHORT) {
-        val parent = view ?: activity?.findViewById(android.R.id.content)
-        if (parent != null) {
-            Snackbar.make(parent, msg, length).show()
-        } else {
-            Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+        try {
+            val parent = findSnackbarParent()
+            if (parent != null) {
+                Snackbar.make(parent, msg, length).show()
+                return
+            }
+        } catch (e: IllegalArgumentException) {
+            // Snackbar parent resolution failed; fall back to Toast
+        } catch (t: Throwable) {
+            // Defensive: any other error fall back
         }
+        // final fallback
+        try { Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show() } catch (_: Exception) {}
     }
 
     private fun makeParentSnackbar(msg: String): Snackbar? {
-        val v = view
-        return if (v != null) Snackbar.make(v, msg, Snackbar.LENGTH_INDEFINITE) else activity?.findViewById<View>(android.R.id.content)?.let { Snackbar.make(it, msg, Snackbar.LENGTH_INDEFINITE) }
+        return try {
+            val parent = findSnackbarParent()
+            if (parent != null) Snackbar.make(parent, msg, Snackbar.LENGTH_INDEFINITE) else null
+        } catch (e: IllegalArgumentException) {
+            null
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private suspend fun createDefaultChatRoom(communityId: String, roomId: String) {
@@ -646,13 +673,19 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
             chatRooms.add(0, newRoom)
             updateChatRoomsUI()
             showUiMessage("Default chat room '${created.name}' created", Snackbar.LENGTH_SHORT)
+
+            // Persist marker so we don't recreate this default chat room across app restarts
+            try {
+                val udm = UserDataManager.getInstance(requireContext())
+                udm.markDefaultRoomCreatedAsync(communityId, roomId, "chat")
+            } catch (_: Exception) {}
         } else {
             val err = res.exceptionOrNull()
             val sb = makeParentSnackbar(err?.message ?: "Failed to create chat room")
             if (sb != null) {
                 sb.setAction("Retry") {
-                    // Retry using the same safe function
-                    viewLifecycleOwner.lifecycleScope.launch { createDefaultChatRoom(communityId, roomId) }
+                    // Use fragment lifecycleScope (not viewLifecycleOwner) to avoid crashes when view is destroyed
+                    lifecycleScope.launch { createDefaultChatRoom(communityId, roomId) }
                 }
                 sb.show()
             } else {
@@ -693,7 +726,15 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
             }
             is VoiceRoomViewModel.CreateState.Error -> {
                 val msg = terminal.msg
-                showUiMessage("Failed to create voice room: $msg", Snackbar.LENGTH_LONG)
+                val sb = makeParentSnackbar("Failed to create voice room: $msg")
+                if (sb != null) {
+                    sb.setAction("Retry") {
+                        lifecycleScope.launch { createDefaultVoiceRoom(communityId, roomId) }
+                    }
+                    sb.show()
+                } else {
+                    showUiMessage("Failed to create voice room: $msg", Snackbar.LENGTH_LONG)
+                }
             }
             is VoiceRoomViewModel.CreateState.Idle -> {
                 // no-op (create returned to idle without success/error)

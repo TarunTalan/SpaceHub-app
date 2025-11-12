@@ -2,9 +2,10 @@ package com.example.myapplication.data.chat.websocket
 
 import android.content.Context
 import android.util.Log
-import com.example.myapplication.data.network.SharedPrefsTokenStore
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
+import com.google.gson.JsonElement
+import com.google.gson.JsonParser
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,16 +26,33 @@ class DirectChatWebSocketService private constructor(private val context: Contex
     private var connectedReceiver: String? = null
     private val messageChannel = Channel<DirectChatMessage>(Channel.BUFFERED)
     private val historyChannel = Channel<DirectChatHistory>(Channel.BUFFERED)
+    private val summaryChannel = Channel<ChatSummary>(Channel.BUFFERED)
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.DISCONNECTED)
 
     val messages: Flow<DirectChatMessage> = messageChannel.receiveAsFlow()
     val history: Flow<DirectChatHistory> = historyChannel.receiveAsFlow()
+    val summaries: Flow<ChatSummary> = summaryChannel.receiveAsFlow()
     val connectionState: StateFlow<ConnectionState> = _connectionState
 
     private val okHttpClient = OkHttpClient.Builder()
         .pingInterval(30, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.MILLISECONDS)
         .build()
+
+    // Outgoing queue when socket is not connected
+    private val outgoingQueue = mutableListOf<DirectChatMessageRequest>()
+    private val outgoingLock = Any()
+
+    // Support queued delete requests
+    private val outgoingDeleteQueue = mutableListOf<DeleteMessageRequest>()
+    private data class DeleteMessageRequest(val messageIds: List<String>, val conversationWith: String, val deletedBy: String?)
+
+    // Optional auth token - can be set by caller so the service will add Authorization header
+    private var authToken: String? = null
+
+    fun setAuthToken(token: String?) {
+        authToken = token
+    }
 
     companion object {
         // Use a WeakReference to avoid holding a strong static reference to a Context-holding object
@@ -81,7 +99,6 @@ class DirectChatWebSocketService private constructor(private val context: Contex
             connectedReceiver = null
         }
 
-        val token = SharedPrefsTokenStore(context).getAccessToken()
         // Build URL with optional query params (senderEmail, receiverEmail)
         val urlBuilder = StringBuilder(WS_URL)
         val params = mutableListOf<String>()
@@ -96,11 +113,18 @@ class DirectChatWebSocketService private constructor(private val context: Contex
 
         _connectionState.value = ConnectionState.CONNECTING
 
-        val request = Request.Builder()
+        val requestBuilder = Request.Builder()
             .url(finalUrl)
-            // Do not add Authorization header per requirement
+            // support servers that accept STOMP protocols header as before
             .addHeader("Sec-WebSocket-Protocol", "v10.stomp")
-            .build()
+
+        // add Authorization header if token is present
+        authToken?.takeIf { it.isNotBlank() }?.let {
+            requestBuilder.addHeader("Authorization", "Bearer $it")
+            Log.d(TAG, "Added Authorization header to WebSocket request (masked)")
+        }
+
+        val request = requestBuilder.build()
 
         // remember desired pair so we can detect re-connects
         connectedSender = senderEmail
@@ -108,10 +132,49 @@ class DirectChatWebSocketService private constructor(private val context: Contex
 
         webSocket = okHttpClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                Log.d(TAG, "Direct WS open - sending optional STOMP CONNECT (to support servers using STOMP)")
                 _connectionState.value = ConnectionState.CONNECTED
+
+                // flush any queued outgoing messages
+                synchronized(outgoingLock) {
+                    if (outgoingQueue.isNotEmpty()) {
+                        Log.d(TAG, "Flushing ${outgoingQueue.size} queued direct messages")
+                        val copy = ArrayList(outgoingQueue)
+                        outgoingQueue.clear()
+                        for (req in copy) {
+                            try {
+                                // Send minimal payload server expects (type+content); omit messageId so server assigns its own id
+                                // Include the client-side messageId so server can map optimistic messages back to client
+                                val outgoing = OutgoingSimpleMessage(type = "MESSAGE", content = req.content, messageId = req.messageId)
+                                val json = gson.toJson(outgoing)
+                                val sent = webSocket.send(json)
+                                Log.d(TAG, "Flushed queued message (messageId=${req.messageId}) sent=$sent json=$json")
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Failed to send queued message: ${e.message}")
+                            }
+                        }
+                    }
+                    // flush delete requests too
+                    if (outgoingDeleteQueue.isNotEmpty()) {
+                        Log.d(TAG, "Flushing ${outgoingDeleteQueue.size} queued delete requests")
+                        val copy = ArrayList(outgoingDeleteQueue)
+                        outgoingDeleteQueue.clear()
+                        for (del in copy) {
+                            try {
+                                val payload = if (!del.deletedBy.isNullOrBlank()) mapOf("type" to "DELETE", "messageIds" to del.messageIds, "conversationWith" to del.conversationWith, "deletedBy" to del.deletedBy) else mapOf("type" to "DELETE", "messageIds" to del.messageIds, "conversationWith" to del.conversationWith)
+                                val json = gson.toJson(payload)
+                                val sent = webSocket.send(json)
+                                Log.d(TAG, "Flushed queued delete (ids=${del.messageIds}) sent=$sent json=$json")
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Failed to send queued delete request: ${e.message}")
+                            }
+                        }
+                    }
+                }
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
+                Log.d(TAG, "Received raw WS text: $text")
                 handleMessage(text)
             }
 
@@ -142,49 +205,157 @@ class DirectChatWebSocketService private constructor(private val context: Contex
 
     private fun handleMessage(text: String) {
         try {
-            // Try to detect history payloads: { "chatWith": "...", "messages": [...] }
-            val jsonElement = com.google.gson.JsonParser.parseString(text)
+            val jsonElement = JsonParser.parseString(text)
             if (jsonElement.isJsonObject) {
                 val obj = jsonElement.asJsonObject
-                if (obj.has("chatWith") && obj.has("messages")) {
+
+                // History payload (server may send 'type':'history' or include chatWith/messages keys)
+                val typeElem = if (obj.has("type") && obj.get("type").isJsonPrimitive) obj.get("type").asString.lowercase() else null
+                if (typeElem == "history" || (obj.has("chatWith") && obj.has("messages"))) {
                     try {
                         val history = gson.fromJson(text, DirectChatHistory::class.java)
                         historyChannel.trySend(history)
+                        Log.d(TAG, "Received history for ${'$'}{history.chatWith} (count=${'$'}{history.messages?.size ?: 0})")
                         return
                     } catch (e: Exception) {
-                        Log.w(TAG, "Failed to parse history payload, falling back to message: ${e.message}")
+                        Log.w(TAG, "Failed to parse history payload: ${'$'}{e.message}")
+                    }
+                }
+
+                // Chat summary / rooms list
+                if (typeElem == "chatsummary" || (obj.has("rooms") && obj.has("type") && obj.get("type").asString.lowercase() == "chatsummary")) {
+                    try {
+                        val summary = gson.fromJson(text, ChatSummary::class.java)
+                        summaryChannel.trySend(summary)
+                        Log.d(TAG, "Received chat summary payload: ${'$'}text")
+                        return
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to parse chatSummary payload: ${'$'}{e.message}")
+                    }
+                }
+
+                // System message — non-chat informational messages
+                if (typeElem == "system") {
+                    try {
+                        // We'll deliver system notifications as a lightweight DirectChatMessage with type set
+                        val systemText = if (obj.has("system") && obj.get("system").isJsonPrimitive) obj.get("system").asString else obj.toString()
+                        val sys = DirectChatMessage(
+                            id = null,
+                            senderEmail = "",
+                            receiverEmail = "",
+                            content = systemText,
+                            timestamp = if (obj.has("timestamp") && obj.get("timestamp").isJsonPrimitive) obj.get("timestamp").asString else "",
+                            type = "system",
+                            messageIdElement = null,
+                            senderUsername = null
+                        )
+                        messageChannel.trySend(sys)
+                        Log.d(TAG, "Received system payload: ${'$'}text")
+                        return
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to parse system payload: ${'$'}{e.message}")
+                    }
+                }
+
+                // Explicitly handle DELETE frames so they are forwarded reliably to repository
+                if (typeElem == "delete" || typeElem == "deleted") {
+                    try {
+                        val delMsg = gson.fromJson(text, DirectChatMessage::class.java)
+                        messageChannel.trySend(delMsg)
+                        Log.d(TAG, "Received delete payload forwarded: ${'$'}text")
+                        return
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to parse delete payload: ${'$'}{e.message}")
                     }
                 }
             }
 
+            // Fallback: try to parse as a single message
             val message = gson.fromJson(text, DirectChatMessage::class.java)
-            messageChannel.trySend(message)
+            // defensive normalization
+            // If server omits sender/receiver in compact MESSAGE frames, fall back to the connected pair
+            val sender = message.senderEmail?.trim().takeUnless { it.isNullOrBlank() } ?: connectedSender?.trim().orEmpty()
+            val receiver = message.receiverEmail?.trim().takeUnless { it.isNullOrBlank() } ?: connectedReceiver?.trim().orEmpty()
+            val normalized = message.copy(
+                senderEmail = sender,
+                receiverEmail = receiver,
+                content = message.content?.trim().orEmpty(),
+                timestamp = message.timestamp?.trim().orEmpty(),
+                type = message.type?.trim()?.lowercase() ?: "message"
+            )
+
+            val sent = messageChannel.trySend(normalized)
+            Log.d(TAG, "Parsed WS message type=${normalized.type} from=${normalized.senderEmail} to=${normalized.receiverEmail} content='${normalized.content}' sentToChannel=$sent")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to parse WS message", e)
         }
     }
 
+    // Update sendMessage to send the compact payload the server expects for outgoing direct
+    // chat messages: { "type":"MESSAGE", "content":"..." }
     fun sendMessage(senderEmail: String, receiverEmail: String, content: String, messageId: String): Boolean {
         val ws = webSocket
         if (ws == null || _connectionState.value != ConnectionState.CONNECTED) {
-            Log.e(TAG, "Cannot send message - not connected")
-            return false
+            // queue and attempt connect
+            synchronized(outgoingLock) {
+                outgoingQueue.add(DirectChatMessageRequest(senderEmail, receiverEmail, content, messageId))
+                Log.d(TAG, "Not connected; queuing outgoing direct message and attempting connect")
+            }
+
+            // start a connection for this pair (will add auth header if set)
+            connect(senderEmail, receiverEmail)
+            return true
         }
 
         return try {
-            val message = DirectChatMessageRequest(
-                senderEmail = senderEmail,
-                receiverEmail = receiverEmail,
-                content = content,
-                messageId = messageId
-            )
-            val json = gson.toJson(message)
-            ws.send(json)
+            // include client messageId so server can ACK/echo mapping
+            val outgoing = OutgoingSimpleMessage(type = "MESSAGE", content = content, messageId = messageId)
+             val json = gson.toJson(outgoing)
+             val sent = ws.send(json)
+             Log.d(TAG, "Sent outgoing direct message (messageId=$messageId) sent=$sent json=$json")
+             sent
+         } catch (e: Exception) {
+             Log.e(TAG, "Failed to send WS message", e)
+             false
+         }
+     }
+
+    /**
+     * Send a delete request for messages. Server expects: { "type":"DELETE", "messageIds":[...]}.
+     * Returns true if sent or queued successfully.
+     */
+    fun sendDelete(messageIds: List<String>, conversationWith: String, deletedBy: String? = null): Boolean {
+        val ws = webSocket
+        if (ws == null || _connectionState.value != ConnectionState.CONNECTED) {
+            synchronized(outgoingLock) {
+                outgoingDeleteQueue.add(DeleteMessageRequest(messageIds, conversationWith, deletedBy))
+                Log.d(TAG, "Not connected; queuing delete request and attempting connect")
+            }
+
+            // attempt connect for the pair (conversationWith is the peer email)
+            // We need the local sender email if available in the service; this implementation will attempt to reconnect without sender,
+            // server will still accept delete frames based on auth.
+            connect()
+            return true
+        }
+
+        return try {
+            val payload = if (!deletedBy.isNullOrBlank()) mapOf("type" to "DELETE", "messageIds" to messageIds, "conversationWith" to conversationWith, "deletedBy" to deletedBy) else mapOf("type" to "DELETE", "messageIds" to messageIds, "conversationWith" to conversationWith)
+            val json = gson.toJson(payload)
+            val sent = ws.send(json)
+            Log.d(TAG, "Sent delete request ids=$messageIds sent=$sent json=$json")
+            sent
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to send WS message", e)
+            Log.e(TAG, "Failed to send delete request", e)
             false
         }
     }
+
+    private data class OutgoingSimpleMessage(
+        val type: String = "MESSAGE",
+        val content: String,
+        val messageId: String? = null
+    )
 
     fun disconnect() {
         Log.d(TAG, "Disconnecting WebSocket")
@@ -218,32 +389,72 @@ data class DirectChatMessageRequest(
     val messageId: String
 )
 
-// Response format from server
+// Response format from server — tolerant model
 data class DirectChatMessage(
     @SerializedName("id")
-    val id: String?,
+    val id: String? = null,
 
     @SerializedName("senderEmail")
-    val senderEmail: String = "",
+    val senderEmail: String? = null,
 
     @SerializedName("receiverEmail")
-    val receiverEmail: String = "",
+    val receiverEmail: String? = null,
 
     @SerializedName("content")
-    val content: String = "",
+    val content: String? = null,
 
     @SerializedName("timestamp")
-    val timestamp: String = "",
+    val timestamp: String? = null,
 
     @SerializedName("type")
     val type: String? = null,
 
+    /**
+     * messageId may be sent as a number or string from server. Keep original JSON element
+     * so callers can extract a usable identifier robustly.
+     */
     @SerializedName("messageId")
-    val messageId: String? = null
+    val messageIdElement: JsonElement? = null,
+
+    // additional optional fields
+    @SerializedName("senderUsername")
+    val senderUsername: String? = null,
+
+    @SerializedName("receiverUsername")
+    val receiverUsername: String? = null,
+
+    @SerializedName("readStatus")
+    val readStatus: Boolean? = null,
+
+    @SerializedName("senderDeleted")
+    val senderDeleted: Boolean? = null,
+
+    @SerializedName("receiverDeleted")
+    val receiverDeleted: Boolean? = null,
+
+    // who deleted the message (for DELETE frames)
+    @SerializedName("deletedBy")
+    val deletedBy: String? = null,
+
+    // messageIds array for bulk-delete frames
+    @SerializedName("messageIds")
+    val messageIds: List<String>? = null
 )
 
 // History wrapper for server-sent conversation history
 data class DirectChatHistory(
     @SerializedName("chatWith") val chatWith: String,
-    @SerializedName("messages") val messages: List<DirectChatMessage>
+    // server sends "messages": [ ... ] — include it so callers (ChatRepository) can iterate
+    @SerializedName("messages") val messages: List<DirectChatMessage>? = null
+)
+
+// Chat summary / rooms listing
+data class ChatSummaryRoom(
+    @SerializedName("chatPartner") val chatPartner: String,
+    @SerializedName("unreadCount") val unreadCount: Int = 0
+)
+
+data class ChatSummary(
+    @SerializedName("type") val type: String?,
+    @SerializedName("rooms") val rooms: List<ChatSummaryRoom>
 )

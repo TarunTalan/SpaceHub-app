@@ -33,5 +33,9 @@ data class ChatMessage(
     val status: MessageStatus = MessageStatus.SENDING,
 
     // Convenience flag used by UI
-    val isFromMe: Boolean = false
+    val isFromMe: Boolean = false,
+
+    // Deletion flags
+    val senderDeleted: Boolean = false,
+    val receiverDeleted: Boolean = false
 )

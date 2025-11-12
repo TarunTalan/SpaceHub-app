@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.UUID
 import java.time.Instant
+import com.google.gson.JsonElement
 
 class ChatRepository private constructor(
     context: Context,
@@ -41,6 +42,27 @@ class ChatRepository private constructor(
         scope.launch {
             webSocketService.messages.collect { wsMessage ->
                 handleIncomingMessage(wsMessage)
+            }
+        }
+
+        // Listen to history frames (bulk restore)
+        scope.launch {
+            webSocketService.history.collect { hist: com.example.myapplication.data.chat.websocket.DirectChatHistory ->
+                try {
+                    // call restore implementation
+                    val msgs = hist.messages ?: emptyList()
+                    restoreConversationFromHistory(hist.chatWith, msgs)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to restore history for ${'$'}{hist.chatWith}: ${'$'}{e.message}")
+                }
+            }
+        }
+
+        // Listen to chat summaries (rooms)
+        scope.launch {
+            webSocketService.summaries.collect { summary ->
+                // For now, just log. UI can observe via repository if needed.
+                Log.d(TAG, "Received chat summary with ${'$'}{summary.rooms.size} rooms")
             }
         }
     }
@@ -173,65 +195,156 @@ class ChatRepository private constructor(
         }
     }
 
+    private fun extractMessageId(elem: JsonElement?): String? {
+        return try {
+            if (elem == null || elem.isJsonNull) return null
+            when {
+                elem.isJsonPrimitive && elem.asJsonPrimitive.isNumber -> elem.asLong.toString()
+                elem.isJsonPrimitive && elem.asJsonPrimitive.isString -> elem.asString
+                else -> elem.toString()
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     private suspend fun handleIncomingMessage(wsMessage: com.example.myapplication.data.chat.websocket.DirectChatMessage) {
         try {
-            val conversationId = generateConversationId(wsMessage.senderEmail, wsMessage.receiverEmail)
+            val senderEmailRaw = wsMessage.senderEmail?.trim().orEmpty()
+            val receiverEmailRaw = wsMessage.receiverEmail?.trim().orEmpty()
+            val conversationId = generateConversationId(senderEmailRaw, receiverEmailRaw)
 
-            // Control frames (delivered/read) — update status using provided id or fallback to latest sent message
+            // Only treat delivered/read as control frames that update status. Regular messages are processed below.
             val ctrl = wsMessage.type?.lowercase()?.trim()
-            if (!ctrl.isNullOrBlank()) {
-                val ackId = wsMessage.messageId?.takeIf { it.isNotBlank() } ?: wsMessage.id?.takeIf { it.isNotBlank() }
-                if (!ackId.isNullOrBlank()) {
-                    try {
-                        when (ctrl) {
-                            "delivered" -> chatDao.updateMessageStatus(ackId, MessageStatus.DELIVERED)
-                            "read" -> chatDao.updateMessageStatus(ackId, MessageStatus.READ)
-                        }
-                        return
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed to update message status for id=$ackId", e)
-                        return
-                    }
-                } else {
-                    try {
-                        val recent = chatDao.getMessagesList(conversationId).lastOrNull { it.isFromMe }
-                        if (recent != null) {
+            when (ctrl) {
+                "delivered", "read" -> {
+                    val ackId = wsMessage.messageIdElement?.let { extractMessageId(it) } ?: wsMessage.id?.takeIf { it.isNotBlank() }
+                    if (!ackId.isNullOrBlank()) {
+                        try {
                             when (ctrl) {
-                                "delivered" -> chatDao.updateMessageStatus(recent.id, MessageStatus.DELIVERED)
-                                "read" -> chatDao.updateMessageStatus(recent.id, MessageStatus.READ)
+                                "delivered" -> chatDao.updateMessageStatus(ackId, MessageStatus.DELIVERED)
+                                "read" -> chatDao.updateMessageStatus(ackId, MessageStatus.READ)
                             }
                             return
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed to update message status for id=$ackId", e)
+                            return
                         }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Fallback failed for conversation $conversationId", e)
+                    } else {
+                        try {
+                            val recent = chatDao.getMessagesList(conversationId).lastOrNull { it.isFromMe }
+                            if (recent != null) {
+                                when (ctrl) {
+                                    "delivered" -> chatDao.updateMessageStatus(recent.id, MessageStatus.DELIVERED)
+                                    "read" -> chatDao.updateMessageStatus(recent.id, MessageStatus.READ)
+                                }
+                                return
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Fallback failed for conversation $conversationId", e)
+                        }
                     }
+                }
+                "delete", "deleted" -> {
+                    // Incoming delete frame: support single-id (messageId/id) and bulk messageIds
+                    val idsToProcess = mutableListOf<String>()
+
+                    // collect from messageIds array if present
+                    wsMessage.messageIds?.let { arr ->
+                        for (mid in arr) {
+                            if (!mid.isNullOrBlank()) idsToProcess.add(mid.trim())
+                        }
+                    }
+
+                    // Accept string/id fields: id property (server may send 'id') or messageIdElement (number/string) -> extract
+                    wsMessage.id?.let { if (it.isNotBlank()) idsToProcess.add(it.trim()) }
+                    // also accept messageIdElement (JsonElement) -> extract a usable id
+                    wsMessage.messageIdElement?.let { e -> extractMessageId(e)?.let { idsToProcess.add(it) } }
+
+                    // Some servers include deletedBy field; if absent, try to infer from sender/receiver fields
+                    val deletedByFallback = (wsMessage.senderEmail ?: wsMessage.receiverEmail ?: "").trim()
+
+                    if (idsToProcess.isNotEmpty()) {
+                        for (deletedId in idsToProcess.distinct()) {
+                            try {
+                                val msg = chatDao.getMessageById(deletedId)
+                                if (msg != null) {
+                                    val deletedBy = wsMessage.deletedBy?.trim().orEmpty().ifEmpty { deletedByFallback }
+                                    val myEmail = userDataManager.getEmail() ?: ""
+                                    Log.d(TAG, "Processing incoming DELETE id=$deletedId deletedBy=$deletedBy myEmail=$myEmail")
+
+                                    // Per request: for received DELETE payload show fixed text "Deleted"
+                                    val deletedText = "Deleted"
+
+                                    val senderDeletedFlag = deletedBy.equals(msg.senderId, ignoreCase = true) || (deletedBy.equals(myEmail, ignoreCase = true) && msg.senderId.equals(myEmail, ignoreCase = true))
+                                    val receiverDeletedFlag = !senderDeletedFlag
+
+                                    // Use DAO update to ensure Room emits change and observers receive update immediately
+                                    val updated = msg.copy(
+                                        senderDeleted = senderDeletedFlag,
+                                        receiverDeleted = receiverDeletedFlag,
+                                        content = deletedText
+                                    )
+                                    chatDao.updateMessage(updated)
+
+                                    // If this message was the conversation's lastMessage, recompute lastMessage
+                                    val conv = chatDao.getConversation(msg.conversationId)
+                                    if (conv != null && conv.lastMessage == msg.content) {
+                                        try {
+                                            val remaining = chatDao.getMessagesList(msg.conversationId).filter { !(it.senderDeleted && it.receiverDeleted) }
+                                            val last = remaining.maxByOrNull { it.timestamp }
+                                            if (last != null) {
+                                                chatDao.updateConversation(conv.copy(lastMessage = last.content, lastMessageTime = last.timestamp))
+                                            } else {
+                                                chatDao.updateConversation(conv.copy(lastMessage = null, lastMessageTime = System.currentTimeMillis()))
+                                            }
+                                        } catch (inner: Exception) {
+                                            Log.w(TAG, "Failed to recompute lastMessage after delete: ${'$'}{inner.message}")
+                                        }
+                                    }
+                                } else {
+                                    Log.w(TAG, "Incoming DELETE for unknown message id=$deletedId — skipping DB update")
+                                }
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Failed to process incoming delete for id=$deletedId: ${'$'}{e.message}")
+                            }
+                        }
+                    }
+
+                    // Nothing further to do for delete frames
+                    return
+                }
+                else -> {
+                    // not a control frame; continue processing below
                 }
             }
 
             val myEmail = userDataManager.getEmail()
 
-            if (wsMessage.senderEmail.isBlank() || wsMessage.receiverEmail.isBlank()) return
+            // Defensive null/blank checks (incoming fields may be null when deserialized)
+            if (senderEmailRaw.isBlank() && receiverEmailRaw.isBlank()) return
 
             // Parse timestamp: try ISO Instant, then numeric epoch millis, otherwise fallback to now
+            val timestampStr = wsMessage.timestamp?.trim().orEmpty()
             val timestamp = try {
-                Instant.parse(wsMessage.timestamp).toEpochMilli()
+                Instant.parse(timestampStr).toEpochMilli()
             } catch (_: Exception) {
                 try {
-                    wsMessage.timestamp.toLong()
+                    timestampStr.toLong()
                 } catch (_: Exception) {
                     System.currentTimeMillis()
                 }
             }
 
-            val isSentByMe = !myEmail.isNullOrBlank() && wsMessage.senderEmail.equals(myEmail, ignoreCase = true)
-            val isAddressedToMe = !myEmail.isNullOrBlank() && wsMessage.receiverEmail.equals(myEmail, ignoreCase = true)
+            val isSentByMe = !myEmail.isNullOrBlank() && senderEmailRaw.equals(myEmail, ignoreCase = true)
+            val isAddressedToMe = !myEmail.isNullOrBlank() && receiverEmailRaw.equals(myEmail, ignoreCase = true)
             val isFromMe = if (isAddressedToMe) false else isSentByMe
 
             // If this is an echo of a sent message, attempt to update the local record
             if (isFromMe && !myEmail.isNullOrBlank()) {
                 val recentMessages = chatDao.getMessagesList(conversationId)
                 val matched = recentMessages.firstOrNull { existing ->
-                    existing.senderId.equals(wsMessage.senderEmail, ignoreCase = true) &&
+                    existing.senderId.equals(senderEmailRaw, ignoreCase = true) &&
                             existing.content == wsMessage.content &&
                             Math.abs(existing.timestamp - timestamp) < 2000
                 }
@@ -244,22 +357,25 @@ class ChatRepository private constructor(
                         }
                         return
                     } catch (e: Exception) {
-                        Log.w(TAG, "Failed to update status for echoed message ${matched.id}", e)
+                        Log.w(TAG, "Failed to update status for echoed message ${'$'}{matched.id}", e)
                     }
                 }
             }
 
-            val peerEmail = if (isFromMe) wsMessage.receiverEmail else wsMessage.senderEmail
+            val peerEmail = if (isFromMe) receiverEmailRaw else senderEmailRaw
+
+            val messageContent = wsMessage.content?.trim().orEmpty()
 
             // Create and persist incoming message
             val message = ChatMessage(
-                id = wsMessage.id ?: UUID.randomUUID().toString(),
+                id = wsMessage.id ?: wsMessage.messageIdElement?.let { extractMessageId(it) } ?: UUID.randomUUID().toString(),
                 conversationId = conversationId,
-                senderId = wsMessage.senderEmail,
-                senderName = wsMessage.senderEmail,
+                senderId = senderEmailRaw,
+                // prefer senderUsername if server provides it
+                senderName = (wsMessage.senderUsername?.takeIf { it.isNotBlank() } ?: wsMessage.senderEmail?.trim().orEmpty()),
                 senderAvatar = null,
-                recipientId = wsMessage.receiverEmail,
-                content = wsMessage.content,
+                recipientId = receiverEmailRaw,
+                content = messageContent,
                 timestamp = timestamp,
                 status = MessageStatus.DELIVERED,
                 isFromMe = isFromMe
@@ -279,7 +395,8 @@ class ChatRepository private constructor(
                 chatDao.insertConversation(Conversation(
                     id = conversationId,
                     peerEmail = peerEmail,
-                    peerName = peerEmail,
+                    // Show peer username when available, otherwise email
+                    peerName = (wsMessage.senderUsername?.takeIf { it.isNotBlank() } ?: peerEmail),
                     peerAvatar = null,
                     lastMessage = message.content,
                     lastMessageTime = message.timestamp,
@@ -295,10 +412,10 @@ class ChatRepository private constructor(
         val e1 = email1?.trim() ?: ""
         val e2 = email2?.trim() ?: ""
 
-        if (e1.isEmpty() || e2.isEmpty()) return "unknown_${System.currentTimeMillis()}"
+        if (e1.isEmpty() || e2.isEmpty()) return "unknown_${'$'}{System.currentTimeMillis()}"
 
         val sorted = listOf(e1, e2).sorted()
-        return "${sorted[0]}_${sorted[1]}".replace("@", "_").replace(".", "_")
+        return "${'$'}{sorted[0]}_${'$'}{sorted[1]}".replace("@", "_").replace(".", "_")
     }
 
     /**
@@ -316,23 +433,23 @@ class ChatRepository private constructor(
                 try {
                     // parse timestamp (ISO or epoch millis)
                     val ts = try {
-                        java.time.Instant.parse(ws.timestamp).toEpochMilli()
+                        Instant.parse(ws.timestamp?.trim().orEmpty()).toEpochMilli()
                     } catch (_: Exception) {
-                        try { ws.timestamp.toLong() } catch (_: Exception) { System.currentTimeMillis() }
+                        try { ws.timestamp?.trim()?.toLong() ?: System.currentTimeMillis() } catch (_: Exception) { System.currentTimeMillis() }
                     }
 
                     latestTs = maxOf(latestTs, ts)
 
-                    val isFromMe = !myEmail.isNullOrBlank() && ws.senderEmail.equals(myEmail, ignoreCase = true)
+                    val isFromMe = myEmail.isNotBlank() && ws.senderEmail?.equals(myEmail, ignoreCase = true) == true
 
                     val msg = ChatMessage(
-                        id = ws.id ?: java.util.UUID.randomUUID().toString(),
+                        id = ws.id ?: ws.messageIdElement?.let { extractMessageId(it) } ?: UUID.randomUUID().toString(),
                         conversationId = conversationId,
-                        senderId = ws.senderEmail,
-                        senderName = ws.senderEmail,
+                        senderId = ws.senderEmail?.trim().orEmpty(),
+                        senderName = (ws.senderUsername?.takeIf { it.isNotBlank() } ?: ws.senderEmail?.trim().orEmpty()),
                         senderAvatar = null,
-                        recipientId = ws.receiverEmail,
-                        content = ws.content ?: "",
+                        recipientId = ws.receiverEmail?.trim().orEmpty(),
+                        content = ws.content?.trim().orEmpty(),
                         timestamp = ts,
                         status = MessageStatus.DELIVERED,
                         isFromMe = isFromMe
@@ -341,7 +458,7 @@ class ChatRepository private constructor(
                     // Insert message (DAO should handle conflicts appropriately)
                     chatDao.insertMessage(msg)
                 } catch (inner: Exception) {
-                    Log.w(TAG, "Failed to persist history message: ${inner.message}")
+                    Log.w(TAG, "Failed to persist history message: ${'$'}{inner.message}")
                 }
             }
 
@@ -367,4 +484,74 @@ class ChatRepository private constructor(
             Result.failure(e)
         }
     }
+
+    /**
+     * Delete messages by id: send delete frame to server and mark locally as deleted for sender (if they own it)
+     */
+    suspend fun deleteMessages(messageIds: List<String>): Result<Unit> {
+        if (messageIds.isEmpty()) return Result.success(Unit)
+
+        try {
+            // Send delete request over websocket (non-blocking boolean)
+            try {
+                Log.d(TAG, "Sending WS DELETE for ids=${'$'}{messageIds}")
+                // include conversationWith and deletedBy (my email) when available
+                val myEmail = userDataManager.getEmail() ?: ""
+                val peer = if (messageIds.size == 1) {
+                    // attempt to lookup conversation from DB for single id
+                    try { chatDao.getMessageById(messageIds.first())?.recipientId ?: "" } catch (_: Exception) { "" }
+                } else ""
+                webSocketService.sendDelete(messageIds, peer, myEmail)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to send delete frame: ${'$'}{e.message}")
+            }
+
+            // Perform DB updates on repository scope because DAO methods are suspend functions
+            scope.launch {
+                val myEmail = userDataManager.getEmail() ?: ""
+                for (id in messageIds) {
+                    try {
+                        val msg = chatDao.getMessageById(id)
+                        if (msg != null) {
+                            val deletedText = if (myEmail.isNotBlank()) "deleted by ${'$'}myEmail" else "message deleted"
+                            val senderDeletedFlag = msg.senderId.equals(myEmail, ignoreCase = true)
+                            val receiverDeletedFlag = !senderDeletedFlag
+
+                            // Use DAO update to ensure observers are notified immediately
+                            val updated = msg.copy(
+                                senderDeleted = senderDeletedFlag,
+                                receiverDeleted = receiverDeletedFlag,
+                                content = deletedText
+                            )
+                            chatDao.updateMessage(updated)
+
+                            // If the deleted message was the conversation's lastMessage, recompute
+                            try {
+                                val conv = chatDao.getConversation(msg.conversationId)
+                                if (conv != null && conv.lastMessage == msg.content) {
+                                    val remaining = chatDao.getMessagesList(msg.conversationId).filter { !(it.senderDeleted && it.receiverDeleted) }
+                                    val last = remaining.maxByOrNull { it.timestamp }
+                                    if (last != null) {
+                                        chatDao.updateConversation(conv.copy(lastMessage = last.content, lastMessageTime = last.timestamp))
+                                    } else {
+                                        chatDao.updateConversation(conv.copy(lastMessage = null, lastMessageTime = System.currentTimeMillis()))
+                                    }
+                                }
+                            } catch (inner: Exception) {
+                                Log.w(TAG, "Failed to recompute conversation after delete: ${'$'}{inner.message}")
+                            }
+                        }
+                    } catch (inner: Exception) {
+                        Log.w(TAG, "Failed to update deletion flag for message ${'$'}id: ${'$'}{inner.message}")
+                    }
+                }
+            }
+
+            return Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "deleteMessages failed", e)
+            return Result.failure(e)
+        }
+    }
+
 }

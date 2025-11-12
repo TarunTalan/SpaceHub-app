@@ -125,7 +125,52 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
                         // Create default room "General" (non-blocking UI; failures are tolerated)
                         try {
                             withContext(Dispatchers.IO) {
-                                CommunityRepository.getInstance(requireContext()).createRoom(data.communityId, "General")
+                                val repo = CommunityRepository.getInstance(requireContext())
+                                val userData = UserDataManager.getInstance(requireContext())
+
+                                // Use a stable name as roomId placeholder for DataStore marker (we don't have server id here)
+                                val defaultChatRoomName = "General"
+                                val defaultVoiceRoomName = "General Voice"
+
+                                // Create chat parent room + child chat room + voice room, but only once per community
+                                try {
+                                    val alreadyCreated = runCatching {
+                                        userData.isDefaultRoomCreated(data.communityId, defaultChatRoomName, "chat")
+                                    }.getOrDefault(false)
+
+                                    if (!alreadyCreated) {
+                                        // Create parent room (server-side). This API call may succeed even if room already exists.
+                                        runCatching { repo.createRoom(data.communityId, defaultChatRoomName) }
+
+                                        // Fetch server rooms to find the newly created parent room id
+                                        val allRoomsRes = runCatching { repo.getAllRooms(data.communityId) }.getOrNull()
+                                        val parentRoomId = allRoomsRes?.getOrNull()?.firstOrNull { it.name.equals(defaultChatRoomName, true) }?.id
+
+                                        if (!parentRoomId.isNullOrBlank()) {
+                                            // Create a chat room under the parent room (returns DataChatRoom with id)
+                                            val chatRoomRes = runCatching { repo.createChatRoom(data.communityId, parentRoomId, defaultChatRoomName) }.getOrNull()
+                                            val createdChat = chatRoomRes?.getOrNull()
+
+                                            // If chat room created successfully, attempt to create a voice room tied to that chat room id
+                                            if (createdChat != null) {
+                                                try {
+                                                    val creatorEmail = runCatching { userData.getEmail() }.getOrNull() ?: ""
+                                                    // Best-effort create voice room
+                                                    val voiceRepo = com.example.myapplication.data.voice.VoiceRoomRepository.getInstance(requireContext())
+                                                    runCatching { voiceRepo.createVoiceRoom(chatRoomId = createdChat.id, roomName = defaultVoiceRoomName, createdBy = creatorEmail) }
+                                                    // mark voice default created
+                                                    runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "voice") }
+                                                } catch (_: Exception) { }
+                                            }
+
+                                            // Mark chat default created
+                                            runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "chat") }
+                                        } else {
+                                            // Could not resolve parent room; still mark chat as created to avoid repeated attempts
+                                            runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "chat") }
+                                        }
+                                    }
+                                } catch (_: Exception) { }
                             }
                         } catch (_: Exception) { }
 

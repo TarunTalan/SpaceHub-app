@@ -80,7 +80,6 @@ dependencies {
     // Room Database for complex data (communities, posts, etc.)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
-    implementation(libs.androidx.swiperefreshlayout)
     ksp(libs.androidx.room.compiler)
 
     implementation(libs.androidx.ui.test)
@@ -98,4 +97,12 @@ dependencies {
     // WebSocket for real-time chat with SockJS and STOMP support
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.java-websocket:Java-WebSocket:1.5.4")
+
+    // WebRTC: prefer remote maven (configured in settings.gradle.kts) but also allow local AAR fallback (place .aar into app/libs)
+    // If network cannot reach maven.webrtc.org, put google-webrtc-1.0.32006.aar in app/libs and Gradle will pick it up via files(...) below.
+    // Use local AAR to avoid remote repo resolution when offline/unreachable
+    implementation(files("libs/google-webrtc-1.0.32006.aar"))
+    // NOTE: keep remote artifact commented out to avoid Gradle attempting to fetch it during offline builds
+    // implementation("org.webrtc:google-webrtc:1.0.32006")
+
 }

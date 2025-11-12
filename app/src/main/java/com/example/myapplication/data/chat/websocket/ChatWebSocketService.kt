@@ -2,28 +2,37 @@ package com.example.myapplication.data.chat.websocket
 
 import android.content.Context
 import android.util.Log
+import android.annotation.SuppressLint
 import com.example.myapplication.BuildConfig
 import com.example.myapplication.data.network.SharedPrefsTokenStore
+import com.example.myapplication.data.chat.model.WSChatMessage
 import com.google.gson.Gson
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import org.java_websocket.client.WebSocketClient
+import org.java_websocket.drafts.Draft_6455
 import org.java_websocket.handshake.ServerHandshake
 import java.net.URI
 
-class ChatWebSocketService private constructor(private val context: Context) {
+class ChatWebSocketService private constructor(context: Context) {
+
+    // Store only application context to avoid leaking an Activity/Service context via a static singleton.
+    private val appContext: Context = context.applicationContext
 
     private val gson = Gson()
     private var sockJsClient: SockJsWebSocketClient? = null
-    private val messageChannel = Channel<com.example.myapplication.data.chat.model.WSChatMessage>(Channel.BUFFERED)
+    private val messageChannel = Channel<WSChatMessage>(Channel.BUFFERED)
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.DISCONNECTED)
 
-    val messages: Flow<com.example.myapplication.data.chat.model.WSChatMessage> = messageChannel.receiveAsFlow()
+    val messages: Flow<WSChatMessage> = messageChannel.receiveAsFlow()
     val connectionState: StateFlow<ConnectionState> = _connectionState
 
+    @SuppressLint("StaticFieldLeak")
     companion object {
         @Volatile
         private var INSTANCE: ChatWebSocketService? = null
@@ -43,7 +52,7 @@ class ChatWebSocketService private constructor(private val context: Context) {
             return
         }
 
-        val tokenNullable = SharedPrefsTokenStore(context).getAccessToken()
+        val tokenNullable = SharedPrefsTokenStore(appContext).getAccessToken()
 
         // Log masked token and BASE_URL for diagnostics (safe for null)
         try {
@@ -71,22 +80,22 @@ class ChatWebSocketService private constructor(private val context: Context) {
             sockJsClient = SockJsWebSocketClient(
                 URI(sockJsUrl),
                 tokenNullable ?: "",
-                onOpen = {
+                onOpenCb = {
                     Log.d(TAG, "SockJS WebSocket connected successfully")
                     _connectionState.value = ConnectionState.CONNECTED
                     // Send STOMP CONNECT frame
                     sendStompConnect()
                 },
-                onMessage = { message ->
+                onMessageCb = { message: String ->
                     Log.d(TAG, "Received SockJS message: $message")
                     handleSockJsMessage(message)
                 },
-                onClose = { code, reason ->
+                onCloseCb = { code: Int, reason: String ->
                     Log.d(TAG, "SockJS WebSocket closed: $code - $reason")
                     _connectionState.value = ConnectionState.DISCONNECTED
                     sockJsClient = null
                 },
-                onError = { error ->
+                onErrorCb = { error: String? ->
                     Log.e(TAG, "SockJS WebSocket error: $error")
                     _connectionState.value = ConnectionState.ERROR(error ?: "Connection failed")
                     sockJsClient = null
@@ -146,24 +155,117 @@ class ChatWebSocketService private constructor(private val context: Context) {
 
     private fun processStompFrame(frame: String) {
         try {
-            when {
-                frame.startsWith("CONNECTED") -> {
-                    Log.d(TAG, "STOMP CONNECTED frame received")
-                    // Subscribe to chat topic
-                    subscribeToChat()
+            // STOMP frames may include headers followed by a blank line and then the body
+            val body: String = when {
+                frame.startsWith("\"") && frame.endsWith("\"") -> {
+                    // Some SockJS transports wrap the STOMP frame string in quotes
+                    frame.trim('"')
                 }
-                frame.startsWith("MESSAGE") -> {
-                    // Extract message body from STOMP frame
-                    val bodyIndex = frame.indexOf("\n\n")
-                    if (bodyIndex > 0) {
-                        val body = frame.substring(bodyIndex + 2).replace("\u0000", "")
-                        val chatMessage = gson.fromJson(body, com.example.myapplication.data.chat.model.WSChatMessage::class.java)
-                        messageChannel.trySend(chatMessage)
+                else -> frame
+            }
+
+            if (body.startsWith("CONNECTED")) {
+                Log.d(TAG, "STOMP CONNECTED frame received")
+                // Subscribe to chat topic
+                subscribeToChat()
+                return
+            }
+
+            if (body.startsWith("MESSAGE") || body.contains("\n\n")) {
+                val idx = body.indexOf("\n\n")
+                val payload = if (idx >= 0) {
+                    // extract everything after the header separator and drop the trailing null
+                    body.substring(idx + 2).replace("\u0000", "").trim()
+                } else {
+                    // No headers - treat whole body as payload (sometimes server sends raw JSON)
+                    body.replace("\u0000", "").trim()
+                }
+
+                if (payload.isBlank()) {
+                    Log.w(TAG, "STOMP MESSAGE had empty payload")
+                    return
+                }
+
+                // Try to interpret payload as JSON
+                try {
+                    val element: JsonElement = gson.fromJson(payload, JsonElement::class.java)
+
+                    if (element.isJsonObject) {
+                        val obj = element.asJsonObject
+                        val type = obj.getAsJsonPrimitive("type")?.asString
+
+                        when (type) {
+                            "MESSAGE" -> {
+                                var msg = gson.fromJson(obj, WSChatMessage::class.java)
+                                // normalize: prefer 'content' then 'message' field for text
+                                if (msg.content.isNullOrBlank()) {
+                                    val alt = obj.getAsJsonPrimitive("message")?.asString
+                                    if (!alt.isNullOrBlank()) {
+                                        msg = msg.copy(content = alt)
+                                    }
+                                }
+                                Log.d(TAG, "Incoming MESSAGE -> $msg")
+                                messageChannel.trySend(msg)
+                            }
+                            "history" -> {
+                                val arr = obj.getAsJsonArray("messages")
+                                arr?.forEach { itElem ->
+                                    try {
+                                        var histMsg = gson.fromJson(itElem, WSChatMessage::class.java)
+                                        if (histMsg.content.isNullOrBlank()) {
+                                            val alt = itElem.asJsonObject.getAsJsonPrimitive("message")?.asString
+                                            if (!alt.isNullOrBlank()) histMsg = histMsg.copy(content = alt)
+                                        }
+                                        // Ensure type is set so downstream UI knows this is an existing message
+                                        val normalized = histMsg.copy(type = histMsg.type ?: "MESSAGE")
+                                        Log.d(TAG, "History item -> $normalized")
+                                        messageChannel.trySend(normalized)
+                                    } catch (e: Exception) {
+                                        Log.w(TAG, "Failed to parse history item", e)
+                                    }
+                                }
+                            }
+                            "DELETE" -> {
+                                // Convert delete payload into WSChatMessage with type=DELETE and messageId set
+                                val deletedId = obj.getAsJsonPrimitive("messageId")?.asString
+                                val ts = obj.getAsJsonPrimitive("timestamp")?.asString
+                                val deletedMsg = WSChatMessage(
+                                    messageId = deletedId,
+                                    type = "DELETE",
+                                    timestamp = ts
+                                )
+                                Log.d(TAG, "Incoming DELETE -> $deletedMsg")
+                                messageChannel.trySend(deletedMsg)
+                            }
+                            else -> {
+                                // system, chatSummary or unknown types - log and ignore or pass as generic
+                                Log.d(TAG, "Unhandled STOMP payload type=$type payload=$payload")
+                                // Optionally forward system/chatSummary as WSChatMessage with type set
+                                if (type == "system" || type == "chatSummary") {
+                                    val wrapper = WSChatMessage(type = type, content = payload)
+                                    messageChannel.trySend(wrapper)
+                                }
+                            }
+                        }
+                    } else {
+                        // Not an object - could be plain string
+                        Log.d(TAG, "Received non-object STOMP payload: $payload")
+                        // Wrap it as a message
+                        val wrapper = WSChatMessage(type = "MESSAGE", content = payload)
+                        messageChannel.trySend(wrapper)
                     }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to parse STOMP MESSAGE payload as JSON", e)
+                    // send raw payload wrapped
+                    val wrapper = WSChatMessage(type = "MESSAGE", content = payload)
+                    messageChannel.trySend(wrapper)
                 }
-                frame.startsWith("ERROR") -> {
-                    Log.e(TAG, "STOMP ERROR frame: $frame")
-                }
+
+            } else if (body.startsWith("ERROR")) {
+                Log.e(TAG, "STOMP ERROR frame: $frame")
+            } else {
+                // Unknown frame - log
+                Log.d(TAG, "Unknown STOMP frame received: $frame")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to process STOMP frame", e)
@@ -183,8 +285,40 @@ class ChatWebSocketService private constructor(private val context: Context) {
         Log.d(TAG, "Subscribed to /user/queue/messages")
     }
 
-    fun sendMessage(message: com.example.myapplication.data.chat.model.WSChatMessage) {
-        val json = gson.toJson(message)
+    fun sendMessage(message: WSChatMessage) {
+        // Ensure we send minimal payload expected by server for outgoing messages
+        val payloadObj = JsonObject()
+
+        // Determine text value: prefer 'content' field
+        val text = message.content?.takeIf { it.isNotBlank() }
+
+        if (!text.isNullOrBlank()) {
+            // include both keys to satisfy either server mapping
+            payloadObj.addProperty("type", message.type ?: "MESSAGE")
+            payloadObj.addProperty("content", text)
+            payloadObj.addProperty("message", text)
+
+            message.conversationId?.let { payloadObj.addProperty("conversationId", it) }
+            message.recipientId?.let { payloadObj.addProperty("recipientId", it) }
+            message.receiverEmail?.let { payloadObj.addProperty("receiverEmail", it) }
+            message.id?.let { payloadObj.addProperty("id", it) }
+            message.messageId?.let { payloadObj.addProperty("messageId", it) }
+            message.senderId?.let { payloadObj.addProperty("senderId", it) }
+        } else {
+            // Fallback: send full serialized object but ensure 'type' exists and copy textual keys
+            val asJson = gson.toJsonTree(message).asJsonObject
+            if (!asJson.has("type")) asJson.addProperty("type", message.type ?: "MESSAGE")
+            // If server expects 'message' key and we have 'content', copy it
+            if (!asJson.has("message") && asJson.has("content")) {
+                asJson.add("message", asJson.get("content"))
+            }
+            // Merge into payloadObj
+            for ((key, value) in asJson.entrySet()) {
+                payloadObj.add(key, value)
+            }
+        }
+
+        val json = gson.toJson(payloadObj)
         val stompFrame = """
             SEND
             destination:/app/chat.send
@@ -198,17 +332,17 @@ class ChatWebSocketService private constructor(private val context: Context) {
     }
 
     fun sendTypingIndicator(recipientId: String, conversationId: String) {
-        val message = com.example.myapplication.data.chat.model.WSChatMessage(
+        val message = WSChatMessage(
             type = "typing",
             conversationId = conversationId,
-            senderId = "", // Will be set by server
+            senderId = "",
             recipientId = recipientId
         )
         sendMessage(message)
     }
 
     fun markAsDelivered(messageId: String, conversationId: String) {
-        val message = com.example.myapplication.data.chat.model.WSChatMessage(
+        val message = WSChatMessage(
             type = "delivered",
             messageId = messageId,
             conversationId = conversationId,
@@ -219,7 +353,7 @@ class ChatWebSocketService private constructor(private val context: Context) {
     }
 
     fun markAsRead(messageId: String, conversationId: String) {
-        val message = com.example.myapplication.data.chat.model.WSChatMessage(
+        val message = WSChatMessage(
             type = "read",
             messageId = messageId,
             conversationId = conversationId,
@@ -255,30 +389,40 @@ class ChatWebSocketService private constructor(private val context: Context) {
     // WebSocket client for SockJS protocol
     private class SockJsWebSocketClient(
         uri: URI,
-        @Suppress("unused") private val token: String?,
-        private val onOpen: () -> Unit,
-        @Suppress("unused") private val onMessage: (String) -> Unit,
-        private val onClose: (Int, String) -> Unit,
-        private val onError: (String?) -> Unit
-    ) : WebSocketClient(uri) {
+        token: String?,
+        private val onOpenCb: () -> Unit,
+        private val onMessageCb: (String) -> Unit,
+        private val onCloseCb: (Int, String) -> Unit,
+        private val onErrorCb: (String?) -> Unit
+    ) : WebSocketClient(
+        uri,
+        Draft_6455(),
+        // Add handshake headers including Authorization and STOMP subprotocols
+        token?.let { mapOf(
+            "Authorization" to "Bearer $it",
+            "Sec-WebSocket-Protocol" to "v10.stomp,v11.stomp",
+            "Origin" to BuildConfig.BASE_URL
+        ) } ?: emptyMap(),
+        0
+    ) {
 
         override fun onOpen(handshakedata: ServerHandshake?) {
             Log.d(TAG, "SockJS connection opened")
-            onOpen()
+            onOpenCb()
         }
 
         override fun onMessage(message: String?) {
-            message?.let { onMessage(it) }
+            message?.let { onMessageCb(it) }
         }
 
         override fun onClose(code: Int, reason: String?, remote: Boolean) {
             Log.d(TAG, "SockJS connection closed: $code - $reason")
-            onClose(code, reason ?: "Unknown")
+            onCloseCb(code, reason ?: "Unknown")
         }
 
         override fun onError(ex: Exception?) {
             Log.e(TAG, "SockJS connection error", ex)
-            onError(ex?.message)
+            onErrorCb(ex?.message)
         }
     }
 

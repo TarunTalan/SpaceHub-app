@@ -10,11 +10,10 @@
     <!-- Sent message bubble (aligned to right) -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/message_container"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="48dp"
         android:layout_marginEnd="8dp"
-        android:maxWidth="280dp"
         android:background="@drawable/bg_message_sent"
         android:paddingHorizontal="12dp"
         android:paddingVertical="4dp"
@@ -25,42 +24,44 @@
 
         <TextView
             android:id="@+id/tv_message"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:maxWidth="280dp"
+            android:minWidth="70dp"
             android:textColor="@color/white"
             android:textSize="15sp"
             android:ellipsize="end"
-            android:breakStrategy="balanced"
+            android:fontFamily="@font/roboto_regular"
+            android:breakStrategy="high_quality"
             android:hyphenationFrequency="full"
             android:includeFontPadding="false"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            tools:text="Hello, how are you bbbbubhuhhuhbbxjbbjxbsjjsxnsjnxjxbjuihuhihjhuhuhjhjbjbjh?"/>
+            tools:text="H?"/>
 
         <TextView
-            android:id="@+id/tv_time"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:layout_marginStart="8dp"
-            android:textColor="#B3FFFFFF"
-            android:textSize="11sp"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tv_message"
-            tools:text="12:30"/>
+                android:id="@+id/tv_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#B3FFFFFF"
+                android:textSize="10sp"
+                app:layout_constraintTop_toBottomOf="@+id/tv_message"
+                tools:text="12:30"
+                android:layout_marginEnd="2dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@+id/iv_status"/>
 
         <ImageView
-            android:id="@+id/iv_status"
-            android:layout_width="16dp"
-            android:layout_height="16dp"
-            android:layout_marginStart="4dp"
-            android:src="@drawable/ic_double_check"
-            android:tint="#B3FFFFFF"
-            android:contentDescription="@string/message_status"
-            app:layout_constraintStart_toEndOf="@id/tv_time"
-            app:layout_constraintTop_toTopOf="@id/tv_time"
-            app:layout_constraintBottom_toBottomOf="@id/tv_time"/>
+                android:id="@+id/iv_status"
+                android:layout_width="15dp"
+                android:layout_height="15dp"
+                android:src="@drawable/ic_double_check"
+                app:tint="#B3FFFFFF"
+                android:contentDescription="@string/message_status"
+                app:layout_constraintTop_toTopOf="@id/tv_time"
+                app:layout_constraintBottom_toBottomOf="@id/tv_time"
+                app:layout_constraintEnd_toEndOf="parent"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

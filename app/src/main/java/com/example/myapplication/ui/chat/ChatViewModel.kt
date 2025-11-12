@@ -154,6 +154,19 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Request deletion of message(s) by id. Delegates to repository which will send WS delete and update local DB.
+     */
+    fun deleteMessages(messageIds: List<String>) {
+        viewModelScope.launch {
+            try {
+                chatRepo.deleteMessages(messageIds)
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Failed to delete messages", e)
+            }
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         // Don't disconnect WebSocket here as it's shared across the app

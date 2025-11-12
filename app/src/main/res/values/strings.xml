@@ -188,6 +188,7 @@
     <string name="search_community_prompt">Search for Community</string>
     <string name="search_community_subtext">Connect with your friends to chat together, be in audio room and more.</string>
     <string name="bottom_bar_selected_count">0 selected</string>
+    <string name="selected_count">%1$d selected</string>
     <string name="bottom_bar_action_text">Action</string>
     <string name="empty_list">No items to show</string>
     <string name="community_id_fmt">Community ID: %1$s</string>

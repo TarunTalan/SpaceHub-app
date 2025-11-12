@@ -7,6 +7,7 @@ import android.view.WindowManager
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.navigation.fragment.findNavController
@@ -15,7 +16,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.example.myapplication.BuildConfig
 import com.example.myapplication.ui.common.BaseFragment
 import com.example.myapplication.R
 import com.example.myapplication.ui.chat.ChatRoomViewModel
@@ -29,6 +29,28 @@ class ChatRoomFragment: BaseFragment(R.layout.fragment_chat_room) {
     private var prevImeBottom: Int = 0
     private var scrolledOnImeOpen: Boolean = false
 
+    // Selection UI flag
+    private var selectionActive: Boolean = false
+
+    // Helper: update selection count text
+    private fun updateSelectionTitle(adapter: ChatMessagesAdapter) {
+        val count = adapter.getSelectedIds().size
+        view?.findViewById<TextView>(R.id.selection_count)?.text = getString(R.string.selected_count, count)
+    }
+
+    private fun ensureSelectionMode() {
+        selectionActive = true
+    }
+
+    private fun finishSelection(adapter: ChatMessagesAdapter) {
+        selectionActive = false
+        adapter.clearSelection()
+        // hide selection toolbar, show normal title toolbar
+        view?.findViewById<View>(R.id.selection_toolbar)?.visibility = View.GONE
+        view?.findViewById<View>(R.id.constraintLayoutTitle)?.visibility = View.VISIBLE
+    }
+
+    @Suppress("DEPRECATION")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -51,7 +73,7 @@ class ChatRoomFragment: BaseFragment(R.layout.fragment_chat_room) {
                 val avatarUrl = raw?.takeIf { it.isNotBlank() }?.let { r ->
                     when {
                         r.startsWith("http://", true) || r.startsWith("https://", true) -> r
-                        else -> "${BuildConfig.BASE_URL.trimEnd('/')}/${r.trimStart('/')}"
+                        else -> "${'$'}{BuildConfig.BASE_URL.trimEnd('/')}/${'$'}{r.trimStart('/') }"
                     }
                 }
 
@@ -64,16 +86,71 @@ class ChatRoomFragment: BaseFragment(R.layout.fragment_chat_room) {
             }
         } catch (_: Exception) {}
 
-        // Back arrow behavior: navigate up
-        view.findViewById<ImageView>(R.id.back_arrow)?.setOnClickListener {
-            try { vm.disconnect(); findNavController().navigateUp() } catch (_: Exception) {}
+        // Back arrow behavior: if selection active clear selection, else navigate up
+        val backArrow = view.findViewById<ImageView>(R.id.back_arrow)
+        backArrow?.setOnClickListener {
+            if (selectionActive) {
+                // if adapter exists, clear selection
+                val rv = view.findViewById<RecyclerView>(R.id.rv_messages)
+                val adapter = rv?.adapter as? ChatMessagesAdapter
+                if (adapter != null) finishSelection(adapter)
+            } else {
+                try { vm.disconnect(); findNavController().navigateUp() } catch (_: Exception) {}
+            }
         }
+
+        // Also intercept system back to clear selection (mirror DirectChatFragment behavior)
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                val rv = view.findViewById<RecyclerView>(R.id.rv_messages)
+                val adapter = rv?.adapter as? ChatMessagesAdapter
+                if (selectionActive || (adapter?.getSelectedIds()?.isNotEmpty() == true)) {
+                    if (adapter != null) finishSelection(adapter)
+                } else {
+                    isEnabled = false
+                    requireActivity().onBackPressed()
+                }
+            }
+        }
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, callback)
 
         // Messages list (use RecyclerView from layout)
         val messagesRv = view.findViewById<RecyclerView>(R.id.rv_messages)!!
         val adapter = ChatMessagesAdapter()
         messagesRv.layoutManager = LinearLayoutManager(requireContext()).apply { stackFromEnd = true }
         messagesRv.adapter = adapter
+
+        // NEW: selection toolbar views
+        val selectionToolbar = view.findViewById<View>(R.id.selection_toolbar)
+        val selectionClose = view.findViewById<View>(R.id.selection_iv_close)
+        val selectionDelete = view.findViewById<View>(R.id.selection_iv_delete)
+
+        // Wire adapter callbacks for selection and click
+        adapter.onItemLongClick = { _ ->
+            ensureSelectionMode()
+            updateSelectionTitle(adapter)
+            // show selection toolbar and hide title toolbar
+            selectionToolbar?.visibility = View.VISIBLE
+            view.findViewById<View>(R.id.constraintLayoutTitle)?.visibility = View.GONE
+        }
+        adapter.onItemClick = { _ ->
+            if (selectionActive) {
+                updateSelectionTitle(adapter)
+            }
+        }
+
+        // selection toolbar handlers
+        selectionClose?.setOnClickListener {
+            finishSelection(adapter)
+        }
+        selectionDelete?.setOnClickListener {
+            val ids = adapter.getSelectedIds().toList()
+            if (ids.isNotEmpty()) {
+                vm.deleteMessages(ids)
+                android.widget.Toast.makeText(requireContext(), "Deleted ${'$'}{ids.size} message(s)", android.widget.Toast.LENGTH_SHORT).show()
+            }
+            finishSelection(adapter)
+        }
 
         // Ensure the window resizes when IME (keyboard) appears so RecyclerView is visible
         try {
@@ -146,8 +223,7 @@ class ChatRoomFragment: BaseFragment(R.layout.fragment_chat_room) {
         // Collect messages and submit to adapter
         viewLifecycleOwner.lifecycleScope.launch {
             vm.messages.collect { list ->
-                try { android.util.Log.d("ChatRoomFragment", "ADAPTER RECEIVING listSize=${list.size} last=${list.lastOrNull()}") } catch (_: Exception) {}
-                // scroll only after ListAdapter applied diffs to avoid jumps
+                try { android.util.Log.d("ChatRoomFragment", "ADAPTER RECEIVING listSize=${'$'}{list.size} last=${'$'}{list.lastOrNull()}") } catch (_: Exception) {}
                 adapter.submitList(list) {
                     messagesRv.post {
                         try {
@@ -156,6 +232,10 @@ class ChatRoomFragment: BaseFragment(R.layout.fragment_chat_room) {
                             }
                         } catch (_: Exception) {}
                     }
+                }
+                // If after update there are no selected ids, ensure selection toolbar closed
+                if (adapter.getSelectedIds().isEmpty()) {
+                    finishSelection(adapter)
                 }
             }
         }
