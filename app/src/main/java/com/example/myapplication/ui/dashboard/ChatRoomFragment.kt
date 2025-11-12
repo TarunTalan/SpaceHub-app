@@ -1,5 +1,6 @@
 package com.example.myapplication.ui.dashboard
 
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.view.ViewTreeObserver
@@ -8,19 +9,34 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.navigation.fragment.findNavController
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.example.myapplication.ui.common.BaseFragment
 import com.example.myapplication.R
-import com.example.myapplication.ui.chat.ChatRoomViewModel
+import com.example.myapplication.data.network.NetworkModule
 import com.example.myapplication.ui.chat.ChatMessagesAdapter
+import com.example.myapplication.ui.chat.ChatRoomViewModel
+import com.example.myapplication.ui.common.BaseFragment
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import java.io.File
+import java.io.FileOutputStream
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 class ChatRoomFragment: BaseFragment(R.layout.fragment_chat_room) {
     private val vm: ChatRoomViewModel by viewModels()
@@ -28,6 +44,7 @@ class ChatRoomFragment: BaseFragment(R.layout.fragment_chat_room) {
     private var prevSoftInputMode: Int? = null
     private var prevImeBottom: Int = 0
     private var scrolledOnImeOpen: Boolean = false
+    private lateinit var filePickerLauncher: ActivityResultLauncher<String>
 
     // Selection UI flag
     private var selectionActive: Boolean = false
@@ -254,6 +271,157 @@ class ChatRoomFragment: BaseFragment(R.layout.fragment_chat_room) {
                  } } catch (_: Exception) {}
               }
           }
+
+        // Register file picker for chat room
+        filePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            uri ?: return@registerForActivityResult
+            lifecycleScope.launch {
+                uploadAndSendWithRetry(uri)
+            }
+        }
+
+        // Hook add button
+        view.findViewById<View>(R.id.iv_add)?.setOnClickListener {
+            try { filePickerLauncher.launch("*/*") } catch (_: Exception) {}
+        }
+    }
+
+    private fun createFilePartFromUri(uri: Uri): MultipartBody.Part? {
+        return try {
+            val cr = requireContext().contentResolver
+            val mime = cr.getType(uri) ?: "application/octet-stream"
+            val fileName = uri.lastPathSegment ?: "upload"
+
+            // Copy to cache
+            val tmp = File.createTempFile("upload", null, requireContext().cacheDir)
+            tmp.deleteOnExit()
+            cr.openInputStream(uri)?.use { input ->
+                FileOutputStream(tmp).use { output -> input.copyTo(output) }
+            }
+
+            val req = tmp.asRequestBody(mime.toMediaTypeOrNull())
+            MultipartBody.Part.createFormData("file", fileName, req)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    // Upload helpers: size/type check, cancellable progress dialog, retry dialog
+    private var uploadJob: Job? = null
+    private val MAX_FILE_BYTES = 100L * 1024L * 1024L // 100 MB
+    private val allowedMimePrefixes = listOf("image/", "video/", "audio/", "text/")
+    private val allowedExtensions = listOf("pdf","zip","doc","docx","xls","xlsx","ppt","pptx")
+
+    private suspend fun askRetryDialog(): Boolean = suspendCancellableCoroutine { cont ->
+        try {
+            val dlg = AlertDialog.Builder(requireContext())
+                .setTitle("Upload failed")
+                .setMessage("File upload failed. Retry?")
+                .setPositiveButton("Retry") { d, _ ->
+                    cont.resume(true)
+                    try { d.dismiss() } catch (_: Exception) {}
+                }
+                .setNegativeButton("Cancel") { d, _ ->
+                    cont.resume(false)
+                    try { d.dismiss() } catch (_: Exception) {}
+                }
+                .setOnCancelListener { cont.resume(false) }
+                .create()
+            dlg.show()
+            cont.invokeOnCancellation { try { dlg.dismiss() } catch (_: Exception) {} }
+        } catch (e: Exception) { cont.resumeWithException(e) }
+    }
+
+    private fun showProgressCancelable(onCancel: () -> Unit): AlertDialog {
+        val dlg = AlertDialog.Builder(requireContext())
+            .setTitle("Uploading")
+            .setMessage("Uploading file...")
+            .setNegativeButton("Cancel") { d, _ -> onCancel(); try { d.dismiss() } catch (_: Exception) {} }
+            .setCancelable(false)
+            .create()
+        dlg.show()
+        return dlg
+    }
+
+    private fun getFileSize(uri: Uri): Long {
+        return try {
+            val afd = requireContext().contentResolver.openFileDescriptor(uri, "r")
+            afd?.use { it.statSize } ?: -1L
+        } catch (_: Exception) { -1L }
+    }
+
+    private fun isMimeAllowed(uri: Uri): Boolean {
+        return try {
+            val cr = requireContext().contentResolver
+            val mime = cr.getType(uri) ?: ""
+            if (mime.isBlank()) return false
+            allowedMimePrefixes.any { mime.startsWith(it) } || run {
+                val path = uri.lastPathSegment ?: ""
+                val ext = path.substringAfterLast('.', "").lowercase()
+                allowedExtensions.contains(ext)
+            }
+        } catch (_: Exception) { false }
+    }
+
+    private suspend fun uploadAndSendWithRetry(uri: Uri) {
+        // Size/type checks
+        val size = getFileSize(uri)
+        if (size > 0 && size > MAX_FILE_BYTES) {
+            android.widget.Toast.makeText(requireContext(), "File too large (>100 MB)", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        if (!isMimeAllowed(uri)) {
+            android.widget.Toast.makeText(requireContext(), "Unsupported file type", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+
+        while (true) {
+            val progressDlg = showProgressCancelable { uploadJob?.cancel() }
+            var success: Boolean
+            try {
+                uploadJob = lifecycleScope.launch {
+                    val api = NetworkModule.createApiService(requireContext())
+                    val part = createFilePartFromUri(uri)
+                    if (part == null) throw java.lang.Exception("Failed to prepare file")
+                    val resp = withContext(Dispatchers.IO) { api.uploadFileAndGetUrl(part) }
+                    if (!resp.isSuccessful) throw java.lang.Exception("Upload failed: ${resp.code()}")
+                    val body = resp.body()
+                    val data = body?.data
+                    val fileUrl = data?.fileUrl
+                    val fileKey = data?.fileKey
+                    val fileNameResp = data?.fileName
+                    val contentTypeResp = data?.contentType
+                    if (fileUrl.isNullOrBlank() || fileKey.isNullOrBlank()) throw java.lang.Exception("Invalid upload response")
+                    // Build FILE payload and send to room
+                    val payload = mapOf(
+                        "type" to "FILE",
+                        "fileKey" to fileKey,
+                        "fileName" to (fileNameResp ?: fileKey),
+                        "fileUrl" to fileUrl,
+                        "contentType" to (contentTypeResp ?: "application/octet-stream")
+                    )
+                    val jsonPayload = com.google.gson.Gson().toJson(payload)
+                    val roomCodeArg = arguments?.getString("chatRoomCode")
+                    if (!roomCodeArg.isNullOrBlank()) withContext(Dispatchers.Main) { vm.sendMessage(jsonPayload, roomCodeArg) }
+                }
+                uploadJob?.join()
+                success = true
+            } catch (_: java.util.concurrent.CancellationException) {
+                android.widget.Toast.makeText(requireContext(), "Upload cancelled", android.widget.Toast.LENGTH_SHORT).show()
+                success = false
+            } catch (t: Throwable) {
+                android.util.Log.w("ChatRoomFragment", "upload failed: ${t.message}")
+                success = false
+            } finally {
+                try { progressDlg.dismiss() } catch (_: Exception) {}
+                uploadJob = null
+            }
+
+            if (success) return
+            val retry = askRetryDialog()
+            if (!retry) return
+            // else loop to retry
+        }
     }
 
     override fun onDestroyView() {

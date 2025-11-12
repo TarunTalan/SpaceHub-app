@@ -4,9 +4,11 @@
     <option name="migrationStatus" value="IN_PROGRESS" />
     <option name="pendingSessionIds">
       <option value="0d8fa1b7-d090-4170-9af7-07321c73a649" />
+      <option value="457d9258-0224-43e7-9814-dea351056d83" />
       <option value="4b1d682d-98c8-49fa-9bf8-42ca29d3ce2e" />
       <option value="4e8bd3d4-a77e-4abb-ae79-7797e962ccfc" />
       <option value="51ddf032-a05c-455c-b844-098efdaf2341" />
+      <option value="66b05802-fe2b-4f94-a22e-3cbba5861789" />
       <option value="97412686-05d6-4972-8b37-9b761b36dc8e" />
       <option value="c0e73003-ff73-4df9-9cf2-17cc3d6f9009" />
       <option value="f35216ec-ecee-4c6a-8f8d-d7847bfa661c" />
@@ -458,6 +460,31 @@
               <option value="c95d278a-7cb6-4d23-a98a-5eaa27d04131" />
               <option value="b82d720a-1b02-4f29-9ee5-5d542a20c1df" />
               <option value="a93b78ba-bb50-4f8d-a0ed-78a0e8bee145" />
+              <option value="7187be73-9f5c-4dbc-a7e4-57e9040bc1be" />
+              <option value="fe96b7e8-7b77-44c0-a073-008e413450e9" />
+              <option value="02536bff-0ca0-4a3c-9b3d-6ace07f6c703" />
+              <option value="6024bf36-8ae0-4116-bd9e-7b62f21be689" />
+              <option value="482c6fbd-5a17-47f2-9b78-d3b3fd902245" />
+              <option value="476df970-7d95-4529-b898-fe73b5c03a81" />
+              <option value="bd4195cc-6b1f-4bc6-b241-24425e344901" />
+              <option value="6ef40d9f-8ae0-4b29-b0c8-99d207e7e9eb" />
+              <option value="37fc2fc5-59b3-4450-871a-af9ff820f8f2" />
+              <option value="eff894d3-3e76-4dfa-8f3d-5d43f05656d1" />
+              <option value="1d48af9c-7a27-42ed-bc00-69923db95ebc" />
+              <option value="465da59e-06dc-475a-ade9-174d7a99f515" />
+              <option value="6f5ebaab-e848-4211-b5aa-40de6f8b6d7b" />
+              <option value="04941032-e81d-42d6-9137-605858e60b35" />
+              <option value="0839ae10-ac3b-4552-9e88-16bc21ae22d0" />
+              <option value="1ad613a3-69af-4415-9044-213c6756489e" />
+              <option value="558d40ec-0f44-4895-bc24-18c948f60dcb" />
+              <option value="a58fca37-bce7-4c0a-9f73-1ecab57ebecd" />
+              <option value="d739bcd1-3209-4e77-b98e-f566703e3eef" />
+              <option value="7e714991-4a3e-47e1-b173-e6986a56388e" />
+              <option value="2a7935eb-76fe-486d-a4eb-165a94ef11f2" />
+              <option value="1a503288-e790-4bb6-ab66-005b11dfbfc3" />
+              <option value="a3d0112b-e68d-41a5-88cb-55172814977d" />
+              <option value="04ab85e9-4485-4faa-9489-523eefcdc803" />
+              <option value="05ad9074-4cae-4f72-8feb-055c253b321a" />
             </set>
           </value>
         </entry>
@@ -758,6 +785,16 @@
           <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/chat/ChatRoomViewModel.kt" />
           <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/CommunityDescriptionFragment.kt" />
           <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/community/RoomFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_direct_chat.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/DirectChatFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/chat/ChatMessagesAdapter.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/item_message_received.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/item_message_sent.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/drawable/ic_file.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/values/strings.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/drawable/ic_download.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/common/AuthenticatedGlideModule.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/chat/websocket/DirectChatWebSocketService.kt" />
         </set>
       </entry>
       <entry key="f35216ec-ecee-4c6a-8f8d-d7847bfa661c" />

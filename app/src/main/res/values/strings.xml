@@ -204,6 +204,7 @@
     <string name="invite_friends_subtitle">Invite your friends to chat together</string>
     <string name="cd_add_friend">Add friend</string>
     <string name="message_status">Message status</string>
+    <string name="file_preview">File preview</string>
     <string name="send_message">Send</string>
     <string name="typing_indicator">%s is typing...</string>
     <string name="connected">Connected</string>

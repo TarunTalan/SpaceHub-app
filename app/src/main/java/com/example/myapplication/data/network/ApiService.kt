@@ -7,6 +7,9 @@ import com.example.myapplication.data.chat_room.model.DeleteChatRoomResponse
 import com.example.myapplication.data.chat_room.model.GetChatRoomSummaryResponse
 import com.example.myapplication.data.community.model.*
 import com.example.myapplication.data.dashboard.model.*
+import com.example.myapplication.data.file_sharing.model.PresignedUrlRequest
+import com.example.myapplication.data.file_sharing.model.PresignedUrlResponse
+import com.example.myapplication.data.file_sharing.model.UploadFileResponse
 import com.example.myapplication.data.friends.model.*
 import com.example.myapplication.data.groups.model.CreateLocalGroupResponse
 import com.example.myapplication.data.groups.model.DeleteLocalGroupRequest
@@ -339,5 +342,16 @@ interface ApiService {
         @Query("janusRoomId") janusRoomId: Int,
         @Query("displayName") displayName: String
     ): Response<JoinVoiceRoomResponse>
+
+    @Multipart
+    @POST("files/upload-and-get-url")
+    suspend fun uploadFileAndGetUrl(
+        @Part file: MultipartBody.Part
+    ): Response<UploadFileResponse>
+
+    @POST("files/presigned/download")
+    suspend fun getPresignedDownloadUrl(
+        @Body body: PresignedUrlRequest
+    ): Response<PresignedUrlResponse>
 
 }
