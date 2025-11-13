@@ -38,6 +38,9 @@ interface ChatDao {
     @Query("SELECT * FROM messages WHERE id = :messageId LIMIT 1")
     suspend fun getMessageById(messageId: String): ChatMessage?
 
+    @Query("SELECT * FROM messages WHERE serverId = :serverId LIMIT 1")
+    suspend fun getMessageByServerId(serverId: String): ChatMessage?
+
     // New helper to mark a message as deleted for sender/receiver and replace its displayed content
     @Query("UPDATE messages SET senderDeleted = :senderDeleted, receiverDeleted = :receiverDeleted, content = :deletedText WHERE id = :messageId")
     suspend fun markMessageDeleted(messageId: String, senderDeleted: Boolean, receiverDeleted: Boolean, deletedText: String)

@@ -105,7 +105,8 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                android:layout_marginTop="20dp">
+                android:paddingTop="8dp"
+        >
 
             <androidx.core.widget.NestedScrollView
                     android:id="@+id/nested_content"
@@ -189,7 +190,6 @@
                                 android:layout_marginEnd="25dp"
                                 android:contentDescription="@string/toggle"
                                 app:layout_constraintEnd_toEndOf="parent"
-                                app:layout_constraintTop_toTopOf="parent"
                                 app:layout_constraintBottom_toBottomOf="parent"/>
                     </androidx.constraintlayout.widget.ConstraintLayout>
 

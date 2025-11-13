@@ -42,15 +42,17 @@ class FriendRequestsAdapter(
         private val progress: ProgressBar = itemView.findViewById(R.id.progress)
 
         fun bind(item: IncomingFriendRequestItem) {
-            val displayName = buildString {
-                if (!item.firstName.isNullOrBlank()) append(item.firstName)
-                if (!item.lastName.isNullOrBlank()) {
-                    if (isNotEmpty()) append(" ")
-                    append(item.lastName)
-                }
-            }.ifBlank { item.email ?: "Unknown user" }
-            tvName.text = displayName
-            tvEmail.text = item.email ?: "-"
+            // sanitize names: API sometimes returns literal "null" string. Treat that as missing.
+            val first = item.firstName?.trim()?.takeIf { it.isNotBlank() && it.lowercase() != "null" }
+            val last = item.lastName?.trim()?.takeIf { it.isNotBlank() && it.lowercase() != "null" }
+            val displayName = when {
+                first != null && last != null -> "$first $last"
+                first != null -> first
+                last != null -> last
+                else -> item.email ?: "Unknown user"
+            }
+             tvName.text = displayName
+             tvEmail.text = item.email ?: "-"
 
             // Optional avatar: we don't have an avatarUrl in the payload; show placeholder
             ivAvatar.setImageResource(R.drawable.default_profile)
@@ -80,4 +82,3 @@ class FriendRequestsAdapter(
         holder.bind(getItem(position))
     }
 }
-

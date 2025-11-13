@@ -14,6 +14,8 @@ import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
 import com.example.myapplication.R
 import com.example.myapplication.data.groups.repository.LocalGroupRepository
+import com.example.myapplication.data.voice.VoiceRoomRepository
+import com.example.myapplication.data.user.UserDataManager
 import com.example.myapplication.ui.common.BaseFragment
 import com.example.myapplication.ui.common.ProfileSharedViewModel
 import com.google.android.material.snackbar.Snackbar
@@ -110,6 +112,21 @@ class GroupDescriptionFragment : BaseFragment(R.layout.fragment_group_descriptio
                     // result is Result<CreateLocalGroupResponse>
                     if (result.isSuccess) {
                         val created = result.getOrNull()?.data
+                        // Best-effort: create a default voice room for this new local group (non-blocking)
+                        try {
+                            val gid = created?.id
+                            if (!gid.isNullOrBlank()) {
+                                lifecycleScope.launch {
+                                    try {
+                                        withContext(Dispatchers.IO) {
+                                            val voiceRepo = VoiceRoomRepository.getInstance(requireContext())
+                                            val createdBy = try { UserDataManager.getInstance(requireContext()).getEmail() ?: "" } catch (_: Exception) { "" }
+                                            try { voiceRepo.createVoiceRoom(gid, "General", createdBy) } catch (_: Exception) { /* best-effort */ }
+                                        }
+                                    } catch (_: Exception) { /* swallow */ }
+                                }
+                            }
+                        } catch (_: Exception) { /* swallow */ }
                         // After successful creation, fetch authoritative list from server so DB is updated
                         try {
                             val repo = LocalGroupRepository.getInstance(requireContext())

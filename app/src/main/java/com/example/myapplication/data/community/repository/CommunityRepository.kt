@@ -255,7 +255,23 @@ class CommunityRepository private constructor(private val context: Context) {
                 // Minimize API calls: update local DB immediately instead of refetching
                 try { communityDao.deleteCommunityById(communityId) } catch (_: Exception) {}
                 Result.success(Unit)
-            } else Result.failure(RuntimeException("Failed: ${resp.code()}"))
+            } else {
+                // Try to extract server-provided message deterministically.
+                val rawErr = try { resp.errorBody()?.string() } catch (_: Exception) { null }
+                val err = when {
+                    // If the typed body contains a message field (some backends include it even on errors), prefer that
+                    !resp.body()?.message.isNullOrBlank() -> resp.body()!!.message
+                    // Try parsing raw error JSON for 'message'/'error' keys
+                    !rawErr.isNullOrBlank() -> try {
+                        val parsed = com.example.myapplication.data.network.ResponseParser.parseError(okhttp3.ResponseBody.create(null, rawErr))
+                        if (!parsed.isNullOrBlank()) parsed else "HTTP ${resp.code()}"
+                    } catch (_: Exception) {
+                        rawErr
+                    }
+                    else -> "HTTP ${resp.code()}"
+                }
+                Result.failure(RuntimeException(err))
+            }
         } catch (t: Throwable) { Result.failure(t) }
     }
 

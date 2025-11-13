@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
-import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,6 +19,17 @@ import com.example.myapplication.data.user.UserDataManager
 import com.example.myapplication.databinding.FragmentVoiceRoomBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import android.content.Context
+import android.media.AudioManager
+import android.widget.ImageButton
+import android.graphics.Color
+import android.content.res.ColorStateList
+import android.media.AudioDeviceInfo
+import android.os.Build
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+import android.util.Log
 
 class VoiceRoomFragment : Fragment(R.layout.fragment_voice_room) {
     private var _binding: FragmentVoiceRoomBinding? = null
@@ -32,7 +42,6 @@ class VoiceRoomFragment : Fragment(R.layout.fragment_voice_room) {
     private val audioPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
-                binding.tvVoiceStatus.text = "Status: audio permission granted"
                 // If fragment had provided session/handle/roomId earlier, ensure peer setup and offer are called
                 val serverRoomIdArg = arguments?.getString("roomId")
                 val chatRoomIdArg = arguments?.getString("chatRoomId")
@@ -47,7 +56,6 @@ class VoiceRoomFragment : Fragment(R.layout.fragment_voice_room) {
                     Log.w(TAG, "setupPeer/createOffer after permission failed: ${e.message}")
                 }
             } else {
-                binding.tvVoiceStatus.text = "Status: permission denied"
                 if (!shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO)) {
                     showMicSettingsDialog()
                 } else {
@@ -89,17 +97,16 @@ class VoiceRoomFragment : Fragment(R.layout.fragment_voice_room) {
         }
 
         // If join requires calling joinVoiceRoom (server join via REST), do that and handle joinState
-        lifecycleScope.launchWhenStarted {
+        viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
                 launch {
                     vm.joinState.collect { state ->
                         when (state) {
                             is VoiceRoomViewModel.JoinState.Success -> {
                                 val resp = state.resp
-                                Log.d(TAG, "Joined janus room: session=${resp.sessionId} handle=${resp.handleId}")
                                 // start socket/register using returned session/handle and displayName
                                 vm.startSocketAndRegister(roomId, resp.sessionId, resp.handleId, displayNameForJoin)
-                                // ensure peer setup and offer
+                                // ensure peer setup and offer if permission already granted
                                 if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO)
                                     == PackageManager.PERMISSION_GRANTED
                                 ) {
@@ -112,11 +119,6 @@ class VoiceRoomFragment : Fragment(R.layout.fragment_voice_room) {
                             }
                             else -> {}
                         }
-                    }
-                }
-                launch {
-                    vm.status.collect { st ->
-                        binding.tvVoiceStatus.text = "Status: $st"
                     }
                 }
                 launch {
@@ -144,24 +146,51 @@ class VoiceRoomFragment : Fragment(R.layout.fragment_voice_room) {
             checkAndRequestMicPermission(roomId, sessionIdArg, handleIdArg)
         }
 
-        // debug button kept (optional)
+        // Auto request microphone permission once on entering the voice room if not already granted
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            checkAndRequestMicPermission(roomId, sessionIdArg, handleIdArg)
+        } else {
+            // If permission already granted, ensure peer is setup (in case startSocketAndRegister completed earlier)
+            try {
+                vm.setupPeer(roomId, sessionIdArg, handleIdArg)
+            } catch (_: Exception) {}
+        }
+
+        // Wire speaker toggle ImageButton from XML (btn_speaker_toggle) and persist preference
         try {
-            val debugBtn = android.widget.Button(requireContext()).apply {
-                text = "DEBUG: Setup Peer"
-                setBackgroundColor(android.graphics.Color.parseColor("#CC0000"))
-                setTextColor(android.graphics.Color.WHITE)
-                setOnClickListener {
-                    try {
-                        vm.setupPeer(roomId, sessionIdArg, handleIdArg)
-                        vm.createAndSendOffer(roomId, sessionIdArg, handleIdArg)
-                        Toast.makeText(requireContext(), "Debug: setupPeer invoked", Toast.LENGTH_SHORT).show()
-                    } catch (e: Exception) {
-                        Toast.makeText(requireContext(), "Debug failed: ${e.message}", Toast.LENGTH_LONG).show()
-                    }
+            val speakerBtn = binding.root.findViewById<ImageButton>(R.id.btn_speaker_toggle)
+            val am = requireContext().getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+            // Load saved preference; if not present, default to the current system speaker state
+            val saved = loadSpeakerPref()
+            val systemSpeakerState = try { @Suppress("DEPRECATION") am.isSpeakerphoneOn } catch (_: Exception) { false }
+            var speakerOn = saved ?: systemSpeakerState
+
+            // Apply saved preference to system (modern API if available)
+            applySpeakerPreference(am, speakerOn)
+
+            fun updateSpeakerUi() {
+                try {
+                    val tint = if (speakerOn) ColorStateList.valueOf(Color.WHITE) else ColorStateList.valueOf(Color.GRAY)
+                    speakerBtn?.imageTintList = tint
+                    speakerBtn?.contentDescription = if (speakerOn) getString(R.string.speaker_on) else getString(R.string.speaker_off)
+                } catch (_: Exception) {}
+            }
+
+            updateSpeakerUi()
+            speakerBtn?.setOnClickListener {
+                try {
+                    speakerOn = !speakerOn
+                    applySpeakerPreference(am, speakerOn)
+                    saveSpeakerPref(speakerOn)
+                    updateSpeakerUi()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to toggle speaker: ${e.message}")
                 }
             }
-            (binding.root as? android.view.ViewGroup)?.addView(debugBtn)
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+            // safe ignore if view not present
+        }
     }
 
     private fun checkAndRequestMicPermission(roomId: String, sessionId: String, handleId: String) {
@@ -204,7 +233,127 @@ class VoiceRoomFragment : Fragment(R.layout.fragment_voice_room) {
         }
     }
 
+    // SharedPreferences helpers for speaker preference
+    private fun saveSpeakerPref(enabled: Boolean) {
+        try {
+            val prefs = requireContext().getSharedPreferences("voice_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putBoolean("speaker_on", enabled).apply()
+        } catch (_: Exception) {}
+    }
+
+    private fun loadSpeakerPref(): Boolean? {
+        return try {
+            val prefs = requireContext().getSharedPreferences("voice_prefs", Context.MODE_PRIVATE)
+            if (prefs.contains("speaker_on")) prefs.getBoolean("speaker_on", false) else null
+        } catch (_: Exception) { null }
+    }
+
+
+    // Apply speaker preference using modern audio routing when available (API 31+), fallback to legacy setSpeakerphoneOn
+    private fun applySpeakerPreference(am: AudioManager, enabled: Boolean) {
+        try {
+            am.mode = AudioManager.MODE_IN_COMMUNICATION
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { // API 31+
+                try {
+                    val devices = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                    // prefer built-in speaker
+                    val speakerDevice = devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+                    if (speakerDevice != null) {
+                        // Use reflection to call setCommunicationDevice(AudioDeviceInfo)
+                        val method = AudioManager::class.java.getMethod("setCommunicationDevice", AudioDeviceInfo::class.java)
+                        if (enabled) {
+                            method.invoke(am, speakerDevice)
+                            Log.d(TAG, "applySpeakerPreference: routed to built-in speaker (modern API)")
+                        } else {
+                            // choose earpiece if available
+                            val earpiece = devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE }
+                            if (earpiece != null) {
+                                method.invoke(am, earpiece)
+                                Log.d(TAG, "applySpeakerPreference: routed to earpiece (modern API)")
+                            } else {
+                                // fallback: disable speakerphone via legacy API
+                                @Suppress("DEPRECATION")
+                                am.isSpeakerphoneOn = false
+                                Log.d(TAG, "applySpeakerPreference: modern earpiece not found, disabled speakerphone")
+                            }
+                        }
+                        // manage audio focus for audibility
+                        if (enabled) requestAudioFocus() else abandonAudioFocus()
+                        return
+                    }
+                } catch (e: Exception) {
+                    // reflection failed or method not available; fall back
+                    Log.w(TAG, "Modern audio routing failed, falling back: ${e.message}")
+                }
+            }
+            // fallback legacy
+            @Suppress("DEPRECATION")
+            am.isSpeakerphoneOn = enabled
+            Log.d(TAG, "applySpeakerPreference: legacy setSpeakerphoneOn=$enabled")
+            if (enabled) requestAudioFocus() else abandonAudioFocus()
+        } catch (e: Exception) {
+            Log.w(TAG, "applySpeakerPreference failed: ${e.message}")
+        }
+    }
+
+    // Request audio focus (API 26+ preferred). Keeps audio audible during call.
+    private var audioFocusRequest: AudioFocusRequest? = null
+    private fun requestAudioFocus() {
+        try {
+            val am = requireContext().getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val attr = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                    .setAudioAttributes(attr)
+                    .setAcceptsDelayedFocusGain(false)
+                    .setOnAudioFocusChangeListener { /* no-op */ }
+                    .build()
+                val res = am.requestAudioFocus(req)
+                if (res == AUDIOFOCUS_REQUEST_GRANTED) {
+                    audioFocusRequest = req
+                    Log.d(TAG, "Audio focus granted")
+                } else {
+                    Log.w(TAG, "Audio focus request denied: $res")
+                }
+            } else {
+                // legacy request
+                val res = am.requestAudioFocus(null, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                Log.d(TAG, "legacy audio focus request result=$res")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "requestAudioFocus failed: ${e.message}")
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        try {
+            val am = requireContext().getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                audioFocusRequest?.let { am.abandonAudioFocusRequest(it) }
+                audioFocusRequest = null
+            } else {
+                am.abandonAudioFocus(null)
+            }
+            Log.d(TAG, "Audio focus abandoned")
+        } catch (e: Exception) {
+            Log.w(TAG, "abandonAudioFocus failed: ${e.message}")
+        }
+    }
+
     override fun onDestroyView() {
+        try {
+            // Ensure we unregister and cleanup when leaving the fragment
+            val serverRoomIdArg = arguments?.getString("roomId")
+            val chatRoomIdArg = arguments?.getString("chatRoomId")
+            val chatRoomCodeArg = arguments?.getString("roomCode")
+            val roomId = serverRoomIdArg ?: chatRoomIdArg ?: chatRoomCodeArg ?: ""
+            val sessionIdArg = arguments?.getString("sessionId") ?: ""
+            val handleIdArg = arguments?.getString("handleId") ?: ""
+            vm.endCall(roomId, sessionIdArg, handleIdArg)
+        } catch (_: Exception) {}
         super.onDestroyView()
         _binding = null
     }

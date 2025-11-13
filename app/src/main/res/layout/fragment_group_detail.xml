@@ -281,5 +281,21 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <!-- Full-screen loading overlay shown while group resources load -->
+    <FrameLayout
+            android:id="@+id/loading_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone"
+            android:background="#80000000"
+            android:clickable="true"
+            android:focusable="true">
+        <ProgressBar
+                android:id="@+id/loading_progress"
+                style="@android:style/Widget.Material.ProgressBar.Large"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_gravity="center"/>
+    </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

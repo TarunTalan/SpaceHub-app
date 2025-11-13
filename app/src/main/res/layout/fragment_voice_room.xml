@@ -41,10 +41,24 @@
             android:textSize="18sp"
             android:gravity="center_vertical"
             app:layout_constraintStart_toEndOf="@id/back_arrow"
-            app:layout_constraintEnd_toStartOf="@id/iv_actions"
+            app:layout_constraintEnd_toStartOf="@id/btn_speaker_toggle"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
             android:layout_marginStart="12dp" />
+
+        <!-- Speaker toggle placed between title and actions -->
+        <ImageButton
+            android:id="@+id/btn_speaker_toggle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/voice_speaker"
+            android:gravity="center"
+            android:background="@color/transparent"
+            app:layout_constraintEnd_toStartOf="@id/iv_actions"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            android:layout_marginHorizontal="10dp"
+             />
 
         <ImageView
                 android:id="@+id/iv_actions"
@@ -58,37 +72,19 @@
                 android:layout_marginEnd="8dp" app:layout_constraintVertical_bias="0.0"/>
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- Status area for quick debugging -->
-    <TextView
-        android:id="@+id/tv_voice_status"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:text="Status: init"
-        android:textColor="@color/white"
-        android:textSize="12sp"
-        android:padding="8dp"
-        android:background="#33262626"
-        android:ellipsize="end"
-        android:maxLines="2"
-        app:layout_constraintTop_toBottomOf="@id/constraintLayoutTitle"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="8dp"
-        android:layout_marginStart="8dp"
-        android:layout_marginEnd="8dp" />
 
     <!-- Grid of participants -->
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rv_voice_members"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:clipToPadding="false"
-        android:padding="8dp"
-        app:layout_constraintTop_toBottomOf="@id/tv_voice_status"
-        app:layout_constraintBottom_toTopOf="@id/voice_controls"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        tools:listitem="@layout/item_voice_member" />
+            android:id="@+id/rv_voice_members"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:clipToPadding="false"
+            android:padding="8dp"
+            app:layout_constraintBottom_toTopOf="@id/voice_controls"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            tools:listitem="@layout/item_voice_member"
+            app:layout_constraintTop_toBottomOf="@+id/constraintLayoutTitle"/>
 
     <!-- Bottom control bar (centered) -->
     <LinearLayout

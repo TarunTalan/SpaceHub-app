@@ -1,3 +1,5 @@
+@file:Suppress("unused", "UNUSED_PARAMETER", "MemberVisibilityCanBePrivate", "DEPRECATION")
+
 package com.example.myapplication.ui.voice
 
 import android.app.Application
@@ -11,6 +13,7 @@ import com.example.myapplication.data.voice.LocalAudioLevelDetector
 import com.example.myapplication.data.voice.VoicePeerManager
 import com.example.myapplication.data.voice.VoiceRoomRepository
 import com.example.myapplication.data.voice.model.JoinVoiceRoomResponse
+import io.reactivex.disposables.Disposable
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,6 +54,9 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
 
     // STOMP
     private var stompClient: StompClient? = null
+
+    // Keep track of stomp subscriptions (lifecycle/topic/send disposables) so we can dispose on clear
+    private val stompDisposables = mutableListOf<Disposable>()
     private val BASE_URL = "https://codewithketan.me"
     private val WS_URL = "$BASE_URL/ws/websocket" // SockJS websocket fallback
 
@@ -196,7 +202,11 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
             val resolvedUser = if (userId.isNotBlank()) {
                 userId
             } else {
-                try { UserDataManager.getInstance(getApplication()).getEmail() ?: "" } catch (_: Exception) { "" }
+                try {
+                    UserDataManager.getInstance(getApplication()).getEmail() ?: ""
+                } catch (_: Exception) {
+                    ""
+                }
             }
             currentUserIdRef.set(resolvedUser)
 
@@ -209,26 +219,31 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
             try {
                 stompClient = Stomp.over(Stomp.ConnectionProvider.OKHTTP, WS_URL)
                 stompClient?.withClientHeartbeat(10000)?.withServerHeartbeat(0)
-                stompClient?.lifecycle()?.subscribe { life ->
+                // subscribe lifecycle and keep disposable
+                val lifeDisp = stompClient?.lifecycle()?.subscribe { life ->
                     when (life.type) {
                         LifecycleEvent.Type.OPENED -> {
                             Log.d(TAG, "STOMP opened -> sending register")
                             _status.value = "socket_connected"
                             sendRegisterIfConnected(roomId, sessionId, handleId)
                         }
+
                         LifecycleEvent.Type.ERROR -> {
                             Log.e(TAG, "STOMP error: ${life.exception?.message}")
                             _status.value = "socket_error:${life.exception?.message}"
                         }
+
                         LifecycleEvent.Type.CLOSED -> {
                             // Important: do NOT dispose peer connection here. STOMP can transiently close.
                             Log.d(TAG, "STOMP closed — will keep PeerConnection alive. Consider reconnecting.")
                             _status.value = "socket_closed"
                             // Optional: implement reconnect logic instead of tearing down
                         }
+
                         else -> {}
                     }
                 }
+                lifeDisp?.let { stompDisposables.add(it) }
                 stompClient?.connect()
                 _status.value = "socket_connecting"
             } catch (e: Exception) {
@@ -247,7 +262,11 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val uid = currentUserIdRef.get().ifBlank {
-                    try { UserDataManager.getInstance(getApplication()).getEmail() ?: "" } catch (_: Exception) { "" }
+                    try {
+                        UserDataManager.getInstance(getApplication()).getEmail() ?: ""
+                    } catch (_: Exception) {
+                        ""
+                    }
                 }
 
                 // subscribe first
@@ -260,7 +279,7 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                     if (handleId.isNotBlank()) put("handleId", handleId)
                 }.toString()
 
-                stompClient?.send("/app/register", registerObj)?.subscribe({
+                val regDisp = stompClient?.send("/app/register", registerObj)?.subscribe({
                     Log.d(TAG, "Register sent payload=$registerObj")
                     _status.value = "registered"
                     try {
@@ -274,6 +293,7 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                     Log.e(TAG, "Register send failed: ${err?.message}")
                     _status.value = "register_failed:${err?.message}"
                 })
+                regDisp?.let { stompDisposables.add(it) }
             } catch (e: Exception) {
                 Log.e(TAG, "sendRegisterIfConnected error: ${e.message}", e)
             }
@@ -283,23 +303,30 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
     private fun subscribeToTopics(roomId: String, uid: String) {
         try {
             val eventsTopic = "/topic/room/$roomId/events"
-            stompClient?.topic(eventsTopic)?.subscribe { msg ->
+            val d1 = stompClient?.topic(eventsTopic)?.subscribe { msg ->
                 handleRoomEventStomp(msg.payload)
             }
+            d1?.let { stompDisposables.add(it) }
             if (uid.isNotBlank()) {
                 val answerTopic = "/topic/room/$roomId/answer/$uid"
-                stompClient?.topic(answerTopic)?.subscribe { msg ->
+                val d2 = stompClient?.topic(answerTopic)?.subscribe { msg ->
                     handleJanusPayload(msg.payload)
                 }
+                d2?.let { stompDisposables.add(it) }
             }
             // Subscribe to email fallback if different
             viewModelScope.launch {
-                val email = try { UserDataManager.getInstance(getApplication()).getEmail() ?: "" } catch (_: Exception) { "" }
+                val email = try {
+                    UserDataManager.getInstance(getApplication()).getEmail() ?: ""
+                } catch (_: Exception) {
+                    ""
+                }
                 if (email.isNotBlank() && email != uid) {
                     val answerTopic2 = "/topic/room/$roomId/answer/$email"
-                    stompClient?.topic(answerTopic2)?.subscribe { msg ->
+                    val d3 = stompClient?.topic(answerTopic2)?.subscribe { msg ->
                         handleJanusPayload(msg.payload)
                     }
+                    d3?.let { stompDisposables.add(it) }
                 }
             }
             Log.d(TAG, "Subscribed to topics for room=$roomId user=$uid")
@@ -357,10 +384,15 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                     val curUid = currentUserIdRef.get()
                     if (!pendingOfferSent && curUid.isNotBlank() && uid == curUid) {
                         Log.d(TAG, "Flushing pending offer after registered/joined for user=$uid")
-                        createAndSendOffer(pendingOfferRoomId ?: return, pendingOfferSessionId ?: "", pendingOfferHandleId ?: "")
+                        createAndSendOffer(
+                            pendingOfferRoomId ?: return,
+                            pendingOfferSessionId ?: "",
+                            pendingOfferHandleId ?: ""
+                        )
                         pendingOfferSent = true
                     }
                 }
+
                 "left" -> onRemoteLeft(obj.optString("userId"))
                 "muted" -> onRemoteMuted(obj.optString("userId"))
                 "unmuted" -> onRemoteUnmuted(obj.optString("userId"))
@@ -445,17 +477,23 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                             Log.d(TAG, "Received ICE gathering complete signal")
                         }
                     }
+
                     is String -> {
                         try {
                             val parsed = JSONObject(candAny)
                             val candidate = parsed.optString("candidate")
                             val sdpMid = parsed.optString("sdpMid", parsed.optString("sdpmid"))
                             val sdpIdx = parsed.optInt("sdpMLineIndex", parsed.optInt("sdpMLineindex", 0))
-                            if (candidate.isNotBlank()) addRemoteCandidate(if (sdpMid.isBlank()) null else sdpMid, sdpIdx, candidate)
+                            if (candidate.isNotBlank()) addRemoteCandidate(
+                                if (sdpMid.isBlank()) null else sdpMid,
+                                sdpIdx,
+                                candidate
+                            )
                         } catch (e: Exception) {
                             Log.w(TAG, "Could not parse candidate string: ${e.message}")
                         }
                     }
+
                     else -> Log.w(TAG, "Unknown candidate payload type: ${candAny::class.java}")
                 }
             }
@@ -489,10 +527,15 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                 if (display == myId) {
                     Log.d(TAG, "Found our participant in Janus participants list: $display. Attempting to flush offer.")
                     viewModelScope.launch {
-                        val shouldForceSend = !pendingOfferSent || (System.currentTimeMillis() - lastOfferSentAt) > 8000L
+                        val shouldForceSend =
+                            !pendingOfferSent || (System.currentTimeMillis() - lastOfferSentAt) > 8000L
                         if (shouldForceSend) {
                             pendingOfferSent = false
-                            createAndSendOffer(pendingOfferRoomId ?: return@launch, pendingOfferSessionId ?: "", pendingOfferHandleId ?: "")
+                            createAndSendOffer(
+                                pendingOfferRoomId ?: return@launch,
+                                pendingOfferSessionId ?: "",
+                                pendingOfferHandleId ?: ""
+                            )
                         } else {
                             Log.d(TAG, "Pending offer already sent recently; skipping flush.")
                         }
@@ -527,7 +570,10 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                                             iceConnected.set(true)
                                             offerResendJob?.cancel()
                                             offerResendJob = null
-                                            Log.d(TAG, "ICE connected/completed — cancelled offer resends (pcState=$stateStr)")
+                                            Log.d(
+                                                TAG,
+                                                "ICE connected/completed — cancelled offer resends (pcState=$stateStr)"
+                                            )
                                         }
                                     } else if (stateStr.contains("CLOSED") || stateStr.contains("FAILED")) {
                                         iceConnected.set(false)
@@ -569,7 +615,11 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                             flow.collect { candidate ->
                                 try {
                                     val uid = currentUserIdRef.get().ifBlank {
-                                        try { UserDataManager.getInstance(getApplication()).getEmail() ?: "" } catch (_: Exception) { "" }
+                                        try {
+                                            UserDataManager.getInstance(getApplication()).getEmail() ?: ""
+                                        } catch (_: Exception) {
+                                            ""
+                                        }
                                     }
                                     val candObj = JSONObject().apply {
                                         put("candidate", candidate.sdp)
@@ -583,7 +633,8 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                                         pendingOfferSessionId?.let { put("sessionId", it) }
                                         pendingOfferHandleId?.let { put("handleId", it) }
                                     }.toString()
-                                    stompClient?.send("/app/ice", payload)?.subscribe({}, { e -> Log.w(TAG, "send ice failed: ${e?.message}" ) })
+                                    stompClient?.send("/app/ice", payload)
+                                        ?.subscribe({}, { e -> Log.w(TAG, "send ice failed: ${e?.message}") })
                                 } catch (e: Exception) {
                                     Log.w(TAG, "forward local ICE failed: ${e.message}")
                                 }
@@ -603,7 +654,11 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                 val speaking = level > 1000f
                 viewModelScope.launch(Dispatchers.IO) {
                     val uid = currentUserIdRef.get().ifBlank {
-                        try { UserDataManager.getInstance(getApplication()).getEmail() ?: "" } catch (_: Exception) { "" }
+                        try {
+                            UserDataManager.getInstance(getApplication()).getEmail() ?: ""
+                        } catch (_: Exception) {
+                            ""
+                        }
                     }
                     if (speaking) {
                         _speakingUser.value = uid
@@ -614,7 +669,8 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                             if (sessionId.isNotBlank()) put("sessionId", sessionId)
                             if (handleId.isNotBlank()) put("handleId", handleId)
                         }.toString()
-                        stompClient?.send("/app/speaking", payload)?.subscribe({}, { e -> Log.w(TAG, "speaking send failed: ${e?.message}" ) })
+                        stompClient?.send("/app/speaking", payload)
+                            ?.subscribe({}, { e -> Log.w(TAG, "speaking send failed: ${e?.message}") })
                     } else {
                         _speakingUser.value = null
                         val payload = JSONObject().apply {
@@ -622,7 +678,8 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                             put("userId", uid)
                             put("roomId", roomId)
                         }.toString()
-                        stompClient?.send("/app/stopped_speaking", payload)?.subscribe({}, { e -> Log.w(TAG, "stopped_speaking failed: ${e?.message}" ) })
+                        stompClient?.send("/app/stopped_speaking", payload)
+                            ?.subscribe({}, { e -> Log.w(TAG, "stopped_speaking failed: ${e?.message}") })
                     }
                 }
             }
@@ -670,7 +727,11 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                 try {
                     Log.d(TAG, "Local SDP created, length=${sdp.description.length}")
                     val uid = currentUserIdRef.get().ifBlank {
-                        try { UserDataManager.getInstance(getApplication()).getEmail() ?: "" } catch (_: Exception) { "" }
+                        try {
+                            UserDataManager.getInstance(getApplication()).getEmail() ?: ""
+                        } catch (_: Exception) {
+                            ""
+                        }
                     }
                     val payloadObj = JSONObject().apply {
                         put("userId", uid)
@@ -692,7 +753,7 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                         pendingOfferSent = false
                         isCreatingOffer.set(false)
                     } else {
-                        sendDisposable.subscribe({
+                        val disp = sendDisposable.subscribe({
                             Log.d(TAG, "✅ Offer sent successfully for room=$roomId")
                             pendingOfferSent = true
                             lastOfferSentAt = System.currentTimeMillis()
@@ -709,6 +770,7 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                             _status.value = "offer_send_failed:${err?.message}"
                             isCreatingOffer.set(false)
                         })
+                        disp?.let { stompDisposables.add(it) }
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "createAndSendOffer error: ${e.message}", e)
@@ -760,18 +822,28 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                         _status.value = "already_had_answer"
                         return@launch
                     }
-                    Log.d(TAG, "Remote description exists (type=${remoteDesc.type}). Current signalingState=${localPc.signalingState()}")
+                    Log.d(
+                        TAG,
+                        "Remote description exists (type=${remoteDesc.type}). Current signalingState=${localPc.signalingState()}"
+                    )
                 }
 
                 val signalingState = localPc.signalingState()
                 // Only set remote description when PC is in a state that can accept an answer
                 if (signalingState == PeerConnection.SignalingState.HAVE_LOCAL_OFFER ||
-                    signalingState == PeerConnection.SignalingState.STABLE) {
-                    Log.d(TAG, "Setting remote description: type=$type length=${sdp.description.length} signalingState=$signalingState")
+                    signalingState == PeerConnection.SignalingState.STABLE
+                ) {
+                    Log.d(
+                        TAG,
+                        "Setting remote description: type=$type length=${sdp.description.length} signalingState=$signalingState"
+                    )
                     peerManager?.setRemoteDescription(sdp)
                     _status.value = "peer_answered"
                 } else {
-                    Log.w(TAG, "PC not in expected state to set remote desc ($signalingState). Queuing remote JSEP for short retry.")
+                    Log.w(
+                        TAG,
+                        "PC not in expected state to set remote desc ($signalingState). Queuing remote JSEP for short retry."
+                    )
                     queuedRemoteJsep = sdp
                     viewModelScope.launch(Dispatchers.IO) {
                         delay(300)
@@ -782,7 +854,10 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                                 queuedRemoteJsep = null
                                 _status.value = "peer_answered"
                             } else {
-                                Log.w(TAG, "Retry to setRemoteDescription still not in correct state: ${s?.signalingState()}")
+                                Log.w(
+                                    TAG,
+                                    "Retry to setRemoteDescription still not in correct state: ${s?.signalingState()}"
+                                )
                             }
                         } catch (e: Exception) {
                             Log.e(TAG, "Retry setRemoteDescription failed: ${e.message}")
@@ -806,21 +881,91 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
 
     // ---------------- Members / UI helpers ----------------
     fun onRemoteJoined(userId: String, name: String?, imageUrl: String?) {
-        val m = VoiceMember(userId, name ?: userId, imageUrl)
+        // Insert a best-effort member row immediately (so UI shows something)
+        val displayName = name?.takeIf { it.isNotBlank() } ?: userId
+        val m = VoiceMember(userId, displayName, imageUrl)
         val list = _members.value.toMutableList()
         list.removeAll { it.userId == userId }
         list.add(m)
         _members.value = list.toList()
+
+        // If server didn't provide a nice display name or avatar, try to enrich from profile API
+        // Use a small in-memory cache to avoid repeated requests for the same user
+        try {
+            if ((name == null || name.isBlank() || name.equals(userId, ignoreCase = true)) || imageUrl.isNullOrBlank()) {
+                enrichMemberProfileIfNeeded(userId)
+            }
+        } catch (_: Exception) {}
     }
 
-    fun onRemoteLeft(userId: String) {
-        val list = _members.value.toMutableList()
-        list.removeAll { it.userId == userId }
-        _members.value = list.toList()
+    // Simple cache for resolved profiles to avoid network spam
+    private val profileCache = mutableMapOf<String, Pair<String?, String?>>() // userId -> (displayName, avatarUrl)
+
+    private fun enrichMemberProfileIfNeeded(userId: String) {
+        // If we already have a cached resolved profile, apply it
+        val cached = profileCache[userId]
+        if (cached != null) {
+            applyResolvedProfileToMember(userId, cached.first, cached.second)
+            return
+        }
+
+        // Fire-and-forget network call to fetch profile for this email/userId
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val api = com.example.myapplication.data.network.NetworkModule.createApiService(getApplication())
+                val resp = try { api.getProfile(userId) } catch (t: Throwable) { null }
+                if (resp != null && resp.isSuccessful) {
+                    val env = resp.body()
+                    val body = env?.data
+                    val username = body?.username?.takeIf { it.isNotBlank() }
+                    val first = body?.firstName?.takeIf { it.isNotBlank() }
+                    val last = body?.lastName?.takeIf { it.isNotBlank() }
+                    val display = when {
+                        !username.isNullOrBlank() -> username
+                        !first.isNullOrBlank() && !last.isNullOrBlank() -> "${first} ${last}"
+                        !first.isNullOrBlank() -> first
+                        !last.isNullOrBlank() -> last
+                        else -> userId
+                    }
+
+                    val avatarPreview = body?.avatarPreviewUrl?.takeIf { it.isNotBlank() }
+                    val avatarKey = body?.avatarKey?.takeIf { it.isNotBlank() }
+                    val base = com.example.myapplication.BuildConfig.BASE_URL.trimEnd('/')
+                    val finalAvatar = when {
+                        !avatarPreview.isNullOrBlank() -> avatarPreview.trim().let { s -> if (s.startsWith("http", ignoreCase = true)) s else "$base/uploads/${s.trimStart('/')}" }
+                        !avatarKey.isNullOrBlank() -> "$base/uploads/${avatarKey.trimStart('/')}"
+                        else -> null
+                    }
+
+                    profileCache[userId] = Pair(display, finalAvatar)
+                    applyResolvedProfileToMember(userId, display, finalAvatar)
+                }
+            } catch (_: Exception) {
+                // ignore network/profile resolution failures
+            }
+        }
     }
 
-    fun onRemoteSpeaking(userId: String) {
-        _speakingUser.value = userId
+    private fun applyResolvedProfileToMember(userId: String, displayName: String?, avatarUrl: String?) {
+        try {
+            viewModelScope.launch(Dispatchers.Main) {
+                val list = _members.value.toMutableList()
+                var changed = false
+                for (i in list.indices) {
+                    if (list[i].userId.equals(userId, ignoreCase = true)) {
+                        val cur = list[i]
+                        val newName = displayName ?: cur.name
+                        val newAvatar = avatarUrl ?: cur.imageUrl
+                        if (newName != cur.name || newAvatar != cur.imageUrl) {
+                            list[i] = VoiceMember(cur.userId, newName, newAvatar)
+                            changed = true
+                        }
+                        break
+                    }
+                }
+                if (changed) _members.value = list.toList()
+            }
+        } catch (_: Exception) {}
     }
 
     // ---------------- Mute / End call ----------------
@@ -828,7 +973,11 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val uid = currentUserIdRef.get().ifBlank {
-                    try { UserDataManager.getInstance(getApplication()).getEmail() ?: "" } catch (_: Exception) { "" }
+                    try {
+                        UserDataManager.getInstance(getApplication()).getEmail() ?: ""
+                    } catch (_: Exception) {
+                        ""
+                    }
                 }
                 val action = if (_muted.value) "unmute" else "mute"
                 val payload = JSONObject().apply {
@@ -852,7 +1001,11 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val uid = currentUserIdRef.get().ifBlank {
-                    try { UserDataManager.getInstance(getApplication()).getEmail() ?: "" } catch (_: Exception) { "" }
+                    try {
+                        UserDataManager.getInstance(getApplication()).getEmail() ?: ""
+                    } catch (_: Exception) {
+                        ""
+                    }
                 }
                 val payload = JSONObject().apply {
                     put("userId", uid)
@@ -865,10 +1018,19 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                 Log.w(TAG, "unregister send failed: ${e.message}")
             } finally {
                 // cleanup: only when user explicitly ends call
-                try { stompClient?.disconnect() } catch (_: Exception) {}
+                try {
+                    stompClient?.disconnect()
+                } catch (_: Exception) {
+                }
                 stompClient = null
-                try { peerManager?.dispose(); peerManager = null } catch (_: Exception) {}
-                try { audioDetector?.stop(); audioDetector = null } catch (_: Exception) {}
+                try {
+                    peerManager?.dispose(); peerManager = null
+                } catch (_: Exception) {
+                }
+                try {
+                    audioDetector?.stop(); audioDetector = null
+                } catch (_: Exception) {
+                }
                 offerResendJob?.cancel()
                 offerResendJob = null
                 pendingOfferRoomId = null
@@ -884,9 +1046,48 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
 
     override fun onCleared() {
         super.onCleared()
-        try { offerResendJob?.cancel() } catch (_: Exception) {}
-        try { stompClient?.disconnect() } catch (_: Exception) {}
+        try {
+            offerResendJob?.cancel()
+        } catch (_: Exception) {
+        }
+        // dispose stomp subscriptions first
+        try {
+            stompDisposables.forEach {
+                try {
+                    it.dispose()
+                } catch (_: Exception) {
+                }
+            }
+            stompDisposables.clear()
+        } catch (_: Exception) {
+        }
+        try {
+            stompClient?.disconnect()
+        } catch (_: Exception) {
+        }
         stompClient = null
-        try { peerManager?.dispose(); peerManager = null } catch (_: Exception) {}
+        try {
+            peerManager?.dispose(); peerManager = null
+        } catch (_: Exception) {
+        }
     }
+
+    fun onRemoteSpeaking(userId: String) {
+        _speakingUser.value = userId
+    }
+
+    fun onRemoteLeft(userId: String) {
+        try {
+            val list = _members.value.toMutableList()
+            val removed = list.removeAll { it.userId.equals(userId, ignoreCase = true) }
+            if (removed) {
+                _members.value = list.toList()
+            }
+            // If the leaving user was speaking, clear speaking state
+            if (_speakingUser.value?.equals(userId, ignoreCase = true) == true) {
+                _speakingUser.value = null
+            }
+        } catch (_: Exception) { }
+    }
+
 }

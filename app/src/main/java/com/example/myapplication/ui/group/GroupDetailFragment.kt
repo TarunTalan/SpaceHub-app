@@ -4,7 +4,6 @@ import android.os.Bundle
 import android.view.View
 import android.widget.EditText
 import android.widget.ImageView
-import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import com.example.myapplication.ui.common.BaseFragment
@@ -22,9 +21,13 @@ import com.example.myapplication.ui.group.viewmodel.GroupDetailViewModel
 import com.example.myapplication.ui.group.viewmodel.GroupRoomViewModel
 import com.google.android.material.imageview.ShapeableImageView
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
     // Use activity-scoped VM so other fragments (members) can share the same instance
@@ -44,7 +47,7 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
         val grpImage = view.findViewById<ShapeableImageView>(R.id.grp_image)
         val grpName = view.findViewById<TextView>(R.id.grp_name)
         val memberCountTv = view.findViewById<TextView>(R.id.member_count_tv)
-        val progress = view.findViewById<ProgressBar>(R.id.progress)
+        val overlay = view.findViewById<View>(R.id.loading_overlay)
         val settingsAnchor = view.findViewById<ImageView>(R.id.setting_grp)
         val rvRooms = view.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.rv_rooms)
         val emptyRoomsView = view.findViewById<View>(R.id.empty_rooms_view)
@@ -94,9 +97,24 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
             Glide.with(this).load(R.drawable.default_comm_icon).centerCrop().into(grpImage)
         }
 
-        // observe VM state
+        // observe VM state with debounce: show overlay only if loading persists beyond 300ms
+        var overlayShowJob: Job? = null
         vm.loading.observe(viewLifecycleOwner) { loading ->
-            progress?.visibility = if (loading) View.VISIBLE else View.GONE
+            if (loading) {
+                // cancel any previous show job and start a delayed show
+                overlayShowJob?.cancel()
+                overlayShowJob = viewLifecycleOwner.lifecycleScope.launch {
+                    try {
+                        delay(300) // short debounce to avoid flicker on fast loads
+                        overlay?.visibility = View.VISIBLE
+                    } catch (_: Exception) {}
+                }
+            } else {
+                // cancel pending job and hide immediately
+                try { overlayShowJob?.cancel() } catch (_: Exception) {}
+                overlayShowJob = null
+                overlay?.visibility = View.GONE
+            }
         }
 
         // Setup rooms adapter
@@ -185,13 +203,11 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
             msg?.let {
                 // Show detailed message via Snackbar with a Retry action to re-trigger network fetch
                 try {
-                    val parent = view ?: return@observe
+                    val parent = requireView()
                     com.google.android.material.snackbar.Snackbar.make(parent, it, com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
                         .setAction("Retry") { try { vm.refreshDetails(); vm.loadMembers() } catch (_: Exception) {} }
                         .show()
-                } catch (_: Exception) {
-                    try { Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show() } catch (_: Exception) {}
-                }
+                } catch (_: Exception) {}
                 // mark toast consumed
                 try { vm.clearToast() } catch (_: Exception) {}
             }
@@ -284,21 +300,35 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
                                 setLoading(true)
                                 val parentCode = try { vm.group.value?.chatRoomCode } catch (_: Exception) { null }
                                 val effectiveParent = parentCode.takeIf { !it.isNullOrBlank() } ?: groupId
-                                roomsVm.createChatRoom(effectiveParent, name) { success ->
+                                roomsVm.createChatRoom(effectiveParent, name) { res ->
                                     setLoading(false)
-                                    if (success) {
-                                        Toast.makeText(ctx, "Chat room created: $name", Toast.LENGTH_SHORT).show()
+                                    if (res.isSuccess) {
+                                        // Success: silently refresh the rooms list and close dialog
                                         roomsVm.loadChatRoomsForGroup(effectiveParent)
                                         try { dialog.dismiss() } catch (_: Exception) {}
+
+                                        // Best-effort: create a default voice room for this chat room
+                                        try {
+                                            val created = res.getOrNull()
+                                            if (created != null) {
+                                                val voiceRepo = com.example.myapplication.data.voice.VoiceRoomRepository.getInstance(requireContext())
+                                                lifecycleScope.launch {
+                                                    try {
+                                                        val creatorEmail = withContext(Dispatchers.IO) { UserDataManager.getInstance(requireContext()).getEmail() }.orEmpty()
+                                                        withContext(Dispatchers.IO) { voiceRepo.createVoiceRoom(created.id, "${created.name} Voice", creatorEmail) }
+                                                        // ignore failure; if success we could refresh a voice list if present
+                                                    } catch (_: Exception) {}
+                                                }
+                                            }
+                                        } catch (_: Exception) {}
+
                                     } else {
+                                        // Show failure using Snackbar only (no Toast fallback)
                                         try {
                                             com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to create chat room", com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE)
-                                                .setAction("Retry") {
-                                                    btnCreate.performClick()
-                                                }.show()
-                                        } catch (_: Exception) {
-                                            Toast.makeText(ctx, "Failed to create chat room", Toast.LENGTH_SHORT).show()
-                                        }
+                                                .setAction("Retry") { try { roomsVm.loadChatRoomsForGroup(effectiveParent) } catch (_: Exception) {} }
+                                                .show()
+                                        } catch (_: Exception) {}
                                     }
                                 }
                             }

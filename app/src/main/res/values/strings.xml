@@ -234,6 +234,11 @@
     <string name="chat_rooms"># Chat Rooms</string>
     <string name="no_chat_rooms">No chat rooms yet</string>
     <string name="speaker">Speaker</string>
+    <string name="speaker_on">Speaker: On</string>
+    <string name="speaker_off">Speaker: Off</string>
+    <string name="status_audio_permission_granted">Status: audio permission granted</string>
+    <string name="status_permission_denied">Status: permission denied</string>
+    <string name="status_format">Status: %1$s</string>
     <string name="voice_rooms">Voice Rooms</string>
     <string name="no_voice_rooms">No voice rooms yet</string>
 </resources>

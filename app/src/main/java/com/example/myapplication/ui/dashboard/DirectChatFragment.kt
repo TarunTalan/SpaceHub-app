@@ -27,8 +27,6 @@ import com.example.myapplication.ui.common.ProfileImageHelper
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import android.view.ActionMode
-import android.view.MenuItem
 import android.widget.Toast
 
 class DirectChatFragment: Fragment(R.layout.fragment_direct_chat) {
@@ -172,16 +170,44 @@ class DirectChatFragment: Fragment(R.layout.fragment_direct_chat) {
         ivBack?.setOnClickListener { runCatching { findNavController().navigateUp() } }
 
         val args = arguments
-        val peerName = args?.getString("peerName").orEmpty().ifBlank { "Chat Room" }
+        // Sanitize peerName: server or prior screens sometimes pass literal "null" or "null null" strings.
+        fun sanitizeName(raw: String?): String {
+            val s = raw?.trim().orEmpty()
+            if (s.isBlank()) return ""
+            // If the name consists only of the token "null" (any count), treat as blank
+            val tokens = s.split(Regex("\\s+"))
+            if (tokens.isNotEmpty() && tokens.all { it.equals("null", ignoreCase = true) }) return ""
+            return s
+        }
+
+        val rawPeerName = args?.getString("peerName")
+        var peerName = sanitizeName(rawPeerName)
         val peerEmail = args?.getString("peerEmail") ?: ""
+        if (peerName.isBlank()) peerName = if (peerEmail.isNotBlank()) peerEmail else "Unknown user"
+
         val peerAvatar = args?.getString("peerAvatarUrl")
 
         tvTitle?.text = peerName
         ProfileImageHelper.loadProfileImageIntoView(requireContext(), ivAvatar, peerAvatar)
 
-        // Load conversation and messages
+        // Load conversation and messages. If a server-provided history payload was passed via
+        // navigation arguments under key "historyJson" (stringified JSON array), persist it first
+        // and then load the conversation so UI observes DB.
         if (peerEmail.isNotBlank()) {
-            chatViewModel.loadConversation(peerEmail, peerName, peerAvatar)
+            val historyJson = args?.getString("historyJson")
+            if (!historyJson.isNullOrBlank()) {
+                try {
+                    val gson = com.google.gson.Gson()
+                    val type = object : com.google.gson.reflect.TypeToken<List<com.example.myapplication.data.chat.websocket.DirectChatMessage>>() {}.type
+                    val historyList: List<com.example.myapplication.data.chat.websocket.DirectChatMessage> = gson.fromJson(historyJson, type)
+                    chatViewModel.loadConversationWithHistory(peerEmail, peerName, peerAvatar, historyList)
+                } catch (e: Exception) {
+                    // If parsing fails, fallback to normal load
+                    chatViewModel.loadConversation(peerEmail, peerName, peerAvatar)
+                }
+            } else {
+                chatViewModel.loadConversation(peerEmail, peerName, peerAvatar)
+            }
         }
 
         // Observe connection state

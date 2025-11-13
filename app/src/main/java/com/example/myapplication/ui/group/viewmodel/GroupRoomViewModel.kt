@@ -30,7 +30,7 @@ class GroupRoomViewModel(app: Application) : AndroidViewModel(app) {
                 _loading.value = true
                 val res = withContext(Dispatchers.IO) { repo.getGroupChatRooms(groupRoomCode) }
                 _chatRooms.value = res.getOrDefault(emptyList())
-            } catch (t: Throwable) {
+            } catch (_: Throwable) {
                 _chatRooms.value = emptyList()
             } finally {
                 _loading.value = false
@@ -38,7 +38,7 @@ class GroupRoomViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun createChatRoom(groupRoomCode: String, chatRoomName: String, onDone: (Boolean) -> Unit = {}) {
+    fun createChatRoom(groupRoomCode: String, chatRoomName: String, onDone: (Result<DataChatRoom>) -> Unit = {}) {
         viewModelScope.launch {
             _loading.value = true
             val res = withContext(Dispatchers.IO) { repo.createChatRoomInGroup(groupRoomCode, chatRoomName) }
@@ -46,12 +46,11 @@ class GroupRoomViewModel(app: Application) : AndroidViewModel(app) {
                 // reload list
                 val listRes = withContext(Dispatchers.IO) { repo.getGroupChatRooms(groupRoomCode) }
                 _chatRooms.value = listRes.getOrDefault(_chatRooms.value)
-                onDone(true)
+                onDone(res)
             } else {
-                onDone(false)
+                onDone(res)
             }
             _loading.value = false
         }
     }
 }
-

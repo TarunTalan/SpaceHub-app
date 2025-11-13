@@ -1,13 +1,14 @@
 package com.example.myapplication.data.chat.model
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.google.gson.annotations.SerializedName
 
 /**
  * Room Entity representing a chat message stored locally.
  */
-@Entity(tableName = "messages")
+@Entity(tableName = "messages", indices = [Index(value = ["serverId"], unique = true)])
 data class ChatMessage(
     @PrimaryKey
     @SerializedName("id")
@@ -37,5 +38,8 @@ data class ChatMessage(
 
     // Deletion flags
     val senderDeleted: Boolean = false,
-    val receiverDeleted: Boolean = false
+    val receiverDeleted: Boolean = false,
+
+    // Server-assigned id (if different from local client id). Used to reconcile duplicates.
+    val serverId: String? = null
 )

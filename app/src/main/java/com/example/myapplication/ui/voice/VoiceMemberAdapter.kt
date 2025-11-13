@@ -51,6 +51,15 @@ class VoiceMemberAdapter(
         holder.speakingIndicator.visibility = if (isSpeaking) View.VISIBLE else View.GONE
         holder.itemView.isActivated = isSpeaking
 
+        // pulse animation for speaking state: start when speaking, clear when not
+        val context = holder.itemView.context
+        if (isSpeaking) {
+            // simple alpha/scale animation for speaking indicator
+            holder.speakingIndicator.animate().alpha(1f).scaleX(1.0f).scaleY(1.0f).setDuration(300).start()
+        } else {
+            holder.speakingIndicator.animate().alpha(0f).scaleX(1f).scaleY(1f).setDuration(150).start()
+        }
+
         holder.itemView.setOnClickListener { onClick(item) }
     }
 
@@ -64,4 +73,3 @@ class VoiceMemberAdapter(
         override fun areContentsTheSame(oldItem: VoiceMember, newItem: VoiceMember): Boolean = oldItem == newItem
     }
 }
-

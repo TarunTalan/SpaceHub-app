@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- speaking state (activated) shows speaking background -->
+    <item android:state_activated="true" android:drawable="@drawable/card_bg_speaking" />
+    <!-- default -->
+    <item android:drawable="@drawable/card_bg_normal" />
+</selector>
+

@@ -28,10 +28,23 @@ class FriendsListAdapter(
         private val tvEmail: TextView = view.findViewById(R.id.tv_email)
 
         fun bind(item: Data) {
-            tvName.text = listOf(item.firstName, item.lastName).joinToString(" ").trim().ifBlank { item.email }
-            tvEmail.text = item.email
+            // Prefer explicit username from API, fallback to first/last name, then email
+            val sanitizedUsername = item.username?.trim()?.takeIf { it.isNotBlank() && it.lowercase() != "null" }
+            val first = item.firstName?.trim()?.takeIf { it.isNotBlank() && it.lowercase() != "null" }
+            val last = item.lastName?.trim()?.takeIf { it.isNotBlank() && it.lowercase() != "null" }
 
-            // Normalize avatar URL - API returns relative path like "avatars/user/file.png"
+            val displayName = when {
+                sanitizedUsername != null -> sanitizedUsername
+                first != null && last != null -> "$first $last"
+                first != null -> first
+                last != null -> last
+                else -> item.email
+            } ?: "Unknown user"
+
+            tvName.text = displayName
+            tvEmail.text = item.email ?: ""
+
+            // Normalize avatar URL - API returns full https URLs in many cases
             val avatarUrl = item.avatarUrl?.trim()?.let { raw ->
                 when {
                     raw.isBlank() -> null
