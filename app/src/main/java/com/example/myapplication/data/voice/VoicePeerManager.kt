@@ -17,7 +17,7 @@ class VoicePeerManager(private val context: Context) {
     private val TAG = "VoicePeerManager"
 
     private var factory: PeerConnectionFactory? = null
-    private var peerConnection: PeerConnection? = null
+    var peerConnection: PeerConnection? = null
     private var localAudioTrack: AudioTrack? = null
     private var localAudioSource: AudioSource? = null
     private var audioConstraints: MediaConstraints? = null
@@ -118,7 +118,17 @@ class VoicePeerManager(private val context: Context) {
                 Log.d(TAG, "Renegotiation needed")
             }
             override fun onAddTrack(receiver: RtpReceiver, streams: Array<out MediaStream>) {
-                Log.d(TAG, "Track added: ${receiver.id()} to ${streams.size} streams")
+                try {
+                    Log.d(TAG, "Track added: ${receiver.id()} to ${streams.size} streams")
+                    val track = receiver.track()
+                    if (track is AudioTrack) {
+                        Log.d(TAG, "Remote audio track detected, enabling playback")
+                        track.setEnabled(true)
+                        // On Android, remote audio should play automatically via the native audio pipeline
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to attach remote track: ${e.message}")
+                }
             }
         }
 
@@ -138,10 +148,12 @@ class VoicePeerManager(private val context: Context) {
         Log.d(TAG, "Creating SDP offer...")
         peerConnection?.createOffer(object : SdpObserver {
             override fun onCreateSuccess(sdp: SessionDescription) {
+                Log.d(TAG, "createOffer onCreateSuccess: type=${sdp.type} len=${sdp.description?.length ?: 0}")
                 Log.d(TAG, "Offer created, setting local description")
                 peerConnection?.setLocalDescription(object : SdpObserver {
                     override fun onCreateSuccess(sdp: SessionDescription) {}
                     override fun onSetSuccess() {
+                        Log.d(TAG, "setLocalDescription success")
                         Log.d(TAG, "Local description set (offer)")
                         onSdpReady(sdp)
                     }

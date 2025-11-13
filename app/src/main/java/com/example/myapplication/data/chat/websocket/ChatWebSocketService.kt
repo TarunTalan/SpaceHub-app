@@ -18,6 +18,7 @@ import org.java_websocket.client.WebSocketClient
 import org.java_websocket.drafts.Draft_6455
 import org.java_websocket.handshake.ServerHandshake
 import java.net.URI
+import java.util.UUID
 
 class ChatWebSocketService private constructor(context: Context) {
 
@@ -26,8 +27,13 @@ class ChatWebSocketService private constructor(context: Context) {
 
     private val gson = Gson()
     private var sockJsClient: SockJsWebSocketClient? = null
+    private var authToken: String? = null
     private val messageChannel = Channel<WSChatMessage>(Channel.BUFFERED)
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.DISCONNECTED)
+
+    // Raw STOMP payloads (useful for voice signalling and other non-chat frames)
+    private val stompPayloadChannel = Channel<String>(Channel.BUFFERED)
+    val incomingStomp: Flow<String> = stompPayloadChannel.receiveAsFlow()
 
     val messages: Flow<WSChatMessage> = messageChannel.receiveAsFlow()
     val connectionState: StateFlow<ConnectionState> = _connectionState
@@ -53,6 +59,7 @@ class ChatWebSocketService private constructor(context: Context) {
         }
 
         val tokenNullable = SharedPrefsTokenStore(appContext).getAccessToken()
+        authToken = tokenNullable
 
         // Log masked token and BASE_URL for diagnostics (safe for null)
         try {
@@ -62,10 +69,24 @@ class ChatWebSocketService private constructor(context: Context) {
         } catch (_: Exception) {}
 
         // SockJS endpoint URL - Spring Boot typically uses /ws or /websocket
-        val baseUrl = BuildConfig.BASE_URL
-            .replace("https://", "wss://")
-            .replace("http://", "ws://")
-            .trimEnd('/')
+        // Build WebSocket base from origin (scheme + host + optional port) and use the '/ws' STOMP endpoint
+        val baseUrl = try {
+            val url = java.net.URL(BuildConfig.BASE_URL)
+            val origin = StringBuilder().apply {
+                append(if (url.protocol == "https") "wss" else if (url.protocol == "http") "ws" else url.protocol)
+                append("://")
+                append(url.host)
+                if (url.port != -1) append(":").append(url.port)
+            }.toString()
+            // SockJS endpoint is typically exposed at /ws
+            origin.trimEnd('/')
+        } catch (_: Exception) {
+            // Fallback: convert BASE_URL scheme and strip path
+            BuildConfig.BASE_URL
+                .replace("https://", "wss://")
+                .replace("http://", "ws://")
+                .trimEnd('/')
+        }
 
         // Generate random server and session ID for SockJS protocol
         val serverId = (100..999).random()
@@ -79,7 +100,6 @@ class ChatWebSocketService private constructor(context: Context) {
         try {
             sockJsClient = SockJsWebSocketClient(
                 URI(sockJsUrl),
-                tokenNullable ?: "",
                 onOpenCb = {
                     Log.d(TAG, "SockJS WebSocket connected successfully")
                     _connectionState.value = ConnectionState.CONNECTED
@@ -109,16 +129,27 @@ class ChatWebSocketService private constructor(context: Context) {
     }
 
     private fun sendStompConnect() {
-        // Do not include Authorization header in STOMP CONNECT frame per requirement
-        val stompFrame = """
-            CONNECT
-            accept-version:1.1,1.0
-            heart-beat:10000,10000
-            
-            ${'\u0000'}
-        """.trimIndent()
-        sockJsClient?.send(stompFrame)
-        Log.d(TAG, "Sent STOMP CONNECT frame (no auth)")
+        // Build STOMP CONNECT frame. Include Authorization header only if token is available.
+        val sb = StringBuilder()
+        sb.append("CONNECT\n")
+        authToken?.takeIf { it.isNotBlank() }?.let {
+            // add Authorization header in STOMP layer (server should read it from CONNECT headers)
+            sb.append("Authorization: Bearer ").append(it).append('\n')
+        }
+        sb.append("accept-version:1.1,1.0\n")
+        sb.append("heart-beat:10000,10000\n")
+        // blank line to separate headers from body
+        sb.append('\n')
+        // STOMP frame terminator (null char)
+        sb.append('\u0000')
+
+        val stompFrame = sb.toString()
+        try {
+            sockJsClient?.send(stompFrame)
+            Log.d(TAG, "Sent STOMP CONNECT frame")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to send STOMP CONNECT frame", e)
+        }
     }
 
     private fun handleSockJsMessage(message: String) {
@@ -180,6 +211,9 @@ class ChatWebSocketService private constructor(context: Context) {
                     // No headers - treat whole body as payload (sometimes server sends raw JSON)
                     body.replace("\u0000", "").trim()
                 }
+
+                // Emit raw payload for consumers (voice, system, etc.)
+                try { stompPayloadChannel.trySend(payload) } catch (_: Exception) {}
 
                 if (payload.isBlank()) {
                     Log.w(TAG, "STOMP MESSAGE had empty payload")
@@ -285,6 +319,57 @@ class ChatWebSocketService private constructor(context: Context) {
         Log.d(TAG, "Subscribed to /user/queue/messages")
     }
 
+    // New: subscribe to any destination and return a subscription id that can be used to unsubscribe
+    fun subscribeTo(destination: String, subscriptionId: String = UUID.randomUUID().toString()): String {
+        try {
+            val stompFrame = """
+                SUBSCRIBE
+                id:$subscriptionId
+                destination:$destination
+
+                ${'\u0000'}
+            """.trimIndent()
+            sockJsClient?.send(stompFrame)
+            Log.d(TAG, "Sent SUBSCRIBE -> id=$subscriptionId destination=$destination")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to send SUBSCRIBE frame to $destination", e)
+        }
+        return subscriptionId
+    }
+
+    fun unsubscribe(subscriptionId: String?) {
+        if (subscriptionId.isNullOrBlank()) return
+        try {
+            val stompFrame = """
+                UNSUBSCRIBE
+                id:$subscriptionId
+
+                ${'\u0000'}
+            """.trimIndent()
+            sockJsClient?.send(stompFrame)
+            Log.d(TAG, "Sent UNSUBSCRIBE -> id=$subscriptionId")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to send UNSUBSCRIBE frame id=$subscriptionId", e)
+        }
+    }
+
+    // New helper: send arbitrary JSON to a STOMP destination (used by voice signalling)
+    fun sendToDestination(destination: String, payloadJson: String) {
+        try {
+            val stompFrame = """
+                SEND
+                destination:$destination
+                content-type:application/json
+                
+                $payloadJson${'\u0000'}
+            """.trimIndent()
+            sockJsClient?.send(stompFrame)
+            Log.d(TAG, "Sent STOMP SEND -> destination=$destination payload=$payloadJson")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to send STOMP SEND frame to $destination", e)
+        }
+    }
+
     fun sendMessage(message: WSChatMessage) {
         // Ensure we send minimal payload expected by server for outgoing messages
         val payloadObj = JsonObject()
@@ -387,44 +472,64 @@ class ChatWebSocketService private constructor(context: Context) {
     }
 
     // WebSocket client for SockJS protocol
-    private class SockJsWebSocketClient(
+    private inner class SockJsWebSocketClient(
         uri: URI,
-        token: String?,
         private val onOpenCb: () -> Unit,
         private val onMessageCb: (String) -> Unit,
         private val onCloseCb: (Int, String) -> Unit,
         private val onErrorCb: (String?) -> Unit
     ) : WebSocketClient(
-        uri,
-        Draft_6455(),
-        // Add handshake headers including Authorization and STOMP subprotocols
-        token?.let { mapOf(
-            "Authorization" to "Bearer $it",
-            "Sec-WebSocket-Protocol" to "v10.stomp,v11.stomp",
-            "Origin" to BuildConfig.BASE_URL
-        ) } ?: emptyMap(),
-        0
-    ) {
+         uri,
+         Draft_6455(),
+         // Add handshake headers: set Sec-WebSocket-Protocol and Origin
+         run {
+             val headers = mutableMapOf<String, String>()
+             headers["Sec-WebSocket-Protocol"] = "v10.stomp,v11.stomp"
+             // Use only origin (scheme + host + optional port) rather than full BASE_URL path
+             try {
+                 val url = java.net.URL(BuildConfig.BASE_URL)
+                 val origin = StringBuilder().apply {
+                     append(url.protocol)
+                     append("://")
+                     append(url.host)
+                     if (url.port != -1) append(":").append(url.port)
+                 }.toString()
+                 headers["Origin"] = origin
+             } catch (_: Exception) {
+                 headers["Origin"] = BuildConfig.BASE_URL
+             }
+             // Include Authorization in handshake if token available (some servers require it at WebSocket upgrade)
+             try {
+                 val token = authToken ?: SharedPrefsTokenStore(appContext).getAccessToken()
+                 if (!token.isNullOrBlank()) {
+                     headers["Authorization"] = "Bearer $token"
+                 }
+             } catch (_: Exception) {
+             }
+             headers
+         },
+         0
+     ) {
 
-        override fun onOpen(handshakedata: ServerHandshake?) {
-            Log.d(TAG, "SockJS connection opened")
-            onOpenCb()
-        }
+         override fun onOpen(handshakedata: ServerHandshake?) {
+             Log.d(TAG, "SockJS connection opened")
+             onOpenCb()
+         }
 
-        override fun onMessage(message: String?) {
-            message?.let { onMessageCb(it) }
-        }
+         override fun onMessage(message: String?) {
+             message?.let { onMessageCb(it) }
+         }
 
-        override fun onClose(code: Int, reason: String?, remote: Boolean) {
-            Log.d(TAG, "SockJS connection closed: $code - $reason")
-            onCloseCb(code, reason ?: "Unknown")
-        }
+         override fun onClose(code: Int, reason: String?, remote: Boolean) {
+             Log.d(TAG, "SockJS connection closed: $code - $reason")
+             onCloseCb(code, reason ?: "Unknown")
+         }
 
-        override fun onError(ex: Exception?) {
-            Log.e(TAG, "SockJS connection error", ex)
-            onErrorCb(ex?.message)
-        }
-    }
+         override fun onError(ex: Exception?) {
+             Log.e(TAG, "SockJS connection error", ex)
+             onErrorCb(ex?.message)
+         }
+     }
 
     sealed class ConnectionState {
         object DISCONNECTED : ConnectionState()
