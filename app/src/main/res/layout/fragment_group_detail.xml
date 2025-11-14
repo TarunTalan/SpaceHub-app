@@ -231,17 +231,6 @@
                             app:layout_constraintTop_toTopOf="@id/tv_rooms_name"
                             app:layout_constraintBottom_toBottomOf="@id/tv_rooms_name"/>
 
-                    <ProgressBar
-                            android:id="@+id/progress"
-                            style="@android:style/Widget.Material.ProgressBar.Horizontal"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:visibility="gone"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintEnd_toEndOf="parent"
-                            app:layout_constraintTop_toBottomOf="@id/tv_rooms_name"
-                            android:layout_marginTop="8dp"/>
-
                     <androidx.recyclerview.widget.RecyclerView
                             android:id="@+id/rv_rooms"
                             android:layout_width="0dp"
@@ -270,21 +259,6 @@
                             app:layout_constraintStart_toStartOf="parent"
                             app:layout_constraintEnd_toEndOf="parent">
 
-                        <ImageView
-                                android:layout_width="40dp"
-                                android:layout_height="40dp"
-                                android:src="@drawable/chat_plus"
-                                android:tint="#CCCCCC"
-                                android:contentDescription="@string/no_chat_rooms"
-                                android:layout_marginBottom="8dp" />
-
-                        <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="No rooms yet"
-                                android:textColor="@android:color/white"
-                                android:textSize="16sp"
-                                android:layout_marginTop="0dp"/>
 
                     </LinearLayout>
 
@@ -309,7 +283,7 @@
                             android:layout_width="20dp"
                             android:layout_height="20dp"
                             android:src="@drawable/volume"
-                            android:tint="@color/white"
+                            app:tint="@color/white"
                             android:contentDescription="@string/speaker"
                             app:layout_constraintStart_toStartOf="@+id/guideline_start" android:id="@+id/imageView2"
                             app:layout_constraintTop_toTopOf="@+id/tv_voice_rooms_name"
@@ -320,7 +294,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="20dp"
-                            android:text="Voice Rooms"
+                            android:text="@string/voice_rooms"
                             android:textColor="@android:color/white"
                             android:textSize="16sp"
                             android:layout_marginStart="6dp"
@@ -340,16 +314,6 @@
                             app:layout_constraintTop_toTopOf="@id/tv_voice_rooms_name"
                             app:layout_constraintBottom_toBottomOf="@id/tv_voice_rooms_name"/>
 
-                    <ProgressBar
-                            android:id="@+id/progress_voice"
-                            style="@android:style/Widget.Material.ProgressBar.Horizontal"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:visibility="gone"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintEnd_toEndOf="parent"
-                            app:layout_constraintTop_toBottomOf="@id/tv_voice_rooms_name"
-                            android:layout_marginTop="8dp"/>
 
                     <androidx.recyclerview.widget.RecyclerView
                             android:id="@+id/rv_voice_rooms"
@@ -408,7 +372,18 @@
                             app:layout_constraintGuide_percent="0.04"
                             android:orientation="vertical"/>
 
-                    <!-- ...existing code... -->
+                    <!-- Single small centered loader used by both chat/voice loading actions -->
+                    <ProgressBar
+                        android:id="@+id/progress_loader"
+                        style="?android:attr/progressBarStyleLarge"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:indeterminate="true"
+                        android:visibility="gone"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent" />
                 </androidx.constraintlayout.widget.ConstraintLayout>
             </androidx.core.widget.NestedScrollView>
         </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

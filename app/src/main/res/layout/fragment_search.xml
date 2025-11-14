@@ -112,7 +112,7 @@
                         android:id="@+id/localGroupsTab"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/tab_local_groups"
+                        android:text="Groups"
                         android:textColor="@color/white"
                         android:fontFamily="@font/roboto_semibold"
                         android:textSize="@dimen/input_text_size"

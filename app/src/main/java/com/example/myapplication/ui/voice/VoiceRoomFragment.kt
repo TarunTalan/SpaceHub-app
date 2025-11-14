@@ -243,7 +243,14 @@ class VoiceRoomFragment : Fragment(R.layout.fragment_voice_room) {
                         speakerBtn.contentDescription = getString(R.string.speaker_off)
                     }
                     setupMenuItem(itemMute, R.drawable.mute, R.string.mute) {
-                        try { vm.toggleMute(roomId, sessionIdArg, handleIdArg) } catch (e: Exception) { Log.w(TAG, "Failed to toggle mute from popup: ${e.message}") }
+                        // Mute speaker output (do not touch microphone)
+                        try {
+                            speakerOn = false
+                            applySpeakerPreference(am, speakerOn)
+                            saveSpeakerPref(speakerOn)
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed to mute speaker from popup: ${e.message}")
+                        }
                         speakerBtn.setImageResource(R.drawable.mute)
                         speakerBtn.contentDescription = getString(R.string.mute)
                     }

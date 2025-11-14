@@ -27,6 +27,16 @@
             android:layout_height="wrap_content"
             android:nestedScrollingEnabled="false" />
 
+        <TextView
+            android:id="@+id/tv_empty_friends"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="No friend requests"
+            android:gravity="center"
+            android:textColor="#666"
+            android:visibility="gone"
+            android:paddingTop="12dp" />
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
@@ -51,14 +61,15 @@
             android:nestedScrollingEnabled="false" />
 
         <TextView
-            android:id="@+id/tv_empty"
+            android:id="@+id/tv_empty_joins"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="No notifications"
+            android:text="No join requests"
             android:gravity="center"
+            android:textColor="#666"
             android:visibility="gone"
-            android:paddingTop="24dp"
-            android:textColor="#666" />
+            android:paddingTop="12dp" />
+
 
         <ProgressBar
             android:id="@+id/progress"

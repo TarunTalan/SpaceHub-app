@@ -55,7 +55,7 @@
                 android:paddingEnd="16dp"
                 android:textColor="@color/white"
                 android:fontFamily="@font/roboto_regular"
-                android:hint="Search by username or email"
+                android:hint="Search by username"
                 android:textColorHint="#B3FFFFFF"
                 android:background="@drawable/edit_text_outline"
                 app:layout_constraintTop_toTopOf="parent"

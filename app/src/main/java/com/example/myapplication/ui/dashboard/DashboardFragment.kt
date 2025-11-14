@@ -88,7 +88,6 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
 
         // Navigate to requests inbox on notification icon click
         val ivNotification = view.findViewById<ImageView>(R.id.iv_notification)
-        val tvBadge = view.findViewById<TextView>(R.id.tv_notification_badge)
 
         ivNotification?.setOnClickListener {
             runCatching {
@@ -97,35 +96,9 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
             }
         }
 
-        // Load and display incoming friend requests count
-        fun updateBadge() {
-            viewLifecycleOwner.lifecycleScope.launch {
-                try {
-                    // friend requests
-                    val friendRepo = com.example.myapplication.data.friends.repository.FriendsRepository.getInstance(requireContext())
-                    val friendRes = friendRepo.getIncomingRequests()
-                    val friendCount = friendRes.getOrNull()?.size ?: 0
-
-                    // local community join requests (pending join requests)
-                    val commRepo = CommunityRepository.getInstance(requireContext())
-                    val joinRes = commRepo.getMyPendingRequests()
-                    val joinCount = joinRes.getOrNull()?.size ?: 0
-
-                    val total = friendCount + joinCount
-                    if (total > 0) {
-                        tvBadge?.text = if (total > 99) "99+" else total.toString()
-                        tvBadge?.visibility = View.VISIBLE
-                    } else {
-                        tvBadge?.visibility = View.GONE
-                    }
-                } catch (_: Exception) {
-                    tvBadge?.visibility = View.GONE
-                }
-            }
-        }
-
-        // Store reference for onResume
-        updateBadgeFn = ::updateBadge
+        // Store reference for onResume — will be assigned after we define the method below
+        // (updateBadge is implemented as a private method on the fragment)
+        updateBadgeFn = { updateBadge() }
         // Update badge on fragment start
         updateBadge()
 
@@ -639,35 +612,34 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
                 }
             }
         }
-
-        // Load initial data (fast-path aware) when view is created.
-        // Keep illustration hidden until loading finishes.
-        try { isLoadingData = true; updateIllustrationVisibility() } catch (_: Exception) {}
-        // If this is the very first time the dashboard is shown in this session (initialDataLoaded==false),
-        // run the normal maybeLoadInitialData() which may perform a remote authoritative refresh.
-        // Otherwise (navigating back to dashboard) avoid any remote refresh — perform a fast DB-only load
-        // so UI is populated from local DB without hitting network.
-        if (!initialDataLoaded) {
-            maybeLoadInitialData()
-        } else {
-            // Fast DB-only load (no network). This ensures UI populates quickly without refreshing remote data.
-            viewLifecycleOwner.lifecycleScope.launch {
-                try {
-                    try { isLoadingData = true; updateIllustrationVisibility() } catch (_: Exception) {}
-                    val repo = CommunityRepository.getInstance(requireContext())
-                    val email = try { UserDataManager.getInstance(requireContext()).getEmail() } catch (_: Exception) { null }
-                    val dbList = try { withContext(Dispatchers.IO) { repo.observeMyCommunities().first() } } catch (_: Throwable) { emptyList<CommunityModel>() }
-                    val allList = try { withContext(Dispatchers.IO) { repo.observeAllCommunities().first() } } catch (_: Throwable) { emptyList<CommunityModel>() }
-                    val sourceList = if (dbList.isEmpty() && allList.isNotEmpty()) allList else dbList
-                    applyCommunitiesToUi(sourceList, email)
-                    try { loadLocalGroupsFromDb() } catch (_: Exception) {}
-                } catch (_: Exception) {
-                    // If DB read fails, we still don't want to force a remote refresh here — skip.
-                } finally {
-                    try { isLoadingData = false; updateIllustrationVisibility() } catch (_: Exception) {}
+        if (savedInstanceState == null) {
+            try { isLoadingData = true; updateIllustrationVisibility() } catch (_: Exception) {}
+            if (!initialDataLoaded) {
+                maybeLoadInitialData()
+            } else {
+                // Fast DB-only load (no network). This ensures UI populates quickly without refreshing remote data.
+                viewLifecycleOwner.lifecycleScope.launch {
+                    try {
+                        try { isLoadingData = true; updateIllustrationVisibility() } catch (_: Exception) {}
+                        val repo = CommunityRepository.getInstance(requireContext())
+                        val email = try { UserDataManager.getInstance(requireContext()).getEmail() } catch (_: Exception) { null }
+                        val dbList = try { withContext(Dispatchers.IO) { repo.observeMyCommunities().first() } } catch (_: Throwable) { emptyList<CommunityModel>() }
+                        val allList = try { withContext(Dispatchers.IO) { repo.observeAllCommunities().first() } } catch (_: Throwable) { emptyList<CommunityModel>() }
+                        val sourceList = if (dbList.isEmpty() && allList.isNotEmpty()) allList else dbList
+                        applyCommunitiesToUi(sourceList, email)
+                        try { loadLocalGroupsFromDb() } catch (_: Exception) {}
+                    } catch (_: Exception) {
+                        // If DB read fails, we still don't want to force a remote refresh here — skip.
+                    } finally {
+                        try { isLoadingData = false; updateIllustrationVisibility() } catch (_: Exception) {}
+                    }
                 }
             }
+        } else {
+            // Navigated back via bottom navigation or fragment recreation — do not refresh communities/groups.
+            Log.d(TAG, "Skipping community/group refresh on fragment recreate (savedInstanceState != null)")
         }
+
 
         // Initial load (remote): fetch local groups from API and apply (used by swipe refresh or authoritative refresh)
         fun loadAndApplyLocalGroups() {
@@ -725,9 +697,14 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         // Attach swipe refresh listener after functions are declared so local helpers are in-scope.
         swipe.setOnRefreshListener {
             viewLifecycleOwner.lifecycleScope.launch {
-                try { loadAndApplyInitialData() } catch (_: Exception) {}
-                try { loadAndApplyLocalGroups() } catch (_: Exception) {}
-                swipe.isRefreshing = false
+                try {
+                    // updateBadge will fetch friend and join request counts and update UI badge
+                    Log.d(TAG, "Swipe refresh: refreshing only notifications")
+                    updateBadge()
+                    // Provide a visible confirmation so it's obvious the swipe only refreshed notifications
+                    try { com.google.android.material.snackbar.Snackbar.make(rootView, "Notifications refreshed", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT).show() } catch (_: Exception) {}
+                } catch (_: Exception) {}
+                try { swipe.isRefreshing = false } catch (_: Exception) {}
             }
         }
         // (local groups refresh handled above)
@@ -759,4 +736,34 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
     }
 
     // NOTE: Fragment does not override onBackPressed; BaseFragment may handle back presses.
+
+    // Private helper to update notification badge (friend requests + pending join requests)
+    private fun updateBadge() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val tvBadge = view?.findViewById<TextView>(R.id.tv_notification_badge)
+            try {
+                Log.d(TAG, "updateBadge: starting")
+                // friend requests
+                val friendRepo = com.example.myapplication.data.friends.repository.FriendsRepository.getInstance(requireContext())
+                val friendRes = friendRepo.getIncomingRequests()
+                val friendCount = friendRes.getOrNull()?.size ?: 0
+
+                // local community join requests (pending join requests)
+                val commRepo = CommunityRepository.getInstance(requireContext())
+                val joinRes = commRepo.getMyPendingRequests()
+                val joinCount = joinRes.getOrNull()?.size ?: 0
+
+                val total = friendCount + joinCount
+                Log.d(TAG, "updateBadge: friend=$friendCount join=$joinCount total=$total")
+                if (total > 0) {
+                    tvBadge?.text = if (total > 99) "99+" else total.toString()
+                    tvBadge?.visibility = View.VISIBLE
+                } else {
+                    tvBadge?.visibility = View.GONE
+                }
+            } catch (_: Exception) {
+                try { tvBadge?.visibility = View.GONE } catch (_: Exception) {}
+            }
+        }
+    }
 }

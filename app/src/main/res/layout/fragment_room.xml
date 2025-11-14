@@ -225,16 +225,7 @@
                             app:layout_constraintTop_toTopOf="@id/tv_rooms_name"
                             app:layout_constraintBottom_toBottomOf="@id/tv_rooms_name"/>
 
-                    <ProgressBar
-                            android:id="@+id/progress"
-                            style="@android:style/Widget.Material.ProgressBar.Horizontal"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:visibility="gone"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintEnd_toEndOf="parent"
-                            app:layout_constraintTop_toBottomOf="@id/tv_rooms_name"
-                            android:layout_marginTop="8dp"/>
+                    <!-- per-section inline progress removed; use shared progress_loader instead -->
 
                     <androidx.recyclerview.widget.RecyclerView
                             android:id="@+id/rv_chat_rooms"
@@ -264,38 +255,8 @@
                             app:layout_constraintStart_toStartOf="parent"
                             app:layout_constraintEnd_toEndOf="parent">
 
-                        <ImageView
-                                android:layout_width="40dp"
-                                android:layout_height="40dp"
-                                android:src="@drawable/chat_plus"
-                                android:tint="#CCCCCC"
-                                android:contentDescription="@string/no_chat_rooms"
-                                android:layout_marginBottom="8dp" />
-
-                        <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/no_chat_rooms"
-                                android:textColor="#CCCCCC"
-                                android:textSize="15sp"
-                                android:layout_marginTop="0dp"/>
 
                     </LinearLayout>
-
-                    <!-- Single bottom empty message to show when both chat and voice lists are empty -->
-                    <TextView
-                        android:id="@+id/empty_bottom_message"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:text="@string/no_rooms_or_voice"
-                        android:textColor="#CCCCCC"
-                        android:textSize="15sp"
-                        android:gravity="center"
-                        android:visibility="gone"
-                        android:padding="16dp"
-                        app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintEnd_toEndOf="parent" />
 
                     <!-- Voice rooms header: added below chat rooms section -->
 
@@ -303,7 +264,7 @@
                             android:layout_width="20dp"
                             android:layout_height="20dp"
                             android:src="@drawable/volume"
-                            android:tint="@color/white"
+                            app:tint="@color/white"
                             android:contentDescription="@string/speaker"
                             app:layout_constraintStart_toStartOf="@+id/guideline_start" android:id="@+id/imageView2"
                             app:layout_constraintTop_toTopOf="@+id/tv_voice_rooms_name"
@@ -334,16 +295,20 @@
                             app:layout_constraintTop_toTopOf="@id/tv_voice_rooms_name"
                             app:layout_constraintBottom_toBottomOf="@id/tv_voice_rooms_name"/>
 
+                    <!-- per-section inline progress removed; use shared progress_loader instead -->
+
+                    <!-- Single small centered loader used by both chat/voice loading actions -->
                     <ProgressBar
-                            android:id="@+id/progress_voice"
-                            style="@android:style/Widget.Material.ProgressBar.Horizontal"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:visibility="gone"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintEnd_toEndOf="parent"
-                            app:layout_constraintTop_toBottomOf="@id/tv_voice_rooms_name"
-                            android:layout_marginTop="8dp"/>
+                        android:id="@+id/progress_loader"
+                        style="?android:attr/progressBarStyleLarge"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:indeterminate="true"
+                        android:visibility="gone"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent" />
 
                     <androidx.recyclerview.widget.RecyclerView
                             android:id="@+id/rv_voice_rooms"
@@ -361,7 +326,7 @@
                             android:id="@+id/empty_group_view"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="No chat room and voice room yet"
+                            android:text="@string/no_rooms_group_message"
                             android:textColor="#CCCCCC"
                             android:visibility="gone"
                             android:textSize="14sp"

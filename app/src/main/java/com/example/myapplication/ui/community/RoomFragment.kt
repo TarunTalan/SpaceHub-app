@@ -140,7 +140,7 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
         voiceRoomsAdapter = VoiceRoomAdapter(onClick = { vr ->
             viewLifecycleOwner.lifecycleScope.launch {
                 try {
-                    fragmentRootView?.findViewById<View>(R.id.progress_voice)?.visibility = View.VISIBLE
+                    fragmentRootView?.findViewById<View>(R.id.progress_loader)?.visibility = View.VISIBLE
                     val displayName = withContext(Dispatchers.IO) {
                         try {
                             UserDataManager.getInstance(requireContext()).getEmail() ?: ""
@@ -155,7 +155,7 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
                             Result.failure<com.example.myapplication.data.voice.model.JoinVoiceRoomResponse>(t)
                         }
                     }
-                    fragmentRootView?.findViewById<View>(R.id.progress_voice)?.visibility = View.GONE
+                    fragmentRootView?.findViewById<View>(R.id.progress_loader)?.visibility = View.GONE
                     if (res.isSuccess) {
                         val resp = res.getOrNull()!!
                         val args = Bundle().apply {
@@ -170,7 +170,7 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
                         showUiMessage("Failed to join voice room: ${res.exceptionOrNull()?.message}")
                     }
                 } catch (e: Exception) {
-                    fragmentRootView?.findViewById<View>(R.id.progress_voice)?.visibility = View.GONE
+                    fragmentRootView?.findViewById<View>(R.id.progress_loader)?.visibility = View.GONE
                     showUiMessage("Failed to join voice room: ${e.message}")
                 }
             }
@@ -558,7 +558,7 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
 
             lifecycleScope.launch {
                 try {
-                    fragmentRootView?.findViewById<View>(R.id.progress_voice)?.visibility = View.VISIBLE
+                    fragmentRootView?.findViewById<View>(R.id.progress_loader)?.visibility = View.VISIBLE
                     val createdBy = try {
                         withContext(Dispatchers.IO) { UserDataManager.getInstance(requireContext()).getEmail() }
                     } catch (_: Exception) {
@@ -582,7 +582,7 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
                             Result.failure<com.example.myapplication.data.voice.model.CreateVoiceRoomResponse>(t)
                         }
                     }
-                    fragmentRootView?.findViewById<View>(R.id.progress_voice)?.visibility = View.GONE
+                    fragmentRootView?.findViewById<View>(R.id.progress_loader)?.visibility = View.GONE
                     if (res.isSuccess) {
                         val vr = res.getOrNull()!!.voiceRoom
                         val mapped = com.example.myapplication.data.voice.model.VoiceRoomX(
@@ -616,7 +616,7 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
                         sb?.show()
                     }
                 } catch (e: Exception) {
-                    fragmentRootView?.findViewById<View>(R.id.progress_voice)?.visibility = View.GONE
+                    fragmentRootView?.findViewById<View>(R.id.progress_loader)?.visibility = View.GONE
                     showUiMessage("Failed to create voice room: ${e.message}")
                 } finally {
                     setLoading(false)
@@ -964,7 +964,7 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
     private fun loadVoiceRooms(serverRoomId: String) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                fragmentRootView?.findViewById<View>(R.id.progress_voice)?.visibility = View.VISIBLE
+                fragmentRootView?.findViewById<View>(R.id.progress_loader)?.visibility = View.VISIBLE
                 val parentId = try {
                     resolveChatParentId(serverRoomId) ?: serverRoomId
                 } catch (_: Exception) {
@@ -975,7 +975,7 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
                     "loadVoiceRooms: resolving parent from candidate='$serverRoomId' -> parentId='$parentId'"
                 )
                 val res = withContext(Dispatchers.IO) { voiceRepo.getVoiceRooms(parentId ?: serverRoomId) }
-                fragmentRootView?.findViewById<View>(R.id.progress_voice)?.visibility = View.GONE
+                fragmentRootView?.findViewById<View>(R.id.progress_loader)?.visibility = View.GONE
                 if (res.isSuccess) {
                     val list = res.getOrNull()?.voiceRooms.orEmpty()
                     Log.d("RoomFragment", "loadVoiceRooms: got ${list.size} voice rooms for parentId='$parentId'")
@@ -988,7 +988,7 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
                     sb?.show()
                 }
             } catch (_: Exception) {
-                fragmentRootView?.findViewById<View>(R.id.progress_voice)?.visibility = View.GONE
+                fragmentRootView?.findViewById<View>(R.id.progress_loader)?.visibility = View.GONE
                 showUiMessage("Failed to load voice rooms")
             }
         }
