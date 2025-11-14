@@ -29,8 +29,11 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 
 class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
 
-    private val vm: CommunityDetailViewModel by viewModels()
-    private val TAG = "CommunityDetail"
+     private val vm: CommunityDetailViewModel by viewModels()
+     private val TAG = "CommunityDetail"
+    // Delayed empty view helper: show "no rooms yet" only after a short delay
+    private var pendingEmptyViewRunnable: Runnable? = null
+    private val emptyDelayMs: Long = 800L
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -44,10 +47,11 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
 
         val toolbar = view.findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
 
-        // Inform ViewModel about the current community and refresh details immediately
+        // Inform ViewModel about the current community. The ViewModel will perform the initial
+        // network sync (members and rooms) for this community — avoid calling refresh helpers
+        // from the Fragment to prevent duplicate network requests.
         try {
             vm.setCommunityId(communityId)
-            vm.refreshDetails()
         } catch (_: Exception) {}
 
         // show a back arrow and navigate up when clicked
@@ -73,8 +77,10 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                                 val comm = repo.getCommunityById(communityId)
                                 val email = UserDataManager.getInstance(requireContext()).getEmail()
                                 val roleRaw = comm?.role?.trim()?.uppercase()
-                                val roleIndicatesAdmin = roleRaw != null && listOf("ADMIN", "OWNER", "CREATOR", "MANAGER", "MODERATOR").any { roleRaw.contains(it) }
-                                val isAdmin = comm?.isOwner == true || comm?.isModerator == true || roleIndicatesAdmin || (!comm?.creatorId.isNullOrBlank() && comm.creatorId.equals(email, true))
+                                val roleIndicatesAdmin = roleRaw?.let { r -> listOf("ADMIN", "OWNER", "CREATOR", "MANAGER", "MODERATOR").any { it in r } } ?: false
+                                val isAdmin = if (comm != null) {
+                                    comm.isOwner || comm.isModerator || roleIndicatesAdmin || (comm.creatorId?.equals(email, true) == true)
+                                } else false
                                 if (!isAdmin) {
                                     Toast.makeText(requireContext(), "Only admins can edit", Toast.LENGTH_SHORT).show()
                                     return@launch
@@ -128,7 +134,10 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                                             Toast.makeText(requireContext(), "Left community", Toast.LENGTH_SHORT).show()
                                             findNavController().navigateUp()
                                         } else {
-                                            Toast.makeText(requireContext(), "Failed to leave", Toast.LENGTH_SHORT).show()
+                                            // Surface server-provided message when available (e.g. creator cannot leave)
+                                            val ex = res.exceptionOrNull()
+                                            val errMsg = ex?.message.takeUnless { it.isNullOrBlank() } ?: ex?.toString() ?: "Failed to leave"
+                                            Toast.makeText(requireContext(), errMsg, Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 }
@@ -153,9 +162,14 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                                 val comm = repo.getCommunityById(communityId)
                                 val email = UserDataManager.getInstance(requireContext()).getEmail()
                                 val roleRaw = comm?.role?.trim()?.uppercase()
-                                val roleIndicatesAdmin = roleRaw != null && listOf("ADMIN", "OWNER", "CREATOR", "MANAGER", "MODERATOR").any { roleRaw.contains(it) }
-                                val isAdmin = comm?.isOwner == true || comm?.isModerator == true || roleIndicatesAdmin || (!comm?.creatorId.isNullOrBlank() && comm.creatorId.equals(email, true))
-                                if (!isAdmin) { Toast.makeText(requireContext(), "Only admins can add rooms", Toast.LENGTH_SHORT).show(); return@launch }
+                                val roleIndicatesAdmin = roleRaw?.let { r -> listOf("ADMIN", "OWNER", "CREATOR", "MANAGER", "MODERATOR").any { it in r } } ?: false
+                                val isAdmin = if (comm != null) {
+                                    comm.isOwner || comm.isModerator || roleIndicatesAdmin || (comm.creatorId?.equals(email, true) == true)
+                                } else false
+                                if (!isAdmin) {
+                                    try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Only admins can add rooms", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {}
+                                    return@launch
+                                }
                                 try {
                                     val inflater = layoutInflater
                                     val dialogView = inflater.inflate(R.layout.dialog_create_chat_room, null)
@@ -173,12 +187,12 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                                         tvError.visibility = View.GONE
                                         setLoading(true)
                                         viewLifecycleOwner.lifecycleScope.launch {
-                                            try { vm.createRoom(name); Toast.makeText(requireContext(), "Chat room created: $name", Toast.LENGTH_SHORT).show(); dialog.dismiss() } catch (e: Exception) { com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to create room: ${e.message}", com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE).setAction("Retry") { btnCreate.performClick() }.show() } finally { setLoading(false) }
+                                            try { vm.createRoom(name); dialog.dismiss() } catch (e: Exception) { com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to create room: ${e.message}", com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE).setAction("Retry") { btnCreate.performClick() }.show() } finally { setLoading(false) }
                                         }
                                     }
                                     btnCancel.setOnClickListener { dialog.dismiss() }
                                     dialog.show()
-                                } catch (_: Exception) { Toast.makeText(requireContext(), "Failed to open dialog", Toast.LENGTH_SHORT).show() }
+                                } catch (_: Exception) { try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to open dialog", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {} }
                             }
                             true
                         }
@@ -199,7 +213,9 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                     val email = UserDataManager.getInstance(requireContext()).getEmail()
                     val role = comm?.role?.uppercase()
                     val adminRoles = setOf("OWNER", "CREATOR", "ADMIN", "MODERATOR", "MANAGER")
-                    val isOwner = (comm?.isOwner == true) || (!comm?.creatorId.isNullOrBlank() && comm?.creatorId.equals(email, true)) || (role in listOf("OWNER", "CREATOR"))
+                    val isOwner = if (comm != null) {
+                        comm.isOwner || (comm.creatorId?.equals(email, true) == true) || (role in listOf("OWNER", "CREATOR"))
+                    } else false
                     val isAdmin = isOwner || (role != null && adminRoles.any { role.contains(it) }) || (comm?.isModerator == true)
 
                     val popup = androidx.appcompat.widget.PopupMenu(requireContext(), anchor)
@@ -236,7 +252,14 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                                 com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(requireContext(), R.string.leave_confirm_title, R.string.leave_confirm_message, positiveRes = R.string.leave_confirm_yes, negativeRes = android.R.string.cancel, onPositive = {
                                     viewLifecycleOwner.lifecycleScope.launch {
                                         val res = CommunityRepository.getInstance(requireContext()).leaveCommunity(communityId, repo.getCommunityById(communityId)?.name ?: "")
-                                        if (res.isSuccess) findNavController().navigateUp() else Toast.makeText(requireContext(), "Failed to leave", Toast.LENGTH_SHORT).show()
+                                        if (res.isSuccess) {
+                                            findNavController().navigateUp()
+                                        } else {
+                                            // Surface server-provided message when available (e.g. creator cannot leave)
+                                            val ex = res.exceptionOrNull()
+                                            val errMsg = ex?.message.takeUnless { it.isNullOrBlank() } ?: ex?.toString() ?: "Failed to leave"
+                                            Toast.makeText(requireContext(), errMsg, Toast.LENGTH_SHORT).show()
+                                        }
                                     }
                                 })
                                 true
@@ -266,12 +289,12 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                                         tvError.visibility = View.GONE
                                         setLoading(true)
                                         viewLifecycleOwner.lifecycleScope.launch {
-                                            try { vm.createRoom(name); Toast.makeText(requireContext(), "Chat room created: $name", Toast.LENGTH_SHORT).show(); dialog.dismiss() } catch (e: Exception) { com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to create room: ${e.message}", com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE).setAction("Retry") { btnCreate.performClick() }.show() } finally { setLoading(false) }
+                                            try { vm.createRoom(name); dialog.dismiss() } catch (e: Exception) { com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to create room: ${e.message}", com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE).setAction("Retry") { btnCreate.performClick() }.show() } finally { setLoading(false) }
                                         }
                                     }
                                     btnCancel.setOnClickListener { dialog.dismiss() }
                                     dialog.show()
-                                } catch (_: Exception) { Toast.makeText(requireContext(), "Failed to open dialog", Toast.LENGTH_SHORT).show() }
+                                } catch (_: Exception) { try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to open dialog", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {} }
                                 true
                             }
                             else -> false
@@ -290,10 +313,12 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                 if (cid.isNullOrBlank()) return@launch
                 val repo = CommunityRepository.getInstance(requireContext())
                 val comm = repo.getCommunityById(cid)
-                val email = com.example.myapplication.data.user.UserDataManager.getInstance(requireContext()).getEmail()
+                val email = UserDataManager.getInstance(requireContext()).getEmail()
                 // Determine ownership/admin status robustly: prefer explicit flag, fallback to creatorId or role
                 val role = comm?.role?.uppercase()
-                val isOwner = (comm?.isOwner == true) || (!comm?.creatorId.isNullOrBlank() && comm?.creatorId.equals(email, true)) || (role in listOf("OWNER", "CREATOR"))
+                val isOwner = if (comm != null) {
+                    comm.isOwner || (comm.creatorId?.equals(email, true) == true) || (role in listOf("OWNER", "CREATOR"))
+                } else false
                 val isAdmin = isOwner || (role != null && adminRoles.any { role.contains(it) }) || (comm?.isModerator == true)
                 // toolbar may be null in some layouts; use safe-call
                 toolbar?.menu?.findItem(R.id.action_delete_community)?.isVisible = isAdmin
@@ -378,7 +403,9 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
                     val email = UserDataManager.getInstance(requireContext()).getEmail()
                     val role = comm?.role?.uppercase()
                     val adminRoles = setOf("OWNER", "CREATOR", "ADMIN", "MODERATOR", "MANAGER")
-                    val isOwner = comm?.isOwner == true || (!comm?.creatorId.isNullOrBlank() && comm?.creatorId.equals(email, true)) || (role in listOf("OWNER", "CREATOR"))
+                    val isOwner = if (comm != null) {
+                        comm.isOwner || (comm.creatorId?.equals(email, true) == true) || (role in listOf("OWNER", "CREATOR"))
+                    } else false
                     val isAdmin = isOwner || (role != null && adminRoles.any { role.contains(it) }) || (comm?.isModerator == true)
 
                     if (!isAdmin) {
@@ -399,24 +426,47 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
 
          vm.rooms.observe(viewLifecycleOwner) { list: List<DataRoom> ->
             adapter.submitList(list) {
-                 // run after list is committed to adapter
-                 val isEmpty = list.isEmpty()
+                // run after list is committed to adapter
+                val isEmpty = list.isEmpty()
                 try {
-                    emptyView?.visibility = if (isEmpty) View.VISIBLE else View.GONE
-                    rv?.visibility = if (isEmpty) View.GONE else View.VISIBLE
-                    if (!isEmpty) {
-                        try {
-                            rv?.let { r -> r.post { r.scrollToPosition(0) } }
-                        } catch (_: Exception) {}
+                    // Cancel any previously scheduled empty view show
+                    pendingEmptyViewRunnable?.let { view.removeCallbacks(it) }
+                    if (isEmpty) {
+                        // Post a delayed runnable so brief loading/spinners don't immediately show the empty message
+                        pendingEmptyViewRunnable = Runnable {
+                            try {
+                                emptyView?.visibility = View.VISIBLE
+                                rv?.visibility = View.GONE
+                            } catch (_: Exception) {}
+                        }
+                        pendingEmptyViewRunnable?.let { run -> view.postDelayed(run, emptyDelayMs) }
+                    } else {
+                        // Non-empty: ensure empty view hidden and RecyclerView visible
+                        emptyView?.visibility = View.GONE
+                        rv?.visibility = View.VISIBLE
+                        try { rv?.let { r -> r.post { r.scrollToPosition(0) } } } catch (_: Exception) {}
                     }
                 } catch (e: Exception) {
                     android.util.Log.e(TAG, "Failed to update rooms list visibility", e)
                 }
-              }
+            }
          }
         vm.totalMembers.observe(viewLifecycleOwner) { count -> memberCount?.text = count.toString() }
         vm.adminCount.observe(viewLifecycleOwner) { count -> adminCount?.text = count.toString() }
-        vm.toast.observe(viewLifecycleOwner) { msg -> if (!msg.isNullOrBlank()) Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show() }
+        vm.toast.observe(viewLifecycleOwner) { msg ->
+            if (msg.isNullOrBlank()) return@observe
+            // Only surface error/failure messages to the user here. Success/info messages are intentionally silent.
+            val lower = msg.lowercase()
+            val isError = lower.contains("fail") || lower.contains("error") || lower.contains("unable") || lower.contains("failed")
+            if (isError) {
+                try {
+                    val parent = requireView()
+                    com.google.android.material.snackbar.Snackbar.make(parent, msg, com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show()
+                } catch (_: Exception) {}
+            }
+            // Clear the transient toast value to avoid re-showing it when fragment is recreated or navigated to again
+            try { vm.clearToast() } catch (_: Exception) {}
+        }
         vm.deleted.observe(viewLifecycleOwner) { deleted -> if (deleted == true) findNavController().popBackStack() }
 
         view.findViewById<View>(R.id.fab_create_room)?.setOnClickListener {
@@ -551,4 +601,12 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
          } catch (_: Exception) {}
      }
 
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // Clean up any pending runnable to avoid leaks
+        try {
+            pendingEmptyViewRunnable?.let { view?.removeCallbacks(it) }
+            pendingEmptyViewRunnable = null
+        } catch (_: Exception) {}
+    }
 }

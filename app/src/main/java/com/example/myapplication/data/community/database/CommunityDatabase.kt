@@ -18,7 +18,8 @@ import com.example.myapplication.data.chat.model.Conversation
  */
 @Database(
     entities = [Community::class, RoomEntity::class, ChatMessage::class, Conversation::class],
-    version = 5,
+
+    version = 8,
     exportSchema = false
 )
 abstract class CommunityDatabase : RoomDatabase() {

@@ -560,7 +560,8 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
                      try { isLoadingData = false; updateIllustrationVisibility() } catch (_: Exception) {}
                  }
              }
-         }
+
+        }
 
         // Load initial data on view created
         // DB-only loader for local groups (fast, used on navigation/ restart).
@@ -621,7 +622,31 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         // Load initial data (fast-path aware) when view is created.
         // Keep illustration hidden until loading finishes.
         try { isLoadingData = true; updateIllustrationVisibility() } catch (_: Exception) {}
-        maybeLoadInitialData()
+        // If this is the very first time the dashboard is shown in this session (initialDataLoaded==false),
+        // run the normal maybeLoadInitialData() which may perform a remote authoritative refresh.
+        // Otherwise (navigating back to dashboard) avoid any remote refresh — perform a fast DB-only load
+        // so UI is populated from local DB without hitting network.
+        if (!initialDataLoaded) {
+            maybeLoadInitialData()
+        } else {
+            // Fast DB-only load (no network). This ensures UI populates quickly without refreshing remote data.
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    try { isLoadingData = true; updateIllustrationVisibility() } catch (_: Exception) {}
+                    val repo = CommunityRepository.getInstance(requireContext())
+                    val email = try { UserDataManager.getInstance(requireContext()).getEmail() } catch (_: Exception) { null }
+                    val dbList = try { withContext(Dispatchers.IO) { repo.observeMyCommunities().first() } } catch (_: Throwable) { emptyList<CommunityModel>() }
+                    val allList = try { withContext(Dispatchers.IO) { repo.observeAllCommunities().first() } } catch (_: Throwable) { emptyList<CommunityModel>() }
+                    val sourceList = if (dbList.isEmpty() && allList.isNotEmpty()) allList else dbList
+                    applyCommunitiesToUi(sourceList, email)
+                    try { loadLocalGroupsFromDb() } catch (_: Exception) {}
+                } catch (_: Exception) {
+                    // If DB read fails, we still don't want to force a remote refresh here — skip.
+                } finally {
+                    try { isLoadingData = false; updateIllustrationVisibility() } catch (_: Exception) {}
+                }
+            }
+        }
 
         // Initial load (remote): fetch local groups from API and apply (used by swipe refresh or authoritative refresh)
         fun loadAndApplyLocalGroups() {

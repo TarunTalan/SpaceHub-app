@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/action_speaker"
+        android:title="@string/speaker"
+        android:icon="@drawable/voice_speaker" />
+    <item
+        android:id="@+id/action_phone"
+        android:title="@string/phone"
+        android:icon="@drawable/phone" />
+    <item
+        android:id="@+id/action_mute"
+        android:title="@string/mute"
+        android:icon="@drawable/mute" />
+    <item
+        android:id="@+id/action_cancel"
+        android:title="@string/cancel"
+        android:icon="@drawable/cancel" />
+</menu>

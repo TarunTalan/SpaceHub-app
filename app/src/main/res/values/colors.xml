@@ -7,6 +7,9 @@
     <color name="gray_medium">#ADADAD</color>
     <color name="gray_light">#D3D3D3</color>
 
+    <!-- Selection background for message selection -->
+    <color name="selection_bg">#2A2F36</color>
+
     <!-- Auth Screen Colors -->
     <color name="subtitle_gray">#C6CAD1</color>
     <color name="input_error">#F44336</color>

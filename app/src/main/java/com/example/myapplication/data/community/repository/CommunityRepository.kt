@@ -255,7 +255,23 @@ class CommunityRepository private constructor(private val context: Context) {
                 // Minimize API calls: update local DB immediately instead of refetching
                 try { communityDao.deleteCommunityById(communityId) } catch (_: Exception) {}
                 Result.success(Unit)
-            } else Result.failure(RuntimeException("Failed: ${resp.code()}"))
+            } else {
+                // Try to extract server-provided message deterministically.
+                val rawErr = try { resp.errorBody()?.string() } catch (_: Exception) { null }
+                val err = when {
+                    // If the typed body contains a message field (some backends include it even on errors), prefer that
+                    !resp.body()?.message.isNullOrBlank() -> resp.body()!!.message
+                    // Try parsing raw error JSON for 'message'/'error' keys
+                    !rawErr.isNullOrBlank() -> try {
+                        val parsed = com.example.myapplication.data.network.ResponseParser.parseError(okhttp3.ResponseBody.create(null, rawErr))
+                        if (!parsed.isNullOrBlank()) parsed else "HTTP ${resp.code()}"
+                    } catch (_: Exception) {
+                        rawErr
+                    }
+                    else -> "HTTP ${resp.code()}"
+                }
+                Result.failure(RuntimeException(err))
+            }
         } catch (t: Throwable) { Result.failure(t) }
     }
 
@@ -276,21 +292,29 @@ class CommunityRepository private constructor(private val context: Context) {
     suspend fun createChatRoom(communityId: String, roomId: String, chatRoomName: String): Result<DataChatRoom> {
         return withContext(Dispatchers.IO) {
             try {
-                // Resolve parent room code (prefer local cache)
+                // Resolve parent room's authoritative roomCode.
+                // 1) Local DB entry for this community (roomDao) -> use its roomCode if present
+                // 2) Remote call getAllRooms(communityId) to fetch canonical list and use the matching entry's roomCode
+                // 3) Fallback to provided roomId (last-resort)
                 var parentRoomCode: String? = null
                 try {
                     val localRooms = roomDao.getRooms(communityId)
                     val found = localRooms.firstOrNull { r -> r.id == roomId || r.roomCode == roomId || r.name == roomId }
-                    if (found != null) parentRoomCode = if (found.roomCode.isNotBlank()) found.roomCode else found.id
-                } catch (_: Exception) { /* ignore local lookup errors */ }
+                    if (found != null) {
+                        parentRoomCode = found.roomCode.takeIf { it.isNotBlank() } ?: found.id
+                    }
+                } catch (_: Exception) { }
 
                 if (parentRoomCode.isNullOrBlank()) {
                     try {
-                        val summaryResp = api.getChatRoomSummary(roomId)
-                        if (summaryResp.isSuccessful && (summaryResp.body()?.status in listOf(200, 201))) {
-                            parentRoomCode = roomId
+                        val allResp = api.getAllRooms(communityId)
+                        if (allResp.isSuccessful) {
+                            val list = allResp.body()?.data ?: emptyList()
+                            val match = list.firstOrNull { r -> r.id == roomId || r.roomCode == roomId || r.name == roomId }
+                            if (match != null) parentRoomCode = match.roomCode.takeIf { it.isNotBlank() } ?: match.id
                         }
                     } catch (_: Exception) {
+                        // ignore remote lookup failure
                     }
                 }
 
@@ -301,6 +325,9 @@ class CommunityRepository private constructor(private val context: Context) {
                 val namePart = chatRoomName.trim().toRequestBody("text/plain".toMediaTypeOrNull())
                 val codePart = parentCode.trim().toRequestBody("text/plain".toMediaTypeOrNull())
 
+                // Debug log (safe): indicate which code we're sending
+                // Timber/Log used elsewhere; use android.util.Log to avoid adding deps
+                try { android.util.Log.d("CommunityRepo", "createChatRoom: sending roomCode=$parentCode for community=$communityId") } catch (_: Exception) {}
                 val resp = api.createChatRoom(namePart, codePart)
                 if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
                     val created = resp.body()!!.data
@@ -398,9 +425,10 @@ class CommunityRepository private constructor(private val context: Context) {
             // If the typed API model provides a list of DataRoom, use it directly
             val dataList: List<DataRoom>? = body?.data
             if (dataList != null) {
+                // Use server-side id as DataRoom.id so UI that relies on `roomId` receives authoritative id.
+                // Keep roomCode as provided so chat flows can use chatRoomCode when needed.
                 val normalized = dataList.map { r ->
-                    val effectiveId = r.roomCode.ifBlank { r.id }
-                    DataRoom(id = effectiveId, name = r.name, roomCode = r.roomCode, newChatRooms = r.newChatRooms, voiceRooms = r.voiceRooms)
+                    DataRoom(id = r.id, name = r.name, roomCode = r.roomCode, newChatRooms = r.newChatRooms, voiceRooms = r.voiceRooms)
                 }
                 Log.d("CommunityRepo", "getAllRooms: returning ${normalized.size} rooms")
                 return Result.success(normalized)
@@ -908,10 +936,10 @@ class CommunityRepository private constructor(private val context: Context) {
             // If backend returns typed list, use it directly
             val dataList: List<DataRoom>? = body?.data
             val rooms: List<RoomEntity> = if (!dataList.isNullOrEmpty()) {
+                // Persist server-side id as primary id; store roomCode separately.
                 dataList.mapNotNull { r ->
                     try {
-                        val effectiveId = r.roomCode.ifBlank { r.id }
-                        RoomEntity(id = effectiveId, communityId = communityId, name = r.name, roomCode = r.roomCode)
+                        RoomEntity(id = r.id, communityId = communityId, name = r.name, roomCode = r.roomCode)
                     } catch (_: Exception) { null }
                 }
             } else {
@@ -960,9 +988,9 @@ class CommunityRepository private constructor(private val context: Context) {
                         o.has("code") && !o.get("code").isJsonNull -> o.get("code").asString
                         else -> ""
                     }
-                    val effectiveId = code.ifBlank { id }
-                    return RoomEntity(id = effectiveId, communityId = communityId, name = name, roomCode = code)
-                }
+                    // Persist server id as primary id and roomCode separately
+                    return RoomEntity(id = id, communityId = communityId, name = name, roomCode = code)
+                 }
 
                 val arr = extractArray(dataEl)
                 val parsedRooms: List<RoomEntity> = arr?.mapNotNull { mapRoom(it) } ?: emptyList()
@@ -982,9 +1010,9 @@ class CommunityRepository private constructor(private val context: Context) {
     suspend fun getLocalRooms(communityId: String): List<DataRoom> = withContext(Dispatchers.IO) {
         try {
             val entities = roomDao.getRooms(communityId)
+            // Return server-side id (RoomEntity.id) as DataRoom.id so callers receive authoritative roomId.
             return@withContext entities.map { e ->
-                val effectiveId = e.roomCode.ifBlank { e.id }
-                DataRoom(id = effectiveId, name = e.name, roomCode = e.roomCode)
+                DataRoom(id = e.id, name = e.name, roomCode = e.roomCode)
             }
         } catch (t: Throwable) {
             Log.w("CommunityRepo", "getLocalRooms: failed to read DB for communityId=$communityId: ${t.message}")
@@ -992,11 +1020,7 @@ class CommunityRepository private constructor(private val context: Context) {
         }
     }
 
-    /**
-     * Invalidate cached members for a community so next fetchMembers() will hit the network.
-     * Useful when user explicitly requests a refresh (e.g., clicks Members) or after
-     * membership changes that should be reflected immediately.
-     */
+
     fun invalidateMembersCache(communityId: String) {
         synchronized(_memberRequestsLock) {
             _memberCache.remove(communityId)

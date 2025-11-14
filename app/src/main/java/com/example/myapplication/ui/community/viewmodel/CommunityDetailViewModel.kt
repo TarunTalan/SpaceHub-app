@@ -15,6 +15,11 @@ import kotlinx.coroutines.flow.collectLatest
 class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = CommunityRepository.getInstance(app)
 
+    // Track which communityIds have already had their initial network sync performed
+    // This prevents duplicate getAllRooms / getAllMembers calls when fragment recreates
+    // or setCommunityId is invoked multiple times for the same id.
+    private val _syncedCommunities = mutableSetOf<String>()
+
     private val _communityId = MutableLiveData<String>()
     private val _communityName = MutableLiveData<String?>()
 
@@ -40,6 +45,8 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
     private var communityCollectJob: Job? = null
 
     fun setCommunityId(id: String) {
+        // Always clear any transient toast from previous context to avoid showing stale messages
+        _toast.postValue(null)
         if (_communityId.value == id) return
         _communityId.value = id
         // Observe rooms from DB so UI auto-refreshes
@@ -62,10 +69,15 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch {
             repo.getCommunityById(id)?.let { _communityName.postValue(it.name) }
-            refreshMemberCount()
-            refreshAdminCount()
-            // initial network sync
-            syncRooms()
+            // Perform the initial network sync for a given community only once per ViewModel instance.
+            // This avoids duplicate getAllRooms/getAllMembers calls when fragment recreates or
+            // setCommunityId is invoked multiple times for the same id.
+            val firstTime = synchronized(_syncedCommunities) { _syncedCommunities.add(id) }
+            if (firstTime) {
+                try { refreshMemberCount() } catch (_: Exception) {}
+                try { refreshAdminCount() } catch (_: Exception) {}
+                try { syncRooms() } catch (_: Exception) {}
+            }
         }
     }
 
@@ -94,7 +106,7 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
         val res = repo.createRoom(id, roomName)
         _loading.postValue(false)
         res.onSuccess {
-            _toast.postValue("Room created")
+            // Success: refresh rooms silently; UI will not show a success toast
             syncRooms()
         }.onFailure { _toast.postValue(it.message ?: "Failed to create room") }
     }
@@ -105,7 +117,7 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
         val res = repo.deleteRoom(id, roomId)
         _loading.postValue(false)
         res.onSuccess {
-            _toast.postValue("Room deleted")
+            // Success: refresh rooms silently
             syncRooms()
         }.onFailure { _toast.postValue(it.message ?: "Failed to delete room") }
     }
@@ -151,7 +163,7 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
         val res = repo.renameRoom(id, roomId, newName)
         _loading.postValue(false)
         res.onSuccess {
-            _toast.postValue("Room renamed")
+            // Success: refresh silently
             syncRooms()
         }.onFailure { _toast.postValue(it.message ?: "Failed to rename room") }
     }
@@ -164,7 +176,7 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
             _loading.postValue(false)
             res.onSuccess {
                 _deleted.postValue(true)
-                _toast.postValue("Community deleted")
+                // Do not emit a success toast; UI handles navigation and can show its own messages if needed
             }.onFailure { err ->
                 val msg = when (err) {
                     is IllegalAccessException -> "Only admins can delete community"
@@ -174,4 +186,7 @@ class CommunityDetailViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
+    // Clear transient UI toast so fragments don't show stale messages when re-attaching
+    fun clearToast() { _toast.postValue(null) }
 }

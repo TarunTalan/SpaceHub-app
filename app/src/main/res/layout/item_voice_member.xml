@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="6dp"
+    app:cardCornerRadius="8dp"
+    app:cardUseCompatPadding="true"
+    android:id="@+id/card_member"
+    android:foregroundTintMode="src_over">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="160dp"
+        android:duplicateParentState="true"
+        android:background="@drawable/card_bg_selector">
+
+        <ImageView
+            android:id="@+id/iv_member_avatar"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="fitCenter"
+            android:src="@drawable/default_profile"
+            android:contentDescription="@string/member_avatar" />
+
+        <!-- overlay to show speaking highlight (semi-transparent) -->
+        <View
+            android:id="@+id/highlight_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/highlight_overlay_bg"
+            android:visibility="gone" />
+
+        <View
+            android:id="@+id/speaking_indicator"
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:layout_margin="8dp"
+            android:layout_gravity="top|end"
+            android:background="@drawable/speaking_dot"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/tv_member_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:background="#55000000"
+            android:textColor="@android:color/white"
+            android:padding="6dp"
+            android:text="@string/member_name_placeholder"
+            android:maxLines="1"
+            android:ellipsize="end" />
+    </FrameLayout>
+
+</androidx.cardview.widget.CardView>

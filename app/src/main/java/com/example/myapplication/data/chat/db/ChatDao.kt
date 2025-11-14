@@ -34,6 +34,17 @@ interface ChatDao {
     @Query("DELETE FROM messages WHERE conversationId = :conversationId")
     suspend fun deleteMessagesForConversation(conversationId: String)
 
+    // New helper to fetch a single message by id (used when updating deletion flags)
+    @Query("SELECT * FROM messages WHERE id = :messageId LIMIT 1")
+    suspend fun getMessageById(messageId: String): ChatMessage?
+
+    @Query("SELECT * FROM messages WHERE serverId = :serverId LIMIT 1")
+    suspend fun getMessageByServerId(serverId: String): ChatMessage?
+
+    // New helper to mark a message as deleted for sender/receiver and replace its displayed content
+    @Query("UPDATE messages SET senderDeleted = :senderDeleted, receiverDeleted = :receiverDeleted, content = :deletedText WHERE id = :messageId")
+    suspend fun markMessageDeleted(messageId: String, senderDeleted: Boolean, receiverDeleted: Boolean, deletedText: String)
+
     // Conversations
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertConversation(conversation: Conversation)
@@ -56,4 +67,3 @@ interface ChatDao {
     @Query("DELETE FROM conversations WHERE id = :conversationId")
     suspend fun deleteConversation(conversationId: String)
 }
-

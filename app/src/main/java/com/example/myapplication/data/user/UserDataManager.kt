@@ -38,6 +38,7 @@ class UserDataManager private constructor(context: Context) {
         val FOLLOWERS_COUNT = intPreferencesKey("followers_count")
         val FOLLOWING_COUNT = intPreferencesKey("following_count")
         val IS_PRIVATE = booleanPreferencesKey("is_private")
+        val DEFAULT_ROOMS_CREATED = stringSetPreferencesKey("default_rooms_created")
     }
 
     companion object {
@@ -187,6 +188,46 @@ class UserDataManager private constructor(context: Context) {
     fun clear() {
         scope.launch {
             dataStore.edit { it.clear() }
+        }
+    }
+
+    /**
+     * Compose a stable key for a default room marker.
+     * Format: "communityId|roomId|kind" where kind is "chat" or "voice".
+     */
+    private fun defaultRoomKey(communityId: String, roomId: String, kind: String) = "${communityId}|${roomId}|${kind}"
+
+    /**
+     * Check whether a default room marker exists (suspending).
+     */
+    suspend fun isDefaultRoomCreated(communityId: String, roomId: String, kind: String): Boolean {
+        val key = defaultRoomKey(communityId, roomId, kind)
+        val prefs = dataStore.data.first()
+        val set = prefs[PrefsKeys.DEFAULT_ROOMS_CREATED] ?: emptySet()
+        return set.contains(key)
+    }
+
+    /**
+     * Mark a default room as created asynchronously.
+     */
+    fun markDefaultRoomCreatedAsync(communityId: String, roomId: String, kind: String) {
+        val key = defaultRoomKey(communityId, roomId, kind)
+        scope.launch {
+            dataStore.edit { prefs ->
+                val existing = prefs[PrefsKeys.DEFAULT_ROOMS_CREATED] ?: emptySet()
+                prefs[PrefsKeys.DEFAULT_ROOMS_CREATED] = existing + key
+            }
+        }
+    }
+
+    /**
+     * Mark a default room as created (suspending/blocking until written).
+     */
+    suspend fun markDefaultRoomCreatedBlocking(communityId: String, roomId: String, kind: String) {
+        val key = defaultRoomKey(communityId, roomId, kind)
+        dataStore.edit { prefs ->
+            val existing = prefs[PrefsKeys.DEFAULT_ROOMS_CREATED] ?: emptySet()
+            prefs[PrefsKeys.DEFAULT_ROOMS_CREATED] = existing + key
         }
     }
 }

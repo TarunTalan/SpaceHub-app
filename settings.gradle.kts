@@ -21,6 +21,13 @@ dependencyResolutionManagement {
         mavenCentral()
         // JitPack required for some GitHub-hosted libraries (ucrop)
         maven("https://jitpack.io")
+        // Add WebRTC official maven repository so org.webrtc artifacts can be resolved
+        maven("https://maven.webrtc.org")
+        // Allow resolving local AAR files placed into app/libs when remote maven is unreachable
+        // (flatDir must be added at the settings level because project repositories are disabled)
+        flatDir {
+            dirs("app/libs")
+        }
     }
 }
 

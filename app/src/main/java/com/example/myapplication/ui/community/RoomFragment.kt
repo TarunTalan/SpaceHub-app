@@ -13,37 +13,48 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.bumptech.glide.Glide
 import com.example.myapplication.R
 import com.example.myapplication.data.community.model.DataRoom
 import com.example.myapplication.data.community.repository.CommunityRepository
 import com.example.myapplication.data.user.UserDataManager
 import com.example.myapplication.ui.community.adapter.RoomAdapter
+import com.example.myapplication.ui.community.adapter.VoiceRoomAdapter
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.example.myapplication.data.voice.VoiceRoomRepository
 
 class RoomFragment : Fragment(R.layout.fragment_room) {
 
     private val roomViewModel: RoomViewModel by viewModels()
+    private val voiceRepo by lazy { VoiceRoomRepository.getInstance(requireContext()) }
 
     private val chatRooms = mutableListOf<DataRoom>()
     private lateinit var chatRoomsAdapter: RoomAdapter
     private var chatRoomsExpanded = true
-    // keep args as properties so dialog can access them
+
+    private val voiceRooms = mutableListOf<com.example.myapplication.data.voice.model.VoiceRoomX>()
+    private lateinit var voiceRoomsAdapter: VoiceRoomAdapter
+    private var voiceRoomsExpanded = true
+
     private var currentCommunityId: String? = null
     private var currentRoomId: String? = null
+    private var fragmentRootView: View? = null
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Get arguments
+        fragmentRootView = view
+        val rootView: View = view
+
         val communityId = arguments?.getString("communityId")
         val roomId = arguments?.getString("roomId")
-        // server-provided roomCode (preferred) — may be null for older data
         val roomCodeArg = arguments?.getString("roomCode")
         currentCommunityId = communityId
-        currentRoomId = roomCodeArg ?: roomId
+        currentRoomId = roomId ?: roomCodeArg
         val roomName = arguments?.getString("roomName")
         val communityName = arguments?.getString("communityName")
         val communityImageUrl = arguments?.getString("communityImageUrl")
@@ -56,123 +67,147 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
             return
         }
 
-        // Resolve parent room code early: prefer server-provided roomCode when available.
-        // At this point we already verified communityId and (some form of) roomId are non-null.
+        val navRoomId: String = roomId.trim()
+
+        // Resolve room code if needed
         roomViewModel.startResolve(communityId, currentRoomId ?: roomId)
         viewLifecycleOwner.lifecycleScope.launch {
             roomViewModel.resolvedRoomCode.collect { code ->
-                if (!code.isNullOrBlank()) {
-                    currentRoomId = code
-                }
+                if (!code.isNullOrBlank()) currentRoomId = code
             }
         }
 
-        // Initialize views
-        val backButton: ImageView? = view.findViewById(R.id.imageView)
-        val tvUsername: TextView? = view.findViewById(R.id.tvUsername)
-        val settingsButton = view.findViewById<ImageView>(R.id.setting_community)
-        val communityImage = view.findViewById<ImageView>(R.id.community_image)
-        val communityNameTv = view.findViewById<TextView>(R.id.community_name)
-        val memberCountTv = view.findViewById<TextView>(R.id.member_count_tv)
-        val adminCountTv = view.findViewById<TextView>(R.id.admin_count_tv)
-        val tvRoomsName = view.findViewById<TextView>(R.id.tv_rooms_name)
-        val rvChatRooms = view.findViewById<RecyclerView>(R.id.rv_chat_rooms)
-        val swipeRefresh = view.findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
-        val fabCreateRoom = view.findViewById<FloatingActionButton>(R.id.fab_create_room)
+        // Views
+        val backButton: ImageView? = rootView.findViewById(R.id.imageView)
+        val tvRoomNameHeader: TextView? = rootView.findViewById(R.id.tvRoomName)
+        val tvUsername: TextView? = rootView.findViewById(R.id.tvUsername)
+        val settingsButton = rootView.findViewById<ImageView>(R.id.setting_community)
+        val communityImage = rootView.findViewById<ImageView>(R.id.community_image)
+        val communityNameTv = rootView.findViewById<TextView>(R.id.community_name)
+        val memberCountTv = rootView.findViewById<TextView>(R.id.member_count_tv)
+        val adminCountTv = rootView.findViewById<TextView>(R.id.admin_count_tv)
+        val rvChatRooms = rootView.findViewById<RecyclerView>(R.id.rv_chat_rooms)
+        val fabCreateRoom = rootView.findViewById<FloatingActionButton>(R.id.fab_create_room)
 
-        // Set back button
-        backButton?.setOnClickListener {
-            findNavController().navigateUp()
-        }
+        val ivToggleVoice = rootView.findViewById<ImageView>(R.id.iv_toggle_voice_comm)
+        val rvVoiceRooms = rootView.findViewById<RecyclerView>(R.id.rv_voice_rooms)
+        val fabCreateVoice = rootView.findViewById<FloatingActionButton>(R.id.fab_create_voice_room)
 
-        // Set room name as title with # prefix
-        val displayRoomName = if (roomName.isNullOrBlank()) {
-            "#room"
-        } else {
-            if (roomName.startsWith("#")) roomName else "#$roomName"
-        }
-        // Set the header to show the room name (tv_rooms_name is actually used as section header)
-        tvRoomsName?.text = "$displayRoomName - Chat Rooms"
+        backButton?.setOnClickListener { findNavController().navigateUp() }
 
-        // Set community name
+        val headerName = if (roomName.isNullOrBlank()) getString(R.string.app_name) else if (roomName.startsWith("#")) roomName.removePrefix("#") else roomName
+        tvRoomNameHeader?.text = headerName
+        tvRoomNameHeader?.isSelected = true
+
         communityNameTv?.text = communityName ?: "Community"
-
-        // Set member and admin counts
         memberCountTv?.text = memberCount.toString()
         adminCountTv?.text = adminCount.toString()
 
-        // Load community image
         if (!communityImageUrl.isNullOrBlank()) {
-            Glide.with(requireContext())
-                .load(communityImageUrl)
-                .placeholder(R.drawable.default_comm_icon)
-                .error(R.drawable.default_comm_icon)
-                .circleCrop()
-                .into(communityImage)
+            Glide.with(requireContext()).load(communityImageUrl).placeholder(R.drawable.default_comm_icon).error(R.drawable.default_comm_icon).circleCrop().into(communityImage)
         }
 
-        // Load username
+        // Username
         viewLifecycleOwner.lifecycleScope.launch {
             UserDataManager.getInstance(requireContext()).usernameFlow.collect { username ->
                 tvUsername?.text = username ?: "User"
             }
         }
 
-        // Setup chat rooms RecyclerView with adapter
-        chatRoomsAdapter = RoomAdapter(
-            onClick = { chatRoom ->
-                try {
-                    val code = chatRoom.roomCode.ifBlank { chatRoom.id }
-                    val args = Bundle().apply {
-                        putString("chatRoomCode", code)
-                        putString("chatRoomName", chatRoom.name)
-                        putString("communityImageUrl", communityImageUrl)
-                    }
-                    findNavController().navigate(R.id.chatRoomFragment, args)
-                } catch (e: Exception) {
-                    Toast.makeText(requireContext(), "Failed to open chat: ${e.message}", Toast.LENGTH_SHORT).show()
+        // Chat adapter
+        chatRoomsAdapter = RoomAdapter(onClick = { chatRoom ->
+            try {
+                val code = chatRoom.roomCode.ifBlank { chatRoom.id }
+                val bundle = Bundle().apply {
+                    putString("chatRoomCode", code)
+                    putString("chatRoomName", chatRoom.name)
+                    putString("communityImageUrl", communityImageUrl)
                 }
-            },
-            onLongClick = { chatRoom ->
-                // Show delete dialog using AppDialogHelper
-                com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(requireContext(), "Delete Chat Room", "Are you sure you want to delete '${chatRoom.name}'?", positiveText = "Delete", negativeText = "Cancel", onPositive = {
-                    deleteChatRoom(chatRoom)
-                })
+                findNavController().navigate(R.id.chatRoomFragment, bundle)
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Failed to open chat: ${e.message}", Toast.LENGTH_SHORT).show()
             }
-        )
+        }, onLongClick = { chatRoom ->
+            com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(requireContext(), "Delete Chat Room", "Are you sure you want to delete '${chatRoom.name}'?", positiveText = "Delete", negativeText = "Cancel", onPositive = {
+                deleteChatRoom(chatRoom)
+            })
+        })
 
         rvChatRooms?.layoutManager = LinearLayoutManager(requireContext())
         rvChatRooms?.adapter = chatRoomsAdapter
 
-        // Update UI based on chat rooms
-        updateChatRoomsUI()
+        // Voice adapter
+        voiceRoomsAdapter = VoiceRoomAdapter(onClick = { vr ->
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    fragmentRootView?.findViewById<View>(R.id.progress_voice)?.visibility = View.VISIBLE
+                    val displayName = withContext(Dispatchers.IO) { try { UserDataManager.getInstance(requireContext()).getEmail() ?: "" } catch (_: Exception) { "" } }
+                    val res = withContext(Dispatchers.IO) {
+                        try { voiceRepo.joinVoiceRoom(vr.janusRoomId, displayName) }
+                        catch (t: Throwable) { Result.failure<com.example.myapplication.data.voice.model.JoinVoiceRoomResponse>(t) }
+                    }
+                    fragmentRootView?.findViewById<View>(R.id.progress_voice)?.visibility = View.GONE
+                    if (res.isSuccess) {
+                        val resp = res.getOrNull()!!
+                        val args = Bundle().apply {
+                            putString("roomId", navRoomId.ifBlank { currentRoomId ?: vr.roomCode })
+                            putInt("janusRoomId", vr.janusRoomId)
+                            putString("voiceRoomName", vr.name)
+                            putString("sessionId", resp.sessionId)
+                            putString("handleId", resp.handleId)
+                        }
+                        findNavController().navigate(R.id.voiceRoomFragment, args)
+                    } else {
+                        showUiMessage("Failed to join voice room: ${res.exceptionOrNull()?.message}")
+                    }
+                } catch (e: Exception) {
+                    fragmentRootView?.findViewById<View>(R.id.progress_voice)?.visibility = View.GONE
+                    showUiMessage("Failed to join voice room: ${e.message}")
+                }
+            }
+        })
 
-        // Setup expand/collapse toggle
-        val ivToggle = view.findViewById<ImageView>(R.id.iv_toggle_your_comm)
+        rvVoiceRooms?.layoutManager = LinearLayoutManager(requireContext())
+        rvVoiceRooms?.adapter = voiceRoomsAdapter
+
+        // Ensure both sections expanded by default
+        chatRoomsExpanded = true
+        voiceRoomsExpanded = true
+        try { rootView.findViewById<ImageView>(R.id.iv_toggle_your_comm)?.rotation = 0f } catch (_: Exception) {}
+        try { rootView.findViewById<ImageView>(R.id.iv_toggle_voice_comm)?.rotation = 0f } catch (_: Exception) {}
+
+        updateChatRoomsUI()
+        updateVoiceRoomsUI()
+
+        // Toggles (hide/show only)
+        val ivToggle = rootView.findViewById<ImageView>(R.id.iv_toggle_your_comm)
         ivToggle?.setOnClickListener {
             chatRoomsExpanded = !chatRoomsExpanded
             applyChatRoomsToggleState(ivToggle)
         }
-
-        // Show FAB for creating chat rooms only for community admins/owners/moderators.
-        // Start hidden and reveal after checking role.
-        fabCreateRoom?.visibility = View.GONE
-        fabCreateRoom?.setOnClickListener {
-            showCreateChatRoomDialog()
+        ivToggleVoice?.setOnClickListener {
+            voiceRoomsExpanded = !voiceRoomsExpanded
+            applyVoiceRoomsToggleState(ivToggleVoice)
+            // Do NOT trigger network load here; we only hide/show on toggle as requested
         }
 
-        // Check community role and reveal FAB for privileged users
+        if (voiceRooms.isEmpty()) {
+            try { loadVoiceRooms(navRoomId) } catch (_: Exception) {}
+        }
+
+        fabCreateRoom?.visibility = View.GONE
+        fabCreateVoice?.visibility = View.GONE
+        fabCreateRoom?.setOnClickListener { showCreateChatRoomDialog() }
+        fabCreateVoice?.setOnClickListener { showCreateVoiceRoomDialog(navRoomId) }
+
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val repo = CommunityRepository.getInstance(requireContext())
                 var community = repo.getCommunityById(communityId)
-                // If we don't have local info or role flags aren't set, try refreshing members once
-                if (community == null || (community.isOwner == false && community.isModerator == false && community.role.isNullOrBlank())) {
-                    // Attempt to refresh members/roles (network) to get up-to-date role flags
+                if (community == null || (!community.isOwner && !community.isModerator && community.role.isNullOrBlank())) {
                     try { repo.fetchMembers(communityId, force = true) } catch (_: Exception) {}
                     community = repo.getCommunityById(communityId)
                 }
-
                 val shouldShowFab = try {
                     when {
                         community == null -> false
@@ -182,80 +217,53 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
                         else -> false
                     }
                 } catch (_: Exception) { false }
-
-                if (shouldShowFab) {
-                    fabCreateRoom?.visibility = View.VISIBLE
-                } else {
-                    fabCreateRoom?.visibility = View.GONE
-                }
-            } catch (_: Exception) {
-                // leave hidden on error
-                fabCreateRoom?.visibility = View.GONE
-            }
+                if (shouldShowFab) { fabCreateRoom?.visibility = View.VISIBLE; fabCreateVoice?.visibility = View.VISIBLE }
+            } catch (_: Exception) { fabCreateRoom?.visibility = View.GONE; fabCreateVoice?.visibility = View.GONE }
         }
 
-        // Hide settings button (not applicable for room view)
         settingsButton?.visibility = View.GONE
 
-        // Load existing chat rooms for this parent room. Prefer `roomCode` if present.
         roomViewModel.loadChatRoomsForCommunity(communityId, currentRoomId ?: roomId)
         viewLifecycleOwner.lifecycleScope.launch {
             roomViewModel.chatRooms.collect { chatRoomsList ->
                 chatRooms.clear()
-                // Map DataChatRoom (flat) into DataRoom for adapter compatibility
-                chatRooms.addAll(chatRoomsList.map { dataChatRoom ->
-                    DataRoom(id = dataChatRoom.chatRoomCode, name = dataChatRoom.name, roomCode = dataChatRoom.chatRoomCode)
-                })
+                chatRooms.addAll(chatRoomsList.map { dataChatRoom -> DataRoom(id = dataChatRoom.id, name = dataChatRoom.name, roomCode = dataChatRoom.chatRoomCode) })
                 updateChatRoomsUI()
-            }
-        }
 
-        // If server later resolves a different roomCode, reload using it
-        viewLifecycleOwner.lifecycleScope.launch {
-            roomViewModel.resolvedRoomCode.collect { resolvedCode ->
-                if (!resolvedCode.isNullOrBlank() && resolvedCode != currentRoomId) {
-                    currentRoomId = resolvedCode
-                    roomViewModel.loadChatRoomsForCommunity(communityId, resolvedCode)
-                }
-            }
-        }
-
-        // Swipe refresh
-        swipeRefresh?.setOnRefreshListener {
-            // Refresh room data
-            viewLifecycleOwner.lifecycleScope.launch {
-                try {
-                    val repo = CommunityRepository.getInstance(requireContext())
-                    val community = repo.getCommunityById(communityId)
-
-                    // Update community info
-                    community?.let {
-                        communityNameTv?.text = it.name
-                        memberCountTv?.text = it.memberCount.toString()
-
-                        if (!it.profilePicUrl.isNullOrBlank()) {
-                            Glide.with(requireContext())
-                                .load(it.profilePicUrl)
-                                .placeholder(R.drawable.default_comm_icon)
-                                .error(R.drawable.default_comm_icon)
-                                .circleCrop()
-                                .into(communityImage)
-                        }
+                // try resolve parent room name
+                communityId.let { cid ->
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        try {
+                            val repo = CommunityRepository.getInstance(requireContext())
+                            val res = withContext(Dispatchers.IO) { repo.getAllRooms(cid) }
+                            val rooms = res.getOrNull().orEmpty()
+                            val lookupKey = currentRoomId ?: roomId
+                            val match = rooms.firstOrNull { r -> r.id == lookupKey || r.roomCode == lookupKey || r.name == lookupKey }
+                            match?.let { rv -> tvRoomNameHeader?.text = rv.name; tvRoomNameHeader?.isSelected = true }
+                        } catch (_: Exception) {}
                     }
-
-                    // Reload chat rooms
-                    loadChatRooms()
-                } catch (e: Exception) {
-                    Toast.makeText(requireContext(), "Failed to refresh: ${e.message}", Toast.LENGTH_SHORT).show()
-                } finally {
-                    swipeRefresh.isRefreshing = false
                 }
             }
         }
+
+        // Pull-to-refresh
+        try {
+            val swipeRefresh = rootView.findViewById<androidx.swiperefreshlayout.widget.SwipeRefreshLayout?>(R.id.swipe_refresh)
+            swipeRefresh?.setOnRefreshListener { refreshLists(communityId, navRoomId) }
+        } catch (_: Exception) {}
+
     }
 
-    private fun loadChatRooms() {
-        // Deprecated - kept for compatibility but we now use RoomViewModel.loadChatRoomsForCommunity
+    // Refresh chat rooms (voice kept explicit)
+    private fun refreshLists(communityId: String?, serverRoomId: String?) {
+        if (communityId.isNullOrBlank() || serverRoomId.isNullOrBlank()) return
+        val swipe = fragmentRootView?.findViewById<androidx.swiperefreshlayout.widget.SwipeRefreshLayout?>(R.id.swipe_refresh)
+        lifecycleScope.launch {
+            try {
+                swipe?.isRefreshing = true
+                try { roomViewModel.loadChatRoomsForCommunity(communityId, serverRoomId) } catch (_: Exception) {}
+            } finally { swipe?.isRefreshing = false }
+        }
     }
 
     private fun showCreateChatRoomDialog() {
@@ -266,104 +274,244 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
         val btnCreate = dialogView.findViewById<android.widget.Button>(R.id.btn_create)
         val btnCancel = dialogView.findViewById<android.widget.Button>(R.id.btn_cancel)
 
-        val dialog = try {
-            com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
-                .setView(dialogView)
-                .create()
-        } catch (_: Exception) {
-            // Fallback to central createViewDialog which applies theme safely
-            com.example.myapplication.ui.common.AppDialogHelper.createViewDialog(requireContext(), title = null, customView = dialogView, positiveText = null, negativeText = null, cancelable = true)
-        }
+        val dialog = try { com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext()).setView(dialogView).create() }
+        catch (_: Exception) { com.example.myapplication.ui.common.AppDialogHelper.createViewDialog(requireContext(), title = null, customView = dialogView, positiveText = null, negativeText = null, cancelable = true) }
 
-        fun setLoading(loading: Boolean) {
-            btnCreate.isEnabled = !loading
-            btnCancel.isEnabled = !loading
-            etName.isEnabled = !loading
-        }
+        fun setLoading(loading: Boolean) { btnCreate.isEnabled = !loading; btnCancel.isEnabled = !loading; etName.isEnabled = !loading }
 
-        btnCreate.setOnClickListener {
+        fun createRoomAction() {
             val name = etName.text?.toString()?.trim().orEmpty()
-            if (name.isEmpty()) {
-                tvError.text = "Name is required"
-                tvError.visibility = View.VISIBLE
-                return@setOnClickListener
-            }
+            if (name.isEmpty()) { tvError.text = getString(R.string.name_required); tvError.visibility = View.VISIBLE; return }
             tvError.visibility = View.GONE
             setLoading(true)
-            viewLifecycleOwner.lifecycleScope.launch {
+            val cid = currentCommunityId; val rid = currentRoomId
+            if (cid.isNullOrBlank() || rid.isNullOrBlank()) { setLoading(false); showUiMessage("Missing room context", Snackbar.LENGTH_SHORT); return }
+
+            lifecycleScope.launch {
                 try {
                     val repo = CommunityRepository.getInstance(requireContext())
-                    val res = repo.createChatRoom(currentCommunityId ?: return@launch, currentRoomId ?: return@launch, name)
+                    val res = withContext(Dispatchers.IO) { repo.createChatRoom(cid, rid, name) }
                     val created = res.getOrNull()
                     if (created != null) {
                         val effectiveId = created.chatRoomCode.ifBlank { created.id }
                         val newRoom = DataRoom(id = effectiveId, name = created.name.ifBlank { name }, roomCode = created.chatRoomCode)
-                        chatRooms.add(0, newRoom)
-                        updateChatRoomsUI()
-                        Toast.makeText(requireContext(), "Chat room '${created.name}' created", Toast.LENGTH_SHORT).show()
-                        dialog.dismiss()
+                        if (isAdded) {
+                            chatRooms.add(0, newRoom)
+                            updateChatRoomsUI()
+                            // Success: silent (no toast/snackbar)
+                            try { if (dialog.isShowing) dialog.dismiss() } catch (_: Exception) {}
+                        }
+
+                        // Also create a default voice room for this chat room (best-effort, don't block the UI)
+                        cid.let { nonNullCid ->
+                            lifecycleScope.launch {
+                                try { createDefaultVoiceRoom(nonNullCid, effectiveId) } catch (_: Exception) { /* best-effort */ }
+                            }
+                        }
                     } else {
                         val err = res.exceptionOrNull()
-                        com.google.android.material.snackbar.Snackbar.make(requireView(), err?.message ?: "Failed to create chat room", com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE)
-                            .setAction("Retry") { btnCreate.performClick() }
-                            .show()
+                        val sb = makeParentSnackbar(err?.message ?: "Failed to create chat room")
+                        sb?.setAction("Retry") { createRoomAction() }
+                        sb?.show()
                     }
-                } catch (e: Exception) {
-                    com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed: ${e.message}", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show()
-                } finally {
-                    setLoading(false)
-                }
+                } catch (_: Exception) { showUiMessage("Failed", Snackbar.LENGTH_LONG) } finally { setLoading(false) }
             }
         }
+
+        btnCreate.setOnClickListener { createRoomAction() }
         btnCancel.setOnClickListener { dialog.dismiss() }
         dialog.show()
     }
 
+    private fun showCreateVoiceRoomDialog(serverRoomIdArg: String?) {
+        val inflater = layoutInflater
+        val dialogView = inflater.inflate(R.layout.dialog_create_chat_room, null)
+        val etName = dialogView.findViewById<EditText>(R.id.et_room_name)
+        val tvError = dialogView.findViewById<TextView>(R.id.dialog_error)
+        val btnCreate = dialogView.findViewById<android.widget.Button>(R.id.btn_create)
+        val btnCancel = dialogView.findViewById<android.widget.Button>(R.id.btn_cancel)
+
+        val dialog = try { com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext()).setView(dialogView).create() }
+        catch (_: Exception) { com.example.myapplication.ui.common.AppDialogHelper.createViewDialog(requireContext(), title = null, customView = dialogView, positiveText = null, negativeText = null, cancelable = true) }
+
+        fun setLoading(loading: Boolean) { try { btnCreate.isEnabled = !loading } catch (_: Exception) {}; try { btnCancel.isEnabled = !loading } catch (_: Exception) {}; try { etName.isEnabled = !loading } catch (_: Exception) {} }
+
+        btnCreate.setOnClickListener {
+            val name = etName.text?.toString()?.trim().orEmpty()
+            if (name.isEmpty()) { tvError.text = getString(R.string.name_required); tvError.visibility = View.VISIBLE; return@setOnClickListener }
+            tvError.visibility = View.GONE; setLoading(true)
+            val serverRoomId = serverRoomIdArg
+            if (serverRoomId.isNullOrBlank()) { setLoading(false); showUiMessage("Missing room id", Snackbar.LENGTH_SHORT); return@setOnClickListener }
+
+            lifecycleScope.launch {
+                try {
+                    fragmentRootView?.findViewById<View>(R.id.progress_voice)?.visibility = View.VISIBLE
+                    val createdBy = try { withContext(Dispatchers.IO) { UserDataManager.getInstance(requireContext()).getEmail() } } catch (_: Exception) { null }
+                    val res = withContext(Dispatchers.IO) { try { voiceRepo.createVoiceRoom(serverRoomId, name, createdBy.orEmpty()) } catch (t: Throwable) { Result.failure<com.example.myapplication.data.voice.model.CreateVoiceRoomResponse>(t) } }
+                    fragmentRootView?.findViewById<View>(R.id.progress_voice)?.visibility = View.GONE
+                    if (res.isSuccess) {
+                        val vr = res.getOrNull()!!.voiceRoom
+                        val mapped = com.example.myapplication.data.voice.model.VoiceRoomX(active = true, createdAt = "", createdBy = vr.createdBy, id = vr.janusRoomId, janusRoomId = vr.janusRoomId, name = vr.name, roomCode = vr.name)
+                        voiceRooms.add(0, mapped)
+                        updateVoiceRoomsUI()
+                        try { dialog.dismiss() } catch (_: Exception) {}
+                    } else {
+                        val msg = res.exceptionOrNull()?.message ?: "Failed to create voice room"
+                        val sb = makeParentSnackbar(msg)
+                        sb?.setAction("Retry") { /* user can retry by reopening dialog */ }
+                        sb?.show()
+                    }
+                } catch (e: Exception) {
+                    fragmentRootView?.findViewById<View>(R.id.progress_voice)?.visibility = View.GONE
+                    showUiMessage("Failed to create voice room: ${e.message}")
+                } finally { setLoading(false) }
+            }
+        }
+
+        btnCancel.setOnClickListener { dialog.dismiss() }
+        dialog.show()
+    }
 
     private fun deleteChatRoom(chatRoom: DataRoom) {
-        // TODO: Add API endpoint for deleting chat rooms
-        // For now, only remove locally
-        chatRooms.remove(chatRoom)
-        updateChatRoomsUI()
-
-        Toast.makeText(requireContext(), "Chat room '${chatRoom.name}' deleted (local only)", Toast.LENGTH_SHORT).show()
-
-        // When API is available:
-        // viewLifecycleOwner.lifecycleScope.launch {
-        //     val repo = CommunityRepository.getInstance(requireContext())
-        //     repo.deleteChatRoom(chatRoom.id).onSuccess {
-        //         chatRooms.remove(chatRoom)
-        //         updateChatRoomsUI()
-        //         Toast.makeText(requireContext(), "Chat room deleted", Toast.LENGTH_SHORT).show()
-        //     }
-        // }
+        com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(requireContext(), "Delete Chat Room", "Are you sure you want to delete '${chatRoom.name}'?", positiveText = "Delete", negativeText = "Cancel", onPositive = {
+            lifecycleScope.launch {
+                try {
+                    val repo = CommunityRepository.getInstance(requireContext())
+                    val cid = currentCommunityId
+                    if (cid.isNullOrBlank()) { showUiMessage("Missing community id", Snackbar.LENGTH_SHORT); return@launch }
+                    val res = withContext(Dispatchers.IO) { repo.deleteRoom(cid, chatRoom.id) }
+                    if (res.isSuccess) { chatRooms.remove(chatRoom); updateChatRoomsUI(); showUiMessage("Chat room '${chatRoom.name}' deleted", Snackbar.LENGTH_SHORT) }
+                    else { showUiMessage("Failed to delete chat room: ${res.exceptionOrNull()?.message}", Snackbar.LENGTH_LONG) }
+                } catch (_: Exception) { showUiMessage("Failed to delete chat room", Snackbar.LENGTH_LONG) }
+            }
+        })
     }
 
     private fun updateChatRoomsUI() {
-        val rvChatRooms = view?.findViewById<RecyclerView>(R.id.rv_chat_rooms)
+        val rvChat = view?.findViewById<RecyclerView>(R.id.rv_chat_rooms)
         val emptyRoomsView = view?.findViewById<View>(R.id.empty_rooms_view)
+        if (chatRooms.isEmpty()) { emptyRoomsView?.visibility = View.VISIBLE; rvChat?.visibility = View.GONE }
+        else { emptyRoomsView?.visibility = View.GONE; rvChat?.visibility = if (chatRoomsExpanded) View.VISIBLE else View.GONE; chatRoomsAdapter.submitList(chatRooms.toList()) }
+    }
 
-        if (chatRooms.isEmpty()) {
-            emptyRoomsView?.visibility = View.VISIBLE
-            rvChatRooms?.visibility = View.GONE
-        } else {
-            emptyRoomsView?.visibility = View.GONE
-            rvChatRooms?.visibility = if (chatRoomsExpanded) View.VISIBLE else View.GONE
-            chatRoomsAdapter.submitList(chatRooms.toList())
-        }
+    private fun updateVoiceRoomsUI() {
+        val rvVoice = view?.findViewById<RecyclerView>(R.id.rv_voice_rooms)
+        val emptyVoice = view?.findViewById<View>(R.id.empty_voice_rooms_view)
+        if (voiceRooms.isEmpty()) { emptyVoice?.visibility = View.VISIBLE; rvVoice?.visibility = View.GONE }
+        else { emptyVoice?.visibility = View.GONE; rvVoice?.visibility = if (voiceRoomsExpanded) View.VISIBLE else View.GONE; voiceRoomsAdapter.submitList(voiceRooms.toList()) }
     }
 
     private fun applyChatRoomsToggleState(ivToggle: ImageView) {
         val rvChatRooms = view?.findViewById<RecyclerView>(R.id.rv_chat_rooms)
-
-        // Update visibility
         rvChatRooms?.visibility = if (chatRoomsExpanded && chatRooms.isNotEmpty()) View.VISIBLE else View.GONE
-
-        // Animate arrow rotation
         val targetRotation = if (chatRoomsExpanded) 0f else 180f
-        ObjectAnimator.ofFloat(ivToggle, "rotation", targetRotation).apply {
-            duration = 200
-            start()
+        ObjectAnimator.ofFloat(ivToggle, "rotation", targetRotation).apply { duration = 200; start() }
+    }
+
+    private fun applyVoiceRoomsToggleState(ivToggle: ImageView) {
+        val rvVoiceRooms = view?.findViewById<RecyclerView>(R.id.rv_voice_rooms)
+        rvVoiceRooms?.visibility = if (voiceRoomsExpanded && voiceRooms.isNotEmpty()) View.VISIBLE else View.GONE
+        val targetRotation = if (voiceRoomsExpanded) 0f else 180f
+        ObjectAnimator.ofFloat(ivToggle, "rotation", targetRotation).apply { duration = 200; start() }
+    }
+
+    private fun findSnackbarParent(): View? {
+        val v = view
+        if (v != null && v.isAttachedToWindow) return v
+        val activityRoot = activity?.findViewById<View>(android.R.id.content)
+        if (activityRoot != null && activityRoot.isAttachedToWindow) return activityRoot
+        val decor = activity?.window?.decorView
+        if (decor != null && decor.isAttachedToWindow) return decor
+        return null
+    }
+
+    private fun showUiMessage(msg: String, length: Int = Snackbar.LENGTH_SHORT) {
+        try {
+            val parent = findSnackbarParent()
+            if (parent != null) { Snackbar.make(parent, msg, length).show(); return }
+        } catch (_: IllegalArgumentException) {}
+        // Keep silent if Snackbar parent not found (avoid Toast)
+    }
+
+    private fun makeParentSnackbar(msg: String, autoDismissMs: Long = 5000L): Snackbar? {
+        return try {
+            val parent = findSnackbarParent()
+            if (parent != null) {
+                val sb = Snackbar.make(parent, msg, Snackbar.LENGTH_INDEFINITE)
+                try {
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        kotlinx.coroutines.delay(autoDismissMs)
+                        try { if (sb.isShown) sb.dismiss() } catch (_: Exception) {}
+                    }
+                } catch (_: Exception) {
+                    try { parent.postDelayed({ try { if (sb.isShown) sb.dismiss() } catch (_: Exception) {} }, autoDismissMs) } catch (_: Exception) {}
+                }
+                sb
+            } else null
+        } catch (_: Exception) {
+            null
         }
     }
+
+    private suspend fun createDefaultChatRoom(communityId: String, roomId: String) {
+        val defaultRoomName = "General Chat"
+        val repo = CommunityRepository.getInstance(requireContext())
+        val res = withContext(Dispatchers.IO) { repo.createChatRoom(communityId, roomId, defaultRoomName) }
+        val created = res.getOrNull()
+        if (created != null) {
+            val effectiveId = created.chatRoomCode.ifBlank { created.id }
+            val newRoom = DataRoom(id = effectiveId, name = created.name.ifBlank { defaultRoomName }, roomCode = created.chatRoomCode)
+            chatRooms.add(0, newRoom)
+            updateChatRoomsUI()
+            try { UserDataManager.getInstance(requireContext()).markDefaultRoomCreatedAsync(communityId, roomId, "chat") } catch (_: Exception) {}
+        } else {
+            val err = res.exceptionOrNull()
+            val sb = makeParentSnackbar(err?.message ?: "Failed to create chat room")
+            sb?.setAction("Retry") { lifecycleScope.launch { createDefaultChatRoom(communityId, roomId) } }
+            sb?.show()
+        }
+    }
+
+    private suspend fun createDefaultVoiceRoom(communityId: String, roomId: String) {
+        val defaultVoiceRoomName = "General"
+        try {
+            val res = withContext(Dispatchers.IO) { voiceRepo.createVoiceRoom(roomId, defaultVoiceRoomName, "") }
+            if (res.isSuccess) {
+                val vr = res.getOrNull()!!.voiceRoom
+                val mapped = com.example.myapplication.data.voice.model.VoiceRoomX(active = true, createdAt = "", createdBy = vr.createdBy, id = vr.janusRoomId, janusRoomId = vr.janusRoomId, name = vr.name, roomCode = vr.name)
+                voiceRooms.add(0, mapped)
+                updateVoiceRoomsUI()
+                try { UserDataManager.getInstance(requireContext()).markDefaultRoomCreatedAsync(communityId, roomId, "voice") } catch (_: Exception) {}
+            } else {
+                val msg = res.exceptionOrNull()?.message ?: "Unknown"
+                val sb = makeParentSnackbar("Failed to create voice room: $msg")
+                sb?.setAction("Retry") { lifecycleScope.launch { createDefaultVoiceRoom(communityId, roomId) } }
+                sb?.show()
+            }
+        } catch (_: Exception) { showUiMessage("Failed to create voice room") }
+    }
+
+    private fun loadVoiceRooms(serverRoomId: String) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                fragmentRootView?.findViewById<View>(R.id.progress_voice)?.visibility = View.VISIBLE
+                val res = withContext(Dispatchers.IO) { voiceRepo.getVoiceRooms(serverRoomId) }
+                fragmentRootView?.findViewById<View>(R.id.progress_voice)?.visibility = View.GONE
+                if (res.isSuccess) {
+                    val list = res.getOrNull()?.voiceRooms.orEmpty()
+                    voiceRooms.clear()
+                    voiceRooms.addAll(list)
+                    updateVoiceRoomsUI()
+                } else {
+                    val msg = "Failed to load voice rooms: ${res.exceptionOrNull()?.message}"
+                    val sb = makeParentSnackbar(msg)
+                    sb?.show()
+                }
+            } catch (_: Exception) {
+                fragmentRootView?.findViewById<View>(R.id.progress_voice)?.visibility = View.GONE
+                showUiMessage("Failed to load voice rooms")
+            }
+        }
+    }
+
 }

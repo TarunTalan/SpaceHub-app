@@ -9,6 +9,65 @@
         android:background="@drawable/background_gradient"
         tools:context=".ui.dashboard.ChatRoomFragment">
 
+    <!-- Selection toolbar: hidden by default, shown when messages selected -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/selection_toolbar"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toTopOf="parent"
+            android:paddingVertical="12dp"
+            android:background="#20262F"
+            android:layout_marginStart="1dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toTopOf="@+id/guideline_top"
+            android:visibility="gone"
+            android:transitionGroup="true"
+            android:transitionName="selection_toolbar">
+
+        <ImageView
+                android:id="@+id/selection_iv_close"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:paddingVertical="10dp"
+                android:src="@drawable/back_icon"
+                app:layout_constraintEnd_toStartOf="@id/selection_count"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                android:layout_marginStart="4dp"/>
+
+        <TextView
+                android:id="@+id/selection_count"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:text="0 selected"
+                android:fontFamily="@font/roboto_regular"
+                android:textSize="18sp"
+                android:textColor="@color/white"
+                android:gravity="center_vertical"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toEndOf="@id/selection_iv_close"
+                app:layout_constraintEnd_toStartOf="@id/selection_iv_delete"
+                app:layout_constraintBottom_toBottomOf="parent"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"/>
+
+        <ImageView
+                android:id="@+id/selection_iv_delete"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:padding="8dp"
+                android:src="@drawable/ic_delete"
+                android:contentDescription="@string/delete"
+                app:tint="@color/white"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_marginEnd="12dp"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
     <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/constraintLayoutTitle"
             android:layout_width="0dp"
@@ -239,7 +298,7 @@
             android:layout_marginBottom="-38dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintBottom_toBottomOf="@id/guideline_bottom"
+            app:layout_constraintBottom_toBottomOf="parent"
             tools:ignore="ContentDescription"
             android:elevation="-10dp"
             android:translationZ="-10dp"/>

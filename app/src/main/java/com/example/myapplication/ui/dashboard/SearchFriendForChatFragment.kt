@@ -49,9 +49,21 @@ class SearchFriendForChatFragment: BaseFragment(R.layout.fragment_search_friends
             }
 
             runCatching {
+                val sanitizedUsername = friend.username?.trim()?.takeIf { it.isNotBlank() && it.lowercase() != "null" }
+                val first = friend.firstName?.trim()?.takeIf { it.isNotBlank() && it.lowercase() != "null" }
+                val last = friend.lastName?.trim()?.takeIf { it.isNotBlank() && it.lowercase() != "null" }
+
+                val displayName = when {
+                    sanitizedUsername != null -> sanitizedUsername
+                    first != null && last != null -> "$first $last"
+                    first != null -> first
+                    last != null -> last
+                    else -> friend.email ?: "Unknown user"
+                }
+
                 navigateWithDelay(R.id.action_searchFriendForChatFragment_to_directChatFragment, Bundle().apply {
                     putString("peerEmail", friend.email)
-                    putString("peerName", "${friend.firstName} ${friend.lastName}".trim())
+                    putString("peerName", displayName)
                     putString("peerAvatarUrl", avatarUrl)
                 })
             }

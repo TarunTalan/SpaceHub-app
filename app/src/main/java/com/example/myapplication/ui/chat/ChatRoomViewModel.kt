@@ -8,13 +8,16 @@ import com.example.myapplication.data.chat.model.ChatMessage
 import com.example.myapplication.data.chat.model.MessageStatus
 import com.example.myapplication.data.chat.websocket.ChatWebSocket
 import com.example.myapplication.data.user.UserDataManager
+import com.example.myapplication.data.network.SharedPrefsTokenStore
+import com.example.myapplication.data.community.database.CommunityDatabase
+import com.example.myapplication.data.chat.repository.ChatRepository
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import java.util.UUID
 
@@ -39,7 +42,8 @@ class ChatRoomViewModel(app: Application) : AndroidViewModel(app) {
                     return@launch
                 }
                 _loading.value = true
-                webSocket = ChatWebSocket(baseWss)
+                val token = SharedPrefsTokenStore(getApplication()).getAccessToken()
+                webSocket = ChatWebSocket(baseWss, token)
                 webSocket?.connect(roomCode, email)
 
                 // collect incoming messages on IO
@@ -115,7 +119,7 @@ class ChatRoomViewModel(app: Application) : AndroidViewModel(app) {
                                         }
 
                                         // 2) If the incoming message is from me, try to match an optimistic message I sent
-                                        val myEmail = com.example.myapplication.data.user.UserDataManager.getInstance(getApplication()).getEmail()?.lowercase()
+                                        val myEmail = UserDataManager.getInstance(getApplication()).getEmail()?.lowercase()
                                         val incomingSender = processed.senderId?.lowercase()
                                         if (!incomingSender.isNullOrBlank() && !myEmail.isNullOrBlank() && incomingSender == myEmail) {
                                             // find last optimistic message from me with same content
@@ -207,6 +211,27 @@ class ChatRoomViewModel(app: Application) : AndroidViewModel(app) {
 
     fun disconnect() {
         try { webSocket?.close() } catch (_: Exception) {}
+    }
+
+    /**
+     * Request deletion of message(s) by id for chat rooms.
+     * Delegates to ChatRepository which sends WS delete and updates local DB.
+     */
+    fun deleteMessages(messageIds: List<String>) {
+        if (messageIds.isEmpty()) return
+        viewModelScope.launch {
+            try {
+                // Use repository to perform delete (it will send ws frame and update DB)
+                val chatDao = CommunityDatabase.getInstance(getApplication()).chatDao()
+                val repo = ChatRepository.getInstance(getApplication(), chatDao)
+                val res = repo.deleteMessages(messageIds)
+                if (res.isFailure) {
+                    Log.w("ChatRoomVM", "deleteMessages repo failed: ${'$'}{res.exceptionOrNull()?.message}")
+                }
+            } catch (t: Throwable) {
+                Log.e("ChatRoomVM", "deleteMessages error: ${'$'}{t.message}", t)
+            }
+        }
     }
 
     // Helper: if incoming.content is a JSON blob that contains an original client id,

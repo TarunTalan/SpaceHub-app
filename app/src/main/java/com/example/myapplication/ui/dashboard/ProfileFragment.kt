@@ -195,11 +195,9 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
 
             val req = UpdateProfileRequest(
                 bio = bioVal,
-                currentPassword = "",
                 dateOfBirth = apiDob,
                 firstName = firstVal,
                 lastName = lastVal,
-                newPassword = "",
                 username = usernameVal
             )
 
