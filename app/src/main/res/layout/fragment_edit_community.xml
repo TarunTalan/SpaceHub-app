@@ -13,8 +13,11 @@
             style="@android:style/Widget.DeviceDefault.Light.ProgressBar.Large"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            app:layout_constraintStart_toStartOf="parent"
             android:layout_gravity="center_horizontal"
-            android:visibility="gone"/>
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="@+id/tvCommunity_name_grp"/>
 
 
     <ImageView
@@ -142,7 +145,7 @@
             app:layout_constraintStart_toStartOf="@+id/guideline_start"
             android:elevation="5dp"
             android:visibility="gone"
-            android:translationZ="5dp">
+            android:translationZ="5dp" android:id="@+id/constraintLayout3">
         <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"

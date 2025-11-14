@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+      xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_add_room"
+        android:title="Add chat room"
+        android:icon="@drawable/ic_add_room"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_add_voice_room"
+        android:title="Add voice room"
+        android:icon="@drawable/voice_icon"
+        app:showAsAction="always" />
+
+</menu>

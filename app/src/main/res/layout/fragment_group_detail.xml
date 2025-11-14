@@ -78,9 +78,9 @@
 
             <ImageView
                     android:id="@+id/setting_grp"
-                    android:layout_width="25dp"
-                    android:layout_height="25dp"
-                    android:padding="4dp"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:padding="6dp"
                     android:src="@drawable/dots_menu"
                     android:layout_marginEnd="6dp"
                     app:tint="@android:color/white"
@@ -246,6 +246,7 @@
                             android:id="@+id/rv_rooms"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
+                            android:minHeight="200dp"
                             android:nestedScrollingEnabled="false"
                             android:layout_marginTop="12dp"
                             app:layout_constraintStart_toStartOf="@+id/guideline_start"
@@ -259,13 +260,24 @@
                             android:layout_height="wrap_content"
                             android:orientation="vertical"
                             android:gravity="center"
+                            android:minHeight="220dp"
                             android:paddingTop="24dp"
                             android:paddingBottom="24dp"
+                            android:paddingStart="16dp"
+                            android:paddingEnd="16dp"
                             android:background="@color/transparent"
                             android:visibility="gone"
                             app:layout_constraintTop_toBottomOf="@id/tv_rooms_name"
                             app:layout_constraintStart_toStartOf="parent"
                             app:layout_constraintEnd_toEndOf="parent">
+
+                        <ImageView
+                                android:layout_width="40dp"
+                                android:layout_height="40dp"
+                                android:src="@drawable/chat_plus"
+                                android:tint="#CCCCCC"
+                                android:contentDescription="@string/no_chat_rooms"
+                                android:layout_marginBottom="8dp" />
 
                         <TextView
                                 android:layout_width="wrap_content"
@@ -273,8 +285,7 @@
                                 android:text="No rooms yet"
                                 android:textColor="@android:color/white"
                                 android:textSize="16sp"
-                                app:layout_constraintTop_toTopOf="parent"
-                                android:layout_marginTop="8dp"/>
+                                android:layout_marginTop="0dp"/>
 
                     </LinearLayout>
 
@@ -330,6 +341,7 @@
                             android:id="@+id/rv_voice_rooms"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
+                            android:minWidth="220dp"
                             android:nestedScrollingEnabled="false"
                             android:layout_marginTop="10dp"
                             app:layout_constraintStart_toStartOf="@+id/guideline_start"
@@ -345,11 +357,21 @@
                             android:gravity="center"
                             android:paddingTop="24dp"
                             android:paddingBottom="24dp"
+                            android:paddingStart="16dp"
+                            android:paddingEnd="16dp"
                             android:background="@color/transparent"
                             android:visibility="gone"
                             app:layout_constraintTop_toBottomOf="@id/tv_voice_rooms_name"
                             app:layout_constraintStart_toStartOf="parent"
                             app:layout_constraintEnd_toEndOf="parent">
+
+                        <ImageView
+                                android:layout_width="40dp"
+                                android:layout_height="40dp"
+                                android:src="@drawable/volume"
+                                android:tint="#CCCCCC"
+                                android:contentDescription="@string/no_voice_rooms"
+                                android:layout_marginBottom="8dp" />
 
                         <TextView
                                 android:layout_width="wrap_content"
@@ -357,7 +379,7 @@
                                 android:text="No voice rooms yet"
                                 android:textColor="#CCCCCC"
                                 android:textSize="15sp"
-                                android:layout_marginTop="8dp"/>
+                                android:layout_marginTop="0dp"/>
 
                     </LinearLayout>
                     <androidx.constraintlayout.widget.Guideline

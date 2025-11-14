@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MultipartBody
 
 
 @SuppressLint("StaticFieldLeak")
@@ -263,7 +264,7 @@ class CommunityRepository private constructor(private val context: Context) {
                     !resp.body()?.message.isNullOrBlank() -> resp.body()!!.message
                     // Try parsing raw error JSON for 'message'/'error' keys
                     !rawErr.isNullOrBlank() -> try {
-                        val parsed = com.example.myapplication.data.network.ResponseParser.parseError(okhttp3.ResponseBody.create(null, rawErr))
+                        val parsed = try { com.example.myapplication.data.network.ResponseParser.parseError(rawErr) } catch (_: Exception) { null }
                         if (!parsed.isNullOrBlank()) parsed else "HTTP ${resp.code()}"
                     } catch (_: Exception) {
                         rawErr
@@ -375,6 +376,27 @@ class CommunityRepository private constructor(private val context: Context) {
         }
     }
 
+    // Delete a chat room (new-chatroom) using chatRoomCode (path) and parent room code as RoomCode query param.
+    // Mirrors LocalGroupRepository.deleteChatRoom but for communities. This endpoint is DELETE /new-chatroom/{chatRoomCode}/delete?RoomCode={parentCode}
+    suspend fun deleteChatRoom(parentRoomCode: String, chatRoomCode: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val resp = api.deleteChatRoom(chatRoomCode, parentRoomCode)
+            try {
+                android.util.Log.d("CommunityRepo", "deleteChatRoom HTTP ${resp.code()} isSuccessful=${resp.isSuccessful} body=${resp.body()?.let { it.toString() }} errBodyPreview=${try { resp.errorBody()?.string() } catch (_: Exception) { null }} parentRoomCode=$parentRoomCode chatRoomCode=$chatRoomCode")
+            } catch (_: Exception) { }
+            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
+                // best-effort: refresh chat room summary for the parent room so UI can re-sync if needed
+                runCatching { getChatRoomSummary(parentRoomCode) }
+                return@withContext Result.success(Unit)
+            }
+            val err = try { resp.body()?.message } catch (_: Exception) { null }
+            val errBody = try { resp.errorBody()?.string() } catch (_: Exception) { null }
+            return@withContext Result.failure(RuntimeException(err ?: errBody ?: "HTTP ${resp.code()}"))
+        } catch (t: Throwable) {
+            Result.failure(t)
+        }
+    }
+
     suspend fun deleteRoom(communityId: String, roomId: String): Result<Unit> {
         return try {
             val email = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
@@ -385,6 +407,10 @@ class CommunityRepository private constructor(private val context: Context) {
                 runCatching { refreshRooms(communityId) }
                 return Result.success(Unit)
             }
+
+            // Log error body for diagnostics
+            val initialErrBody = try { resp.errorBody()?.string() } catch (_: Exception) { null }
+            android.util.Log.w("CommunityRepo", "deleteRoom initial failed: community=$communityId room=$roomId code=${resp.code()} errBody=$initialErrBody")
 
             // If server returned not found / bad request, try to resolve actual server-side id by fetching rooms
             val bodyMsg = try { resp.body()?.message } catch (_: Exception) { null }
@@ -402,6 +428,26 @@ class CommunityRepository private constructor(private val context: Context) {
                             if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
                                 runCatching { refreshRooms(communityId) }
                                 return Result.success(Unit)
+                            } else {
+                                val fallbackErr = try { resp.errorBody()?.string() } catch (_: Exception) { null }
+                                android.util.Log.w("CommunityRepo", "deleteRoom by actualId failed: actualId=$actualId code=${resp.code()} errBody=$fallbackErr")
+                            }
+                        }
+
+                        // As a last resort, try deleting using the roomCode itself as the path param (some servers accept code in path)
+                        if (match != null) {
+                            val tryCode = match.roomCode.ifBlank { match.id }
+                            if (!tryCode.isNullOrBlank() && tryCode != roomId) {
+                                try {
+                                    resp = api.deleteRoom(communityId, tryCode, email)
+                                    if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
+                                        runCatching { refreshRooms(communityId) }
+                                        return Result.success(Unit)
+                                    } else {
+                                        val tErr = try { resp.errorBody()?.string() } catch (_: Exception) { null }
+                                        android.util.Log.w("CommunityRepo", "deleteRoom by roomCode fallback failed: tryCode=$tryCode code=${resp.code()} errBody=$tErr")
+                                    }
+                                } catch (_: Exception) { /* ignore */ }
                             }
                         }
                     }
@@ -413,18 +459,20 @@ class CommunityRepository private constructor(private val context: Context) {
             // If we reach here, deletion failed
             val code = resp.code()
             val msg = try { resp.body()?.message } catch (_: Exception) { null }
-            Result.failure(RuntimeException(msg ?: "HTTP $code"))
+            val errBody = try { resp.errorBody()?.string() } catch (_: Exception) { null }
+            val combined = listOfNotNull(msg, errBody).joinToString(" | ").ifBlank { "HTTP $code" }
+            Result.failure(RuntimeException(combined))
         } catch (t: Throwable) { Result.failure(t) }
     }
 
     suspend fun getAllRooms(communityId: String): Result<List<DataRoom>> {
-        return try {
-            val resp = api.getAllRooms(communityId)
-            if (!resp.isSuccessful) return Result.failure(RuntimeException("HTTP ${'$'}{resp.code()}"))
-            val body = resp.body()
-            // If the typed API model provides a list of DataRoom, use it directly
-            val dataList: List<DataRoom>? = body?.data
-            if (dataList != null) {
+         return try {
+             val resp = api.getAllRooms(communityId)
+             if (!resp.isSuccessful) return Result.failure(RuntimeException("HTTP ${'$'}{resp.code()}"))
+             val body = resp.body()
+             // If the typed API model provides a list of DataRoom, use it directly
+             val dataList: List<DataRoom>? = body?.data
+             if (!dataList.isNullOrEmpty()) {
                 // Use server-side id as DataRoom.id so UI that relies on `roomId` receives authoritative id.
                 // Keep roomCode as provided so chat flows can use chatRoomCode when needed.
                 val normalized = dataList.map { r ->
@@ -434,9 +482,9 @@ class CommunityRepository private constructor(private val context: Context) {
                 return Result.success(normalized)
             }
 
-            // Fallback: empty list
-            Result.success(emptyList())
-        } catch (t: Throwable) { Result.failure(t) }
+             // Fallback: empty list
+             Result.success(emptyList())
+         } catch (t: Throwable) { Result.failure(t) }
      }
 
     suspend fun fetchMemberCount(communityId: String): Result<Int> {
@@ -508,14 +556,125 @@ class CommunityRepository private constructor(private val context: Context) {
         }
     }
 
-    suspend fun updateCommunityInfoRemote(communityId: String, name: String, description: String): Result<Unit> {
+    // New multipart-based update to match modified API: accepts optional image/avatar parts.
+    suspend fun updateCommunityInfoRemote(
+        communityId: String,
+        name: String,
+        description: String,
+        imagePart: MultipartBody.Part? = null,
+        avatarFile: MultipartBody.Part? = null,
+        userAvatarFile: MultipartBody.Part? = null
+    ): Result<Unit> {
         return try {
-            val resp = api.updateCommunityInfo(UpdateCommunityRequest(communityId = communityId, name = name, description = description))
-            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
-                communityDao.updateCommunityDetails(communityId, name, description)
-                Result.success(Unit)
-            } else Result.failure(RuntimeException("HTTP ${resp.code()}"))
-        } catch (t: Throwable) { Result.failure(t) }
+            val requester = userData.getEmail() ?: return Result.failure(IllegalStateException("Email not set"))
+            val requesterBody = requester.trim().toRequestBody("text/plain".toMediaTypeOrNull())
+            val nameBody = name.trim().toRequestBody("text/plain".toMediaTypeOrNull())
+            val descBody = description.trim().toRequestBody("text/plain".toMediaTypeOrNull())
+
+            try {
+                android.util.Log.d("CommunityRepo", "updateCommunityInfoRemote - calling API: communityId=$communityId requester=${requester}")
+            } catch (_: Exception) {}
+            val resp = api.updateCommunityInfo(
+                communityId = communityId,
+                requesterEmail = requesterBody,
+                name = nameBody,
+                description = descBody,
+                imageFile = imagePart,
+                avatarFile = avatarFile,
+                userAvatarFile = userAvatarFile
+            )
+
+            val bodyEl = resp.body()
+            // Parse JsonElement response safely (server sometimes returns string in `data.createdBy` causing Gson model parse failures)
+            var parsedStatus: Int? = null
+            var parsedMessage: String? = null
+            try {
+                if (bodyEl != null && bodyEl.isJsonObject) {
+                    val obj = bodyEl.asJsonObject
+                    try { parsedStatus = obj.get("status")?.asInt } catch (_: Exception) { parsedStatus = null }
+                    try { parsedMessage = obj.get("message")?.asString } catch (_: Exception) { parsedMessage = null }
+                }
+            } catch (_: Exception) { /* ignore parsing issues */ }
+
+            // Debug log: include server response metadata to help track why callers see an exception despite 200
+            try {
+                val code = resp.code()
+                val ebodyPreview = try { resp.errorBody()?.string() } catch (_: Exception) { null }
+                android.util.Log.d("CommunityRepo", "updateCommunityInfoRemote: code=$code isSuccessful=${resp.isSuccessful} parsedStatus=$parsedStatus parsedMessage=$parsedMessage errBodyPreview=$ebodyPreview")
+            } catch (_: Exception) { /* non-fatal logging failure */ }
+
+            if (resp.isSuccessful) {
+                // If body.status isn't present or not 200/201, still proceed: backend may return 200 without the status field.
+                if (parsedStatus !in listOf(200, 201)) {
+                    android.util.Log.w("CommunityRepo", "updateCommunityInfoRemote: success HTTP ${resp.code()} but parsedStatus=$parsedStatus; proceeding anyway")
+                }
+                // Perform DB update on IO to avoid any main-thread Room assertion.
+                // Use a defensive strategy: try the lightweight DAO update, but if it fails, read the existing community and insert an updated copy.
+                try {
+                    withContext(Dispatchers.IO) {
+                        try {
+                            communityDao.updateCommunityDetails(communityId, name, description)
+                        } catch (inner: Exception) {
+                            // Fallback: attempt to load the community and replace it (safer across migrations/DAO quirks)
+                            try {
+                                val existing = communityDao.getCommunityById(communityId)
+                                if (existing != null) {
+                                    val updated = existing.copy(name = name, description = description, updatedAt = System.currentTimeMillis())
+                                    communityDao.insertCommunity(updated)
+                                } else {
+                                    // Insert a minimal community record so UI has something to show
+                                    val newCommunity = Community(
+                                        communityId = communityId,
+                                        name = name,
+                                        description = description,
+                                        profilePicUrl = null,
+                                        profilePicLocalPath = null,
+                                        coverPhotoUrl = null,
+                                        coverPhotoLocalPath = null,
+                                        category = null,
+                                        memberCount = 0,
+                                        postCount = 0,
+                                        isPrivate = false,
+                                        creatorId = null,
+                                        creatorName = null,
+                                        createdAt = System.currentTimeMillis(),
+                                        updatedAt = System.currentTimeMillis(),
+                                        role = null,
+                                        isOwner = false,
+                                        isMember = false,
+                                        isModerator = false
+                                    )
+                                    communityDao.insertCommunity(newCommunity)
+                                }
+                            } catch (fallbackEx: Exception) {
+                                // If fallback fails, rethrow original inner exception to be handled by outer catch
+                                throw inner
+                            }
+                        }
+                    }
+                } catch (ise: IllegalStateException) {
+                    // Common Room/main-thread / lifecycle-related error; log and return failure so caller can surface it
+                    android.util.Log.e("CommunityRepo", "updateCommunityInfoRemote - IllegalStateException updating DB", ise)
+                    return Result.failure(ise)
+                } catch (dbEx: Exception) {
+                    android.util.Log.e("CommunityRepo", "Failed to update local DB after community update", dbEx)
+                    return Result.failure(dbEx)
+                }
+                return Result.success(Unit)
+            } else {
+                // surface server message/errorBody for debugging
+                val code = resp.code()
+                val combined = listOfNotNull(parsedMessage, try { resp.errorBody()?.string() } catch (_: Exception) { null }).joinToString(" | ").ifBlank { "HTTP $code" }
+                android.util.Log.w("CommunityRepo", "updateCommunityInfoRemote failed: $combined")
+                Result.failure(RuntimeException(combined))
+            }
+        } catch (t: Throwable) {
+            // Log full stacktrace to help debugging IllegalStateException
+            try {
+                android.util.Log.e("CommunityRepo", "updateCommunityInfoRemote - exception while updating community", t)
+            } catch (_: Exception) {}
+            Result.failure(t)
+        }
     }
 
     // Upload community banner image and update community coverPhotoUrl locally
@@ -579,7 +738,7 @@ class CommunityRepository private constructor(private val context: Context) {
 
                     Community(
                         communityId = dto.communityId,
-                        name = dto.name,
+                        name = dto.name?.takeIf { it.isNotBlank() } ?: existing?.name ?: "",
                         description = dto.description?.takeIf { it.isNotBlank() } ?: existing?.description,
                         profilePicUrl = dto.imageUrl?.takeIf { it.isNotBlank() } ?: existing?.profilePicUrl,
                         profilePicLocalPath = existing?.profilePicLocalPath,

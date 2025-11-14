@@ -610,3 +610,4 @@ class CommunityDetailFragment : Fragment(R.layout.fragment_community_detail) {
         } catch (_: Exception) {}
     }
 }
+

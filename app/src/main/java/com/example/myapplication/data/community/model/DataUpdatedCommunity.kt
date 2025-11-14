@@ -4,12 +4,13 @@ package com.example.myapplication.data.community.model
 // Use nullable String types where server can return null; avoid Any to simplify mapping.
 
 data class DataUpdatedCommunity(
-    val role : String?,
-    val imageUrl: String?,
-    val imageKey: String?,
-    val name: String,
-    val bannerUrl: String?,
-    val description: String?,
+    val role : String? = null,
+    val imageUrl: String? = null,
+    val imageKey: String? = null,
+    val name: String? = "community name",
+    val bannerUrl: String? = null,
+    val bannerKey: String? = null,
+    val description: String?= null,
     val communityId: String,
     // Keep optional fields nullable to be forward-compatible
     val avatarUrl: String? = null,

@@ -32,6 +32,7 @@ import kotlinx.coroutines.withContext
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.ui.community.adapter.VoiceRoomAdapter
 import com.example.myapplication.data.voice.VoiceRoomRepository
+import com.example.myapplication.data.groups.repository.LocalGroupRepository
 
 class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
     // Receiver for worker completion broadcasts (initialized in onViewCreated)
@@ -101,6 +102,31 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
                     try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to join voice room: ${e.message}", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {}
                 }
             }
+        }, onLongClick = { vr ->
+            try {
+                com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(requireContext(), "Delete Voice Room", "Are you sure you want to delete '${vr.name}'?", positiveText = "Delete", negativeText = getString(android.R.string.cancel), onPositive = {
+                    lifecycleScope.launch {
+                        try {
+                            val requester = try { withContext(Dispatchers.IO) { UserDataManager.getInstance(requireContext()).getEmail() } } catch (_: Exception) { null }
+                            val chatRoomId = vm.group.value?.chatRoomId?.takeIf { it.isNotBlank() } ?: groupId
+                            if (chatRoomId.isNullOrBlank()) {
+                                try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Missing parent chat room id", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {}
+                                return@launch
+                            }
+                            val res = withContext(Dispatchers.IO) { try { voiceRepo.deleteVoiceRoom(chatRoomId, vr.name, requester ?: "") } catch (t: Throwable) { Result.failure<Unit>(t) } }
+                            if (res.isSuccess) {
+                                // reload
+                                try { loadVoiceRooms(chatRoomId, progressVoice) } catch (_: Exception) {}
+                                try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Voice room '${vr.name}' deleted", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT).show() } catch (_: Exception) {}
+                            } else {
+                                try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to delete voice room: ${res.exceptionOrNull()?.message}", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {}
+                            }
+                        } catch (e: Exception) {
+                            try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to delete voice room: ${e.message}", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {}
+                        }
+                    }
+                })
+            } catch (_: Exception) {}
         })
         rvVoiceRooms?.layoutManager = LinearLayoutManager(requireContext())
         rvVoiceRooms?.adapter = voiceRoomsAdapter
@@ -187,6 +213,51 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "Failed to open chat: ${e.message}", Toast.LENGTH_SHORT).show()
             }
+        }, onLongClick = { room ->
+            // Confirm and delete chat room inside this local group. Resolve parent chatRoomCode first.
+            try {
+                val ctx = requireContext()
+                com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(ctx, "Delete Chat Room", "Are you sure you want to delete '${room.name}'?", positiveText = "Delete", negativeText = ctx.getString(android.R.string.cancel), onPositive = {
+                    lifecycleScope.launch {
+                        try {
+                            val repo = LocalGroupRepository.getInstance(requireContext())
+                            // Resolve parent code: prefer vm.group.chatRoomCode; if missing, try to refresh and wait briefly
+                            var parentCode = vm.group.value?.chatRoomCode?.takeIf { it.isNotBlank() }
+                            if (parentCode.isNullOrBlank()) {
+                                try { vm.refreshDetails() } catch (_: Exception) {}
+                                // wait briefly (max ~2s) for VM to update
+                                var waited = 0
+                                while (parentCode.isNullOrBlank() && waited < 2000) {
+                                    kotlinx.coroutines.delay(250)
+                                    parentCode = vm.group.value?.chatRoomCode?.takeIf { it.isNotBlank() }
+                                    waited += 250
+                                }
+                            }
+
+                            // If still missing, fall back to fragment argument (group id) but warn that deletion may fail if server expects different code
+                            if (parentCode.isNullOrBlank()) parentCode = arguments?.getString("communityId") ?: arguments?.getString("id") ?: ""
+
+                            if (parentCode.isBlank()) {
+                                try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Unable to determine parent room code; try refreshing and retrying", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {}
+                                return@launch
+                            }
+
+                            val targetRoomCode = room.roomCode.ifBlank { room.id }
+                            val res = withContext(Dispatchers.IO) { repo.deleteChatRoom(parentCode, targetRoomCode) }
+                            if (res.isSuccess) {
+                                // refresh the list via ViewModel using resolved parentCode
+                                try { roomsVm.loadChatRoomsForGroup(parentCode) } catch (_: Exception) {}
+                                try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Chat room '${room.name}' deleted", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT).show() } catch (_: Exception) {}
+                            } else {
+                                val msg = res.exceptionOrNull()?.message ?: "Failed to delete chat room"
+                                try { com.google.android.material.snackbar.Snackbar.make(requireView(), msg, com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {}
+                            }
+                        } catch (e: Exception) {
+                            try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to delete chat room: ${e.message}", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {}
+                        }
+                    }
+                })
+            } catch (_: Exception) {}
         })
         rvRooms?.layoutManager = LinearLayoutManager(requireContext())
         rvRooms?.adapter = roomsAdapter
@@ -330,7 +401,9 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
             // Show popup menu same as community detail
             val popup = androidx.appcompat.widget.PopupMenu(requireContext(), anchor)
             try {
-                popup.menuInflater.inflate(R.menu.menu_community_detail, popup.menu)
+                popup.menuInflater.inflate(R.menu.menu_group_detail, popup.menu)
+                // Local groups don't support 'Leave' via this menu — hide it.
+                try { popup.menu.findItem(R.id.action_leave_community)?.isVisible = false } catch (_: Exception) {}
             } catch (_: Exception) {}
             popup.setOnMenuItemClickListener { item ->
                 when (item.itemId) {
