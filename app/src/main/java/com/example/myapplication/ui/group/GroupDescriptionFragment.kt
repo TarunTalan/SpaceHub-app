@@ -29,6 +29,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import android.graphics.Bitmap
+import com.example.myapplication.data.network.NetworkModule
 
 class GroupDescriptionFragment : BaseFragment(R.layout.fragment_group_description) {
     private val sharedVm: ProfileSharedViewModel by activityViewModels()
@@ -104,6 +105,32 @@ class GroupDescriptionFragment : BaseFragment(R.layout.fragment_group_descriptio
 
             lifecycleScope.launch {
                 try { setLoaderVisible(true) } catch (_: Exception) {}
+
+                // Validate name availability (check both communities and groups share same namespace server-side)
+                try {
+                    val api = NetworkModule.createApiService(requireContext())
+                    val checkRes = try { withContext(Dispatchers.IO) { api.checkLocalGroupNameExists(groupName) } } catch (t: Throwable) { null }
+                    if (checkRes == null) {
+                        try { setLoaderVisible(false) } catch (_: Exception) {}
+                        Snackbar.make(view, "Failed to validate name. Please check your connection.", Snackbar.LENGTH_LONG).show()
+                        return@launch
+                    }
+                    if (!checkRes.isSuccessful) {
+                        try { setLoaderVisible(false) } catch (_: Exception) {}
+                        Snackbar.make(view, "Failed to validate name. Please try again.", Snackbar.LENGTH_LONG).show()
+                        return@launch
+                    }
+                    val exists = checkRes.body()?.data?.exists ?: false
+                    if (exists) {
+                        try { setLoaderVisible(false) } catch (_: Exception) {}
+                        Snackbar.make(view, "Name already taken. Choose another name.", Snackbar.LENGTH_LONG).show()
+                        return@launch
+                    }
+                } catch (t: Throwable) {
+                    try { setLoaderVisible(false) } catch (_: Exception) {}
+                    Snackbar.make(view, "Failed to validate name. Please try again.", Snackbar.LENGTH_LONG).show()
+                    return@launch
+                }
 
                 val result = createLocalGroup(groupName, description)
 
@@ -246,6 +273,32 @@ class GroupDescriptionFragment : BaseFragment(R.layout.fragment_group_descriptio
                             imageFilePart = MultipartBody.Part.createFormData("imageFile", filename, reqBody)
                         }
                     } catch (_: Exception) { imageFilePart = null }
+                }
+
+                // If user didn't choose an image, attach the app default image so server gets a default profile
+                if (imageFilePart == null) {
+                    try {
+                        val drawable = androidx.core.content.ContextCompat.getDrawable(requireContext(), R.drawable.default_comm_icon)
+                        val bmp = when (drawable) {
+                            is android.graphics.drawable.BitmapDrawable -> drawable.bitmap
+                            else -> {
+                                val width = drawable?.intrinsicWidth?.takeIf { it > 0 } ?: 256
+                                val height = drawable?.intrinsicHeight?.takeIf { it > 0 } ?: 256
+                                val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+                                val canvas = android.graphics.Canvas(bitmap)
+                                drawable?.setBounds(0, 0, canvas.width, canvas.height)
+                                drawable?.draw(canvas)
+                                bitmap
+                            }
+                        }
+                        val baos = java.io.ByteArrayOutputStream()
+                        bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, baos)
+                        val bytes = baos.toByteArray()
+                        val reqBody = bytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                        imageFilePart = MultipartBody.Part.createFormData("imageFile", "default_group_icon.jpg", reqBody)
+                    } catch (_: Exception) {
+                        imageFilePart = null
+                    }
                 }
 
                 try {

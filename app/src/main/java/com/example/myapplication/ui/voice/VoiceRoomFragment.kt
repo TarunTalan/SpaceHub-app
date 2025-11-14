@@ -30,9 +30,9 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED
 import android.util.Log
-import android.view.MenuItem
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.navigation.fragment.findNavController
 
 class VoiceRoomFragment : Fragment(R.layout.fragment_voice_room) {
     private var _binding: FragmentVoiceRoomBinding? = null
@@ -125,7 +125,19 @@ class VoiceRoomFragment : Fragment(R.layout.fragment_voice_room) {
                     }
                 }
                 launch {
-                    vm.members.collect { membersAdapter.submitList(it) }
+                    vm.members.collect { list ->
+                        // submit list to adapter
+                        membersAdapter.submitList(list)
+                        // show empty bottom message when no members
+                        try {
+                            val emptyTv = binding.root.findViewById<TextView>(R.id.empty_bottom_message)
+                            if (list.isEmpty()) {
+                                emptyTv.visibility = View.VISIBLE
+                            } else {
+                                emptyTv.visibility = View.GONE
+                            }
+                        } catch (_: Exception) {}
+                    }
                 }
                 launch {
                     vm.speakingUser.collect { membersAdapter.setSpeaking(it) }
@@ -141,12 +153,14 @@ class VoiceRoomFragment : Fragment(R.layout.fragment_voice_room) {
             vm.toggleMute(roomId, sessionIdArg, handleIdArg)
         }
         binding.ivEndCall.setOnClickListener {
-            vm.endCall(roomId, sessionIdArg, handleIdArg)
-            activity?.onBackPressedDispatcher?.onBackPressed()
+            try {
+                vm.endCall(roomId, sessionIdArg, handleIdArg)
+            } catch (_: Exception) {}
+            try { findNavController().navigateUp() } catch (_: Exception) { activity?.onBackPressedDispatcher?.onBackPressed() }
         }
-        binding.backArrow.setOnClickListener { binding.ivEndCall.performClick() }
-        binding.ivActions.setOnClickListener {
-            checkAndRequestMicPermission(roomId, sessionIdArg, handleIdArg)
+        binding.backArrow.setOnClickListener {
+            try { vm.endCall(roomId, sessionIdArg, handleIdArg) } catch (_: Exception) {}
+            try { findNavController().navigateUp() } catch (_: Exception) { activity?.onBackPressedDispatcher?.onBackPressed() }
         }
 
         // Auto request microphone permission once on entering the voice room if not already granted
@@ -399,16 +413,8 @@ class VoiceRoomFragment : Fragment(R.layout.fragment_voice_room) {
     }
 
     override fun onDestroyView() {
-        try {
-            // Ensure we unregister and cleanup when leaving the fragment
-            val serverRoomIdArg = arguments?.getString("roomId")
-            val chatRoomIdArg = arguments?.getString("chatRoomId")
-            val chatRoomCodeArg = arguments?.getString("roomCode")
-            val roomId = serverRoomIdArg ?: chatRoomIdArg ?: chatRoomCodeArg ?: ""
-            val sessionIdArg = arguments?.getString("sessionId") ?: ""
-            val handleIdArg = arguments?.getString("handleId") ?: ""
-            vm.endCall(roomId, sessionIdArg, handleIdArg)
-        } catch (_: Exception) {}
+        // Do NOT call vm.endCall(...) here. End-call should be triggered explicitly by user action
+        // (e.g. tapping the end call button) to avoid duplicate or race cleanup. Keep fragment teardown.
         super.onDestroyView()
         _binding = null
     }

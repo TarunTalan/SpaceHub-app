@@ -22,7 +22,6 @@ import com.example.myapplication.data.user.UserDataManager
 import com.example.myapplication.data.voice.VoiceRoomRepository
 import com.example.myapplication.ui.community.adapter.RoomAdapter
 import com.example.myapplication.ui.community.adapter.VoiceRoomAdapter
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -88,11 +87,8 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
         val memberCountTv = rootView.findViewById<TextView>(R.id.member_count_tv)
         val adminCountTv = rootView.findViewById<TextView>(R.id.admin_count_tv)
         val rvChatRooms = rootView.findViewById<RecyclerView>(R.id.rv_chat_rooms)
-        val fabCreateRoom = rootView.findViewById<FloatingActionButton>(R.id.fab_create_room)
-
         val ivToggleVoice = rootView.findViewById<ImageView>(R.id.iv_toggle_voice_comm)
         val rvVoiceRooms = rootView.findViewById<RecyclerView>(R.id.rv_voice_rooms)
-        val fabCreateVoice = rootView.findViewById<FloatingActionButton>(R.id.fab_create_voice_room)
 
         backButton?.setOnClickListener { findNavController().navigateUp() }
 
@@ -281,11 +277,6 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
             }
         }
 
-        fabCreateRoom?.visibility = View.GONE
-        fabCreateVoice?.visibility = View.GONE
-        fabCreateRoom?.setOnClickListener { showCreateChatRoomDialog() }
-        fabCreateVoice?.setOnClickListener { showCreateVoiceRoomDialog(navRoomId) }
-
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val repo = CommunityRepository.getInstance(requireContext())
@@ -308,11 +299,8 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
                 } catch (_: Exception) {
                     false
                 }
-                if (shouldShowFab) {
-                    fabCreateRoom?.visibility = View.VISIBLE; fabCreateVoice?.visibility = View.VISIBLE
-                }
+                // If admin, creation action is available via settings menu
             } catch (_: Exception) {
-                fabCreateRoom?.visibility = View.GONE; fabCreateVoice?.visibility = View.GONE
             }
         }
 
@@ -744,22 +732,50 @@ class RoomFragment : Fragment(R.layout.fragment_room) {
     private fun updateChatRoomsUI() {
         val rvChat = view?.findViewById<RecyclerView>(R.id.rv_chat_rooms)
         val emptyRoomsView = view?.findViewById<View>(R.id.empty_rooms_view)
+        val emptyBottom = view?.findViewById<View>(R.id.empty_bottom_message)
         if (chatRooms.isEmpty()) {
             emptyRoomsView?.visibility = View.VISIBLE; rvChat?.visibility = View.GONE
         } else {
             emptyRoomsView?.visibility = View.GONE; rvChat?.visibility =
                 if (chatRoomsExpanded) View.VISIBLE else View.GONE; chatRoomsAdapter.submitList(chatRooms.toList())
         }
+        // Show combined bottom message only when both chat and voice lists are empty
+        val voiceEmpty = (voiceRooms.isEmpty())
+        val combinedEmptyView = view?.findViewById<View>(R.id.empty_group_view)
+        if (chatRooms.isEmpty() && voiceEmpty) {
+            emptyBottom?.visibility = View.VISIBLE
+            // hide section-specific empty views when showing bottom message
+            emptyRoomsView?.visibility = View.GONE
+            view?.findViewById<View>(R.id.empty_voice_rooms_view)?.visibility = View.GONE
+            combinedEmptyView?.visibility = View.VISIBLE
+        } else {
+            emptyBottom?.visibility = View.GONE
+            combinedEmptyView?.visibility = View.GONE
+        }
     }
 
     private fun updateVoiceRoomsUI() {
         val rvVoice = view?.findViewById<RecyclerView>(R.id.rv_voice_rooms)
         val emptyVoice = view?.findViewById<View>(R.id.empty_voice_rooms_view)
+        val emptyBottom = view?.findViewById<View>(R.id.empty_bottom_message)
+        val combinedEmptyView = view?.findViewById<View>(R.id.empty_group_view)
         if (voiceRooms.isEmpty()) {
             emptyVoice?.visibility = View.VISIBLE; rvVoice?.visibility = View.GONE
         } else {
             emptyVoice?.visibility = View.GONE; rvVoice?.visibility =
                 if (voiceRoomsExpanded) View.VISIBLE else View.GONE; voiceRoomsAdapter.submitList(voiceRooms.toList())
+        }
+        // Show combined bottom message only when both chat and voice lists are empty
+        val chatEmpty = (chatRooms.isEmpty())
+        if (voiceRooms.isEmpty() && chatEmpty) {
+            emptyBottom?.visibility = View.VISIBLE
+            // hide section-specific empties
+            view?.findViewById<View>(R.id.empty_rooms_view)?.visibility = View.GONE
+            emptyVoice?.visibility = View.GONE
+            combinedEmptyView?.visibility = View.VISIBLE
+        } else {
+            emptyBottom?.visibility = View.GONE
+            combinedEmptyView?.visibility = View.GONE
         }
         try {
             val rv = view?.findViewById<RecyclerView>(R.id.rv_voice_rooms)

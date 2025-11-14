@@ -64,6 +64,13 @@ class RequestsInboxFragment : Fragment(R.layout.fragment_requests_inbox) {
         vm.toast.observe(viewLifecycleOwner) { msg ->
             if (!msg.isNullOrBlank()) {
                 Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+                try {
+                    if (msg.contains("accepted", ignoreCase = true) || msg.contains("accepted successfully", ignoreCase = true)) {
+                        val nav = findNavController()
+                        val entry = nav.getBackStackEntry(R.id.dashboardFragment)
+                        entry.savedStateHandle["refresh_communities"] = true
+                    }
+                } catch (_: Exception) {}
             }
         }
 

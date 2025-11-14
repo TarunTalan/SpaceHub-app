@@ -59,8 +59,12 @@ class SearchFragment: BaseFragment(R.layout.fragment_search) {
                     if (startW != targetWidth) {
                         indicatorWidthAnimator?.cancel()
                         if (animate) {
-                            // For animated flow, animate translation and width together
-                            ind.animate().translationX(targetX).setDuration(200).start()
+                            // For animated flow, animate translation and width together. Guard animate() so listener exceptions don't crash.
+                            try {
+                                ind.animate().translationX(targetX).setDuration(200).start()
+                            } catch (_: Exception) {
+                                try { ind.translationX = targetX } catch (_: Exception) {}
+                            }
                             indicatorWidthAnimator = ValueAnimator.ofInt(startW, targetWidth).apply {
                                 duration = 200
                                 addUpdateListener { anim ->
@@ -78,12 +82,12 @@ class SearchFragment: BaseFragment(R.layout.fragment_search) {
                             // Non-animated: set width first then translation so pivot and positioning are correct immediately
                             ind.layoutParams = ind.layoutParams.apply { this.width = targetWidth }
                             ind.requestLayout()
-                            ind.translationX = targetX
+                            try { ind.translationX = targetX } catch (_: Exception) {}
                             try { onComplete?.invoke(targetWidth) } catch (_: Exception) {}
                         }
                     } else {
                         // width already matches - just set translation and call onComplete
-                        ind.translationX = targetX
+                        try { ind.translationX = targetX } catch (_: Exception) {}
                         try { onComplete?.invoke(startW) } catch (_: Exception) {}
                     }
                 } catch (_: Exception) { }
@@ -116,8 +120,12 @@ class SearchFragment: BaseFragment(R.layout.fragment_search) {
                         ind.translationX = targetX
                         ind.pivotX = targetWidth / 2f
 
-                        // Run fade/scale entrance animation
-                        try { ind.animate()?.alpha(1f)?.scaleX(1f)?.setDuration(250)?.start() } catch (_: Exception) {}
+                        // Run fade/scale entrance animation with guard and fallback
+                        try {
+                            ind.animate()?.alpha(1f)?.scaleX(1f)?.setDuration(250)?.start()
+                        } catch (_: Exception) {
+                            try { ind.alpha = 1f; ind.scaleX = 1f } catch (_: Exception) {}
+                        }
                     } catch (_: Exception) {}
                 }
                 updateSelectedStyles(communityTab, localTab)

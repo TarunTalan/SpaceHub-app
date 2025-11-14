@@ -104,12 +104,16 @@ class OnboardingFragment : Fragment(R.layout.fragment_onboarding) {
             val moveUpDistance = rootView.height * VERTICAL_MOVE_PERCENTAGE
             val interpolator = AccelerateDecelerateInterpolator()
 
-            // Animate logo upward
-            logo.animate()
-                .translationY(-moveUpDistance)
-                .setDuration(ANIMATION_DURATION_MS)
-                .setInterpolator(interpolator)
-                .start()
+            // Animate logo upward (guarded)
+            try {
+                logo.animate()
+                    .translationY(-moveUpDistance)
+                    .setDuration(ANIMATION_DURATION_MS)
+                    .setInterpolator(interpolator)
+                    .start()
+            } catch (_: Exception) {
+                try { logo.translationY = -moveUpDistance } catch (_: Exception) {}
+            }
 
             // Animate and reveal content with staggered timing
             animateViewReveal(title, moveUpDistance, TITLE_DELAY_MS, interpolator)
@@ -135,13 +139,18 @@ class OnboardingFragment : Fragment(R.layout.fragment_onboarding) {
             alpha = 0f
             translationY = 0f
 
-            animate()
-                .alpha(1f)
-                .translationY(-moveUpDistance)
-                .setDuration(ANIMATION_DURATION_MS)
-                .setStartDelay(startDelay)
-                .setInterpolator(interpolator)
-                .start()
+            try {
+                animate()
+                    .alpha(1f)
+                    .translationY(-moveUpDistance)
+                    .setDuration(ANIMATION_DURATION_MS)
+                    .setStartDelay(startDelay)
+                    .setInterpolator(interpolator)
+                    .start()
+            } catch (_: Exception) {
+                // Fallback to immediate reveal
+                try { this.alpha = 1f; this.translationY = -moveUpDistance; this.visibility = View.VISIBLE } catch (_: Exception) {}
+            }
         }
     }
 

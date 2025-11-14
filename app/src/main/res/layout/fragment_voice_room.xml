@@ -48,30 +48,17 @@
 
         <!-- Speaker toggle placed between title and actions -->
         <ImageButton
-            android:id="@+id/btn_speaker_toggle"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:src="@drawable/voice_speaker"
-            android:gravity="center"
-            android:background="@drawable/voice_control_bg"
-            app:layout_constraintEnd_toStartOf="@id/iv_actions"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            android:layout_marginHorizontal="10dp"
-            android:contentDescription="@string/speaker_toggle" />
-
-        <ImageView
-                android:id="@+id/iv_actions"
-                android:layout_width="30dp"
-                android:layout_height="30dp"
-                android:padding="6dp"
-                android:src="@drawable/dots_menu"
-                app:layout_constraintEnd_toEndOf="parent"
+                android:id="@+id/btn_speaker_toggle"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/voice_speaker"
+                android:gravity="center"
+                android:background="@drawable/voice_control_bg"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                android:layout_marginEnd="8dp"
-                app:layout_constraintVertical_bias="0.0"
-                android:contentDescription="@string/menu" />
+                android:layout_marginHorizontal="10dp"
+                android:contentDescription="@string/speaker_toggle" app:layout_constraintEnd_toEndOf="parent"/>
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 
@@ -120,6 +107,21 @@
             android:contentDescription="@string/end_call"
             />
     </LinearLayout>
+
+    <!-- Bottom empty message (mirrors community room) -->
+    <TextView
+        android:id="@+id/empty_bottom_message"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="No participants available"
+        android:textColor="#CCCCCC"
+        android:textSize="15sp"
+        android:gravity="center"
+        android:visibility="gone"
+        android:padding="16dp"
+        app:layout_constraintBottom_toTopOf="@id/voice_controls"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- Loader -->
     <ProgressBar

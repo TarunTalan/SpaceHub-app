@@ -266,21 +266,33 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
 
         // Helper to apply toggle state with 200ms animations (rotation + fade)
         fun applySectionToggle(iv: ImageView?, rv: RecyclerView?, expanded: Boolean) {
-            try {
-                val duration = 200L
+             try {
+                 val duration = 200L
                 if (expanded) {
-                    iv?.animate()?.rotation(0f)?.setDuration(duration)?.start()
-                    rv?.visibility = View.VISIBLE
-                    rv?.alpha = 0f
-                    rv?.animate()?.alpha(1f)?.setDuration(duration)?.start()
+                    try {
+                        iv?.animate()?.rotation(0f)?.setDuration(duration)?.start()
+                        rv?.visibility = View.VISIBLE
+                        rv?.alpha = 0f
+                        rv?.animate()?.alpha(1f)?.setDuration(duration)?.start()
+                    } catch (_: Exception) {
+                        // Fallback to immediate state change if animation or its listeners throw
+                        try { iv?.rotation = 0f } catch (_: Exception) {}
+                        try { rv?.visibility = View.VISIBLE; rv?.alpha = 1f } catch (_: Exception) {}
+                    }
                 } else {
-                    iv?.animate()?.rotation(180f)?.setDuration(duration)?.start()
-                    rv?.animate()?.alpha(0f)?.setDuration(duration)?.withEndAction {
-                        try { rv.visibility = View.GONE } catch (_: Exception) {}
-                    }?.start()
-                }
-            } catch (_: Exception) {}
-        }
+                    try {
+                        iv?.animate()?.rotation(180f)?.setDuration(duration)?.start()
+                        rv?.animate()?.alpha(0f)?.setDuration(duration)?.withEndAction {
+                            try { rv.visibility = View.GONE } catch (_: Exception) {}
+                        }?.start()
+                    } catch (_: Exception) {
+                         // Fallback immediate hide
+                         try { iv?.rotation = 180f } catch (_: Exception) {}
+                         try { rv?.visibility = View.GONE; rv?.alpha = 0f } catch (_: Exception) {}
+                     }
+                 }
+              } catch (_: Exception) {}
+          }
 
         fun updateIllustrationVisibility() {
             try {
@@ -318,13 +330,21 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
                                 alpha = 0f
                                 visibility = View.VISIBLE
                                 bringToFront()
-                                animate().alpha(1f).setDuration(180).start()
+                                try {
+                                    animate().alpha(1f).setDuration(180).start()
+                                } catch (_: Exception) {
+                                    try { alpha = 1f } catch (_: Exception) {}
+                                }
                             }
                         } else {
                             emptyIllustrationContainer?.apply {
-                                animate().alpha(0f).setDuration(180).withEndAction {
-                                    try { visibility = View.GONE } catch (_: Exception) {}
-                                }.start()
+                                try {
+                                    animate().alpha(0f).setDuration(180).withEndAction {
+                                        try { visibility = View.GONE } catch (_: Exception) {}
+                                    }.start()
+                                } catch (_: Exception) {
+                                    try { alpha = 0f; visibility = View.GONE } catch (_: Exception) {}
+                                }
                             }
                         }
                         isIllustrationVisible = showIllustration
@@ -465,6 +485,7 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
                             if (itm.isMember) s += 1
                             return s
                         }
+                        // choose the entry with the higher score (prefer admin/owner entries)
                         val keep = if (score(c) > score(existing)) c else existing
                         normalized[key] = keep
                      }
@@ -680,6 +701,23 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
                 }
             }
         }
+
+        // Observe navigation savedState for local_group_created flag to refresh list
+        try {
+            val nav = findNavController()
+            val entry = nav.getBackStackEntry(R.id.dashboardFragment)
+            // Observe requests/invite flow: when a join request is accepted elsewhere, refresh communities
+            entry.savedStateHandle.getLiveData<Boolean>("refresh_communities").observe(viewLifecycleOwner) { shouldRefresh ->
+                if (shouldRefresh == true) {
+                    try {
+                        // Trigger the authoritative reload logic (fast-path aware)
+                        maybeLoadInitialData()
+                    } catch (_: Exception) {}
+                    // Clear the flag to avoid repeated reloads
+                    entry.savedStateHandle["refresh_communities"] = false
+                }
+            }
+        } catch (_: Exception) {}
 
         // Load initial data for local groups on view created: use DB fast-path (avoid network on navigation)
         loadLocalGroupsFromDb()

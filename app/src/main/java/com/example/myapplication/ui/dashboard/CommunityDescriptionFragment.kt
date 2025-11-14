@@ -13,16 +13,16 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
+import com.bumptech.glide.Glide
 import com.example.myapplication.R
 import com.example.myapplication.data.community.model.Community
+import com.example.myapplication.data.community.repository.CommunityRepository
 import com.example.myapplication.data.dashboard.model.CreateCommunityResponse
 import com.example.myapplication.data.network.NetworkModule
-import com.example.myapplication.data.community.repository.CommunityRepository
+import com.example.myapplication.data.user.UserDataManager
 import com.example.myapplication.ui.common.BaseFragment
 import com.example.myapplication.ui.common.ProfileSharedViewModel
 import com.example.myapplication.ui.community.viewmodel.CommunityViewModel
-import com.bumptech.glide.Glide
-import com.example.myapplication.data.user.UserDataManager
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -46,7 +46,12 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
         super.onViewCreated(view, savedInstanceState)
 
         // Back navigation
-        view.findViewById<ImageView>(R.id.back_arrow)?.setOnClickListener { try { findNavController().navigateUp() } catch (_: Exception) {} }
+        view.findViewById<ImageView>(R.id.back_arrow)?.setOnClickListener {
+            try {
+                findNavController().navigateUp()
+            } catch (_: Exception) {
+            }
+        }
 
         val commPic = view.findViewById<ImageView>(R.id.comm_pic)
         val commPicIcon = view.findViewById<ImageView>(R.id.comm_pic_icon)
@@ -68,14 +73,18 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
                     commPic.visibility = View.INVISIBLE
                     commPic.setImageResource(R.drawable.default_comm_icon)
                 }
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+            }
         }
 
         // Initial render
         renderPreview()
 
         // React to selection changes
-        try { sharedVm.selectedContentUri.observe(viewLifecycleOwner) { renderPreview() } } catch (_: Exception) { }
+        try {
+            sharedVm.selectedContentUri.observe(viewLifecycleOwner) { renderPreview() }
+        } catch (_: Exception) {
+        }
 
         val etCommDescription = view.findViewById<EditText>(R.id.etCommDescription)
         val tvCounter = view.findViewById<TextView>(R.id.tvFirstNameCounter)
@@ -101,9 +110,69 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
             sharedVm.setCommunityDescription(description)
 
             lifecycleScope.launch {
-                try { setLoaderVisible(true) } catch (_: Exception) {}
+                try {
+                    setLoaderVisible(true)
+                } catch (_: Exception) {
+                }
+
+                // 1) Validate that the community name is not taken by calling the API
+                try {
+                    val api = NetworkModule.createApiService(requireContext())
+                    val checkRes = try {
+                        withContext(Dispatchers.IO) { api.checkCommunityNameExists(communityName) }
+                    } catch (t: Throwable) {
+                        null
+                    }
+                    if (checkRes == null) {
+                        try {
+                            setLoaderVisible(false)
+                        } catch (_: Exception) {
+                        }
+                        Snackbar.make(
+                            view,
+                            "Failed to validate community name. Please check your connection.",
+                            Snackbar.LENGTH_LONG
+                        ).show()
+                        return@launch
+                    }
+                    if (!checkRes.isSuccessful) {
+                        try {
+                            setLoaderVisible(false)
+                        } catch (_: Exception) {
+                        }
+                        Snackbar.make(
+                            view,
+                            "Failed to validate community name. Please try again.",
+                            Snackbar.LENGTH_LONG
+                        ).show()
+                        return@launch
+                    }
+                    val body = checkRes.body()
+                    val exists = body?.data?.exists ?: false
+                    if (exists) {
+                        try {
+                            setLoaderVisible(false)
+                        } catch (_: Exception) {
+                        }
+                        Snackbar.make(view, "Community name already taken. Choose another name.", Snackbar.LENGTH_LONG)
+                            .show()
+                        return@launch
+                    }
+                } catch (t: Throwable) {
+                    try {
+                        setLoaderVisible(false)
+                    } catch (_: Exception) {
+                    }
+                    Snackbar.make(view, "Failed to validate community name. Please try again.", Snackbar.LENGTH_LONG)
+                        .show()
+                    return@launch
+                }
+
                 val response = createCommunity(communityName, description)
-                try { setLoaderVisible(false) } catch (_: Exception) {}
+                try {
+                    setLoaderVisible(false)
+                } catch (_: Exception) {
+                }
 
                 if (response != null && (response.isSuccessful || response.code() == 201)) {
                     val body = response.body()
@@ -163,31 +232,59 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
 
                                         // 1) Try to find existing chat by calling summary
                                         try {
-                                            val chatSummaryRes = runCatching { repo.getChatRoomSummary(roomCode) }.getOrNull()
-                                            chatId = chatSummaryRes?.getOrNull()?.firstOrNull { it.name.equals(defaultChatRoomName, true) }?.id
+                                            val chatSummaryRes =
+                                                runCatching { repo.getChatRoomSummary(roomCode) }.getOrNull()
+                                            chatId = chatSummaryRes?.getOrNull()
+                                                ?.firstOrNull { it.name.equals(defaultChatRoomName, true) }?.id
                                             if (!chatId.isNullOrBlank()) {
                                                 // mark as created so we don't attempt to recreate later
-                                                runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "chat") }
+                                                runCatching {
+                                                    userData.markDefaultRoomCreatedBlocking(
+                                                        data.communityId,
+                                                        defaultChatRoomName,
+                                                        "chat"
+                                                    )
+                                                }
                                             }
-                                        } catch (_: Exception) { }
+                                        } catch (_: Exception) {
+                                        }
 
                                         // 2) If not found and not already created, attempt to create once
                                         if (chatId.isNullOrBlank() && !alreadyChatCreated) {
                                             val createKey = "${data.communityId}:$parentId:$defaultChatRoomName"
-                                            var createdChat: com.example.myapplication.data.chat_room.model.DataChatRoom? = null
+                                            var createdChat: com.example.myapplication.data.chat_room.model.DataChatRoom? =
+                                                null
                                             synchronized(inFlightChatCreates) {
-                                                if (!inFlightChatCreates.contains(createKey)) inFlightChatCreates.add(createKey) else createdChat = null
+                                                if (!inFlightChatCreates.contains(createKey)) inFlightChatCreates.add(
+                                                    createKey
+                                                ) else createdChat = null
                                             }
                                             if (inFlightChatCreates.contains(createKey)) {
                                                 try {
-                                                    val createRes = runCatching { repo.createChatRoom(data.communityId, parentId, defaultChatRoomName) }.getOrNull()
+                                                    val createRes = runCatching {
+                                                        repo.createChatRoom(
+                                                            data.communityId,
+                                                            parentId,
+                                                            defaultChatRoomName
+                                                        )
+                                                    }.getOrNull()
                                                     createdChat = createRes?.getOrNull()
                                                     chatId = createdChat?.id
                                                     if (!chatId.isNullOrBlank()) {
-                                                        runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "chat") }
+                                                        runCatching {
+                                                            userData.markDefaultRoomCreatedBlocking(
+                                                                data.communityId,
+                                                                defaultChatRoomName,
+                                                                "chat"
+                                                            )
+                                                        }
                                                     }
                                                 } finally {
-                                                    synchronized(inFlightChatCreates) { inFlightChatCreates.remove(createKey) }
+                                                    synchronized(inFlightChatCreates) {
+                                                        inFlightChatCreates.remove(
+                                                            createKey
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
@@ -196,29 +293,55 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
                                         // Create voice room keyed by the parent/server room id (not the chat child id)
                                         if (!parentId.isNullOrBlank() && !alreadyVoiceCreated) {
                                             val creatorEmail = runCatching { userData.getEmail() }.getOrNull() ?: ""
-                                            val voiceRepo = com.example.myapplication.data.voice.VoiceRoomRepository.getInstance(requireContext())
+                                            val voiceRepo =
+                                                com.example.myapplication.data.voice.VoiceRoomRepository.getInstance(
+                                                    requireContext()
+                                                )
                                             Log.d("CommunityDesc", "creating voice room for parentId=$parentId")
-                                            val voiceRes = runCatching { voiceRepo.createVoiceRoom(chatRoomId = parentId, roomName = defaultVoiceRoomName, createdBy = creatorEmail) }.getOrNull()
+                                            val voiceRes = runCatching {
+                                                voiceRepo.createVoiceRoom(
+                                                    chatRoomId = parentId,
+                                                    roomName = defaultVoiceRoomName,
+                                                    createdBy = creatorEmail
+                                                )
+                                            }.getOrNull()
                                             if (voiceRes?.isSuccess == true) {
                                                 Log.d("CommunityDesc", "voice room created for parentId=$parentId")
-                                                runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "voice") }
+                                                runCatching {
+                                                    userData.markDefaultRoomCreatedBlocking(
+                                                        data.communityId,
+                                                        defaultChatRoomName,
+                                                        "voice"
+                                                    )
+                                                }
                                             } else {
-                                                Log.w("CommunityDesc", "voice room creation failed for parentId=$parentId: ${voiceRes?.exceptionOrNull()?.message}")
+                                                Log.w(
+                                                    "CommunityDesc",
+                                                    "voice room creation failed for parentId=$parentId: ${voiceRes?.exceptionOrNull()?.message}"
+                                                )
                                             }
                                         }
-                                     } else {
+                                    } else {
                                         // Parent room not visible yet; retry a few times to allow backend eventual consistency.
                                         if (!alreadyChatCreated || !alreadyVoiceCreated) {
                                             try {
                                                 var resolvedParentId: String? = null
                                                 var resolvedRoomCode: String? = null
                                                 repeat(4) {
-                                                    val retryRoomsRes = runCatching { repo.getAllRooms(data.communityId) }.getOrNull()
+                                                    val retryRoomsRes =
+                                                        runCatching { repo.getAllRooms(data.communityId) }.getOrNull()
                                                     val retryRooms = retryRoomsRes?.getOrNull() ?: emptyList()
-                                                    val retryFound = retryRooms.firstOrNull { it.name.equals(defaultChatRoomName, true) }
+                                                    val retryFound = retryRooms.firstOrNull {
+                                                        it.name.equals(
+                                                            defaultChatRoomName,
+                                                            true
+                                                        )
+                                                    }
                                                     if (retryFound != null) {
                                                         resolvedParentId = retryFound.id
-                                                        resolvedRoomCode = retryFound.roomCode.takeIf { it.isNotBlank() } ?: retryFound.id
+                                                        resolvedRoomCode =
+                                                            retryFound.roomCode.takeIf { it.isNotBlank() }
+                                                                ?: retryFound.id
                                                         return@repeat
                                                     }
                                                     kotlinx.coroutines.delay(300)
@@ -229,54 +352,131 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
                                                     var chatId: String? = null
                                                     try {
                                                         val roomCodeToQuery = resolvedRoomCode ?: resolvedParentId
-                                                        val chatSummaryRes = runCatching { repo.getChatRoomSummary(roomCodeToQuery) }.getOrNull()
-                                                        chatId = chatSummaryRes?.getOrNull()?.firstOrNull { it.name.equals(defaultChatRoomName, true) }?.id
-                                                        if (!chatId.isNullOrBlank()) runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "chat") }
-                                                    } catch (_: Exception) { }
+                                                        val chatSummaryRes =
+                                                            runCatching { repo.getChatRoomSummary(roomCodeToQuery) }.getOrNull()
+                                                        chatId = chatSummaryRes?.getOrNull()?.firstOrNull {
+                                                            it.name.equals(
+                                                                defaultChatRoomName,
+                                                                true
+                                                            )
+                                                        }?.id
+                                                        if (!chatId.isNullOrBlank()) runCatching {
+                                                            userData.markDefaultRoomCreatedBlocking(
+                                                                data.communityId,
+                                                                defaultChatRoomName,
+                                                                "chat"
+                                                            )
+                                                        }
+                                                    } catch (_: Exception) {
+                                                    }
 
                                                     if (chatId.isNullOrBlank() && !alreadyChatCreated) {
-                                                        val createKey = "${data.communityId}:$resolvedParentId:$defaultChatRoomName"
+                                                        val createKey =
+                                                            "${data.communityId}:$resolvedParentId:$defaultChatRoomName"
                                                         val acquired = synchronized(inFlightChatCreates) {
-                                                            if (!inFlightChatCreates.contains(createKey)) { inFlightChatCreates.add(createKey); true } else false
+                                                            if (!inFlightChatCreates.contains(createKey)) {
+                                                                inFlightChatCreates.add(createKey); true
+                                                            } else false
                                                         }
                                                         if (acquired) {
                                                             try {
-                                                                Log.d("CommunityDesc", "creating chat (retry) for $createKey")
-                                                                val createdChatRes = runCatching { repo.createChatRoom(data.communityId, resolvedParentId, defaultChatRoomName) }.getOrNull()
+                                                                Log.d(
+                                                                    "CommunityDesc",
+                                                                    "creating chat (retry) for $createKey"
+                                                                )
+                                                                val createdChatRes = runCatching {
+                                                                    repo.createChatRoom(
+                                                                        data.communityId,
+                                                                        resolvedParentId,
+                                                                        defaultChatRoomName
+                                                                    )
+                                                                }.getOrNull()
                                                                 val created = createdChatRes?.getOrNull()
                                                                 chatId = created?.id
-                                                                if (!chatId.isNullOrBlank()) runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "chat") }
+                                                                if (!chatId.isNullOrBlank()) runCatching {
+                                                                    userData.markDefaultRoomCreatedBlocking(
+                                                                        data.communityId,
+                                                                        defaultChatRoomName,
+                                                                        "chat"
+                                                                    )
+                                                                }
                                                             } finally {
-                                                                synchronized(inFlightChatCreates) { inFlightChatCreates.remove(createKey) }
+                                                                synchronized(inFlightChatCreates) {
+                                                                    inFlightChatCreates.remove(
+                                                                        createKey
+                                                                    )
+                                                                }
                                                             }
                                                         } else {
-                                                            Log.d("CommunityDesc", "createChat already in-flight for $createKey (retry), skipping")
+                                                            Log.d(
+                                                                "CommunityDesc",
+                                                                "createChat already in-flight for $createKey (retry), skipping"
+                                                            )
                                                         }
                                                     }
 
                                                     // Create voice room using the resolved parent/server room id
                                                     if (!resolvedParentId.isNullOrBlank() && !alreadyVoiceCreated) {
-                                                        val creatorEmail = runCatching { userData.getEmail() }.getOrNull() ?: ""
-                                                        val voiceRepo = com.example.myapplication.data.voice.VoiceRoomRepository.getInstance(requireContext())
-                                                        Log.d("CommunityDesc", "creating voice room (retry) for parentId=$resolvedParentId")
-                                                        val voiceRes = runCatching { voiceRepo.createVoiceRoom(chatRoomId = resolvedParentId, roomName = defaultVoiceRoomName, createdBy = creatorEmail) }.getOrNull()
+                                                        val creatorEmail =
+                                                            runCatching { userData.getEmail() }.getOrNull() ?: ""
+                                                        val voiceRepo =
+                                                            com.example.myapplication.data.voice.VoiceRoomRepository.getInstance(
+                                                                requireContext()
+                                                            )
+                                                        Log.d(
+                                                            "CommunityDesc",
+                                                            "creating voice room (retry) for parentId=$resolvedParentId"
+                                                        )
+                                                        val voiceRes = runCatching {
+                                                            voiceRepo.createVoiceRoom(
+                                                                chatRoomId = resolvedParentId,
+                                                                roomName = defaultVoiceRoomName,
+                                                                createdBy = creatorEmail
+                                                            )
+                                                        }.getOrNull()
                                                         if (voiceRes?.isSuccess == true) {
-                                                            Log.d("CommunityDesc", "voice room (retry) created for parentId=$resolvedParentId")
-                                                            runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "voice") }
+                                                            Log.d(
+                                                                "CommunityDesc",
+                                                                "voice room (retry) created for parentId=$resolvedParentId"
+                                                            )
+                                                            runCatching {
+                                                                userData.markDefaultRoomCreatedBlocking(
+                                                                    data.communityId,
+                                                                    defaultChatRoomName,
+                                                                    "voice"
+                                                                )
+                                                            }
                                                         } else {
-                                                            Log.w("CommunityDesc", "voice room (retry) failed for parentId=$resolvedParentId: ${voiceRes?.exceptionOrNull()?.message}")
+                                                            Log.w(
+                                                                "CommunityDesc",
+                                                                "voice room (retry) failed for parentId=$resolvedParentId: ${voiceRes?.exceptionOrNull()?.message}"
+                                                            )
                                                         }
                                                     }
                                                 } else {
                                                     // give up after retries and mark as created to avoid repeated attempts
-                                                    if (!alreadyChatCreated) runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "chat") }
-                                                    if (!alreadyVoiceCreated) runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "voice") }
+                                                    if (!alreadyChatCreated) runCatching {
+                                                        userData.markDefaultRoomCreatedBlocking(
+                                                            data.communityId,
+                                                            defaultChatRoomName,
+                                                            "chat"
+                                                        )
+                                                    }
+                                                    if (!alreadyVoiceCreated) runCatching {
+                                                        userData.markDefaultRoomCreatedBlocking(
+                                                            data.communityId,
+                                                            defaultChatRoomName,
+                                                            "voice"
+                                                        )
+                                                    }
                                                 }
-                                            } catch (_: Exception) { /* swallow */ }
+                                            } catch (_: Exception) { /* swallow */
+                                            }
                                         }
                                     }
                                 }
-                            } catch (_: Exception) { /* swallow */ }
+                            } catch (_: Exception) { /* swallow */
+                            }
 
                         } // end withContext
 
@@ -346,6 +546,33 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
                     } catch (_: Exception) { imageFilePart = null }
                 }
 
+                // If user didn't choose an image, attach the app default image so server gets a default profile
+                if (imageFilePart == null) {
+                    try {
+                        val drawable = androidx.core.content.ContextCompat.getDrawable(requireContext(), R.drawable.default_comm_icon)
+                        val bmp = when (drawable) {
+                            is android.graphics.drawable.BitmapDrawable -> drawable.bitmap
+                            else -> {
+                                val width = drawable?.intrinsicWidth?.takeIf { it > 0 } ?: 256
+                                val height = drawable?.intrinsicHeight?.takeIf { it > 0 } ?: 256
+                                val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+                                val canvas = android.graphics.Canvas(bitmap)
+                                drawable?.setBounds(0, 0, canvas.width, canvas.height)
+                                drawable?.draw(canvas)
+                                bitmap
+                            }
+                        }
+                        val baos = java.io.ByteArrayOutputStream()
+                        bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, baos)
+                        val bytes = baos.toByteArray()
+                        val reqBody = bytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                        imageFilePart = MultipartBody.Part.createFormData("imageFile", "default_comm_icon.jpg", reqBody)
+                        imageUriText = "default_comm_icon.jpg"
+                    } catch (_: Exception) {
+                        imageFilePart = null
+                    }
+                }
+
                 val imageUriBody = imageUriText.toRequestBody("text/plain".toMediaTypeOrNull())
 
                 return@withContext try {
@@ -356,7 +583,9 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
                         imageUri = imageUriBody,
                         imageFile = imageFilePart
                     )
-                } catch (_: Exception) { null }
+                } catch (_: Exception) {
+                    null
+                }
             } catch (_: Exception) {
                 return@withContext null
             }

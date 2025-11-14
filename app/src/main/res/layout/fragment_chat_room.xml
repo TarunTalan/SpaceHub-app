@@ -120,19 +120,6 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toEndOf="@+id/chat_community_image"/>
 
-        <ImageView
-                android:id="@+id/ivAddPerson"
-                android:layout_width="30dp"
-                android:layout_height="30dp"
-                android:padding="6dp"
-                android:src="@drawable/dots_menu"
-                android:scaleType="centerInside"
-                android:paddingEnd="5dp"
-                android:layout_marginEnd="15dp"
-                app:layout_constraintStart_toStartOf="@id/guideline_end_top"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"/>
 
         <androidx.constraintlayout.widget.Guideline
                 android:id="@+id/guideline_start_top"

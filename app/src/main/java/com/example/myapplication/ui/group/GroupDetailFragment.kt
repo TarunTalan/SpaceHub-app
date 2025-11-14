@@ -321,6 +321,7 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
                         rvRooms?.visibility = if (chatRoomsExpanded) View.VISIBLE else View.GONE
                     }
                     roomsAdapter.submitList(mapped)
+                    try { updateCombinedEmpty() } catch (_: Exception) {}
                 }
             }
         }
@@ -395,15 +396,16 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
                 } catch (_: Exception) {}
             }
         }
-        try { requireContext().registerReceiver(defaultRoomsReceiver, android.content.IntentFilter("com.example.myapplication.ACTION_DEFAULT_ROOMS_CREATED")) } catch (_: Exception) {}
+        try {
+            val filter = android.content.IntentFilter("com.example.myapplication.ACTION_DEFAULT_ROOMS_CREATED")
+            requireContext().registerReceiver(defaultRoomsReceiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED)
+        } catch (_: Exception) {}
 
         settingsAnchor?.setOnClickListener { anchor ->
             // Show popup menu same as community detail
             val popup = androidx.appcompat.widget.PopupMenu(requireContext(), anchor)
             try {
                 popup.menuInflater.inflate(R.menu.menu_group_detail, popup.menu)
-                // Local groups don't support 'Leave' via this menu — hide it.
-                try { popup.menu.findItem(R.id.action_leave_community)?.isVisible = false } catch (_: Exception) {}
             } catch (_: Exception) {}
             popup.setOnMenuItemClickListener { item ->
                 when (item.itemId) {
@@ -543,6 +545,7 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
                                             val mapped = com.example.myapplication.data.voice.model.VoiceRoomX(active = true, createdAt = "", createdBy = vr.createdBy, id = vr.janusRoomId, janusRoomId = vr.janusRoomId, name = vr.name, roomCode = vr.name)
                                             voiceRooms.add(0, mapped)
                                             try { voiceRoomsAdapter.submitList(voiceRooms.toList()) } catch (_: Exception) {}
+                                            try { updateCombinedEmpty() } catch (_: Exception) {}
                                             try { dialog.dismiss() } catch (_: Exception) {}
                                         } else {
                                             val msg = res.exceptionOrNull()?.message ?: "Failed to create voice room"
@@ -567,10 +570,6 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
                         } catch (_: Exception) {
                             Toast.makeText(requireContext(), "Failed to open members", Toast.LENGTH_SHORT).show()
                         }
-                        true
-                    }
-                    R.id.action_leave_community -> {
-                        Toast.makeText(requireContext(), "Leave not supported for local groups", Toast.LENGTH_SHORT).show()
                         true
                     }
                     R.id.action_delete_community -> {
@@ -643,6 +642,7 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
                     voiceRooms.addAll(list)
                     voiceRoomsAdapter.submitList(voiceRooms.toList())
                     try { view?.findViewById<View>(R.id.empty_voice_rooms_view)?.visibility = if (voiceRooms.isEmpty()) View.VISIBLE else View.GONE } catch (_: Exception) {}
+                    try { updateCombinedEmpty() } catch (_: Exception) {}
                 } else {
                     try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to load voice rooms: ${res.exceptionOrNull()?.message}", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {}
                 }
@@ -650,6 +650,32 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
                 progressVoice?.visibility = View.GONE
             }
         }
+    }
+
+    private fun updateCombinedEmpty() {
+        try {
+            val pkg = requireContext().packageName
+            val emptyGroupId = try { resources.getIdentifier("empty_group_view", "id", pkg) } catch (_: Exception) { 0 }
+            val emptyGroup = if (emptyGroupId != 0) view?.findViewById<View>(emptyGroupId) else null
+            val emptyRooms = view?.findViewById<View>(R.id.empty_rooms_view)
+            val emptyVoice = view?.findViewById<View>(R.id.empty_voice_rooms_view)
+            val roomsRv = view?.findViewById<RecyclerView>(R.id.rv_rooms)
+            val voiceRv = view?.findViewById<RecyclerView>(R.id.rv_voice_rooms)
+            val roomsEmpty = (roomsRv?.adapter?.itemCount ?: 0) == 0
+            val voiceEmpty = (voiceRv?.adapter?.itemCount ?: 0) == 0
+
+            if (roomsEmpty && voiceEmpty) {
+                // Show single combined empty message for group
+                emptyGroup?.visibility = View.VISIBLE
+                // hide the per-section empty views to avoid duplicate messages
+                emptyRooms?.visibility = View.GONE
+                emptyVoice?.visibility = View.GONE
+            } else {
+                // Hide combined group-empty when either section has items
+                emptyGroup?.visibility = View.GONE
+                // per-section empty views are controlled by their individual loaders
+            }
+        } catch (_: Exception) {}
     }
 
     override fun onDestroyView() {

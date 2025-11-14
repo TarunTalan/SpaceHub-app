@@ -8,6 +8,7 @@ import com.example.myapplication.data.chat_room.model.GetChatRoomSummaryResponse
 import com.example.myapplication.data.community.model.*
 import com.example.myapplication.data.dashboard.model.*
 import com.example.myapplication.data.friends.model.*
+import com.example.myapplication.data.groups.model.CheckLocalGroupNameResponse
 import com.example.myapplication.data.groups.model.CreateLocalGroupResponse
 import com.example.myapplication.data.groups.model.DeleteLocalGroupRequest
 import com.example.myapplication.data.groups.model.DeleteLocalGroupResponse
@@ -361,5 +362,11 @@ interface ApiService {
     suspend fun checkCommunityNameExists(
         @Query("name") name: String
     ): Response<CheckCommunityNameResponse>
+
+    @GET("local-group/exists")
+    suspend fun checkLocalGroupNameExists(
+        @Query("name") name: String
+    ): Response<CheckLocalGroupNameResponse>
+
 
 }

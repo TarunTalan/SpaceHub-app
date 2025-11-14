@@ -298,6 +298,18 @@ class MainActivity : AppCompatActivity() {
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         if (ev.action == MotionEvent.ACTION_DOWN) {
+            // If we're currently in a chat-related destination, do not hide the keyboard when user
+            // taps outside the EditText — keep the IME visible for quick typing.
+            try {
+                val dest = navController.currentDestination?.id
+                val keepImeDestinations = setOf(
+                    R.id.chatRoomFragment,
+                    R.id.directChatFragment
+                )
+                if (dest != null && dest in keepImeDestinations) {
+                    return super.dispatchTouchEvent(ev)
+                }
+            } catch (_: Exception) {}
             val v = currentFocus
             if (v is EditText) {
                 val outRect = Rect()
@@ -445,8 +457,12 @@ class MainActivity : AppCompatActivity() {
         val ind = binding.bottomNavIndicator
 
         if (animate) {
-            // Animate translationX (200ms)
-            ind.animate().translationX(targetX.toFloat()).setDuration(200).start()
+            // Animate translationX (200ms) with guard
+            try {
+                ind.animate().translationX(targetX.toFloat()).setDuration(200).start()
+            } catch (e: Exception) {
+                try { ind.translationX = targetX.toFloat() } catch (_: Exception) {}
+            }
 
             // Animate width with a cancellable animator
             bottomIndicatorWidthAnimator?.cancel()
