@@ -1,6 +1,7 @@
 package com.example.myapplication.ui.dashboard
 
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.EditText
 import android.widget.ImageView
@@ -35,6 +36,11 @@ import java.io.InputStream
 class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_description) {
     private val sharedVm: ProfileSharedViewModel by activityViewModels()
     private val communityVm: CommunityViewModel by viewModels()
+
+    companion object {
+        // Guard in-memory set to avoid duplicate createChatRoom requests for same community/parent/name
+        private val inFlightChatCreates = mutableSetOf<String>()
+    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -123,57 +129,158 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
                         communityVm.saveCommunity(entity)
 
                         // Create default room "General" (non-blocking UI; failures are tolerated)
-                        try {
-                            withContext(Dispatchers.IO) {
-                                val repo = CommunityRepository.getInstance(requireContext())
-                                val userData = UserDataManager.getInstance(requireContext())
+                        withContext(Dispatchers.IO) {
+                            val repo = CommunityRepository.getInstance(requireContext())
+                            val userData = UserDataManager.getInstance(requireContext())
 
-                                // Use a stable name as roomId placeholder for DataStore marker (we don't have server id here)
-                                val defaultChatRoomName = "General"
-                                val defaultVoiceRoomName = "General Voice"
+                            val defaultChatRoomName = "General"
+                            val defaultVoiceRoomName = "General Voice"
 
-                                // Create chat parent room + child chat room + voice room, but only once per community
-                                try {
-                                    val alreadyCreated = runCatching {
-                                        userData.isDefaultRoomCreated(data.communityId, defaultChatRoomName, "chat")
-                                    }.getOrDefault(false)
+                            try {
+                                val alreadyChatCreated = runCatching {
+                                    userData.isDefaultRoomCreated(data.communityId, defaultChatRoomName, "chat")
+                                }.getOrDefault(false)
 
-                                    if (!alreadyCreated) {
-                                        // Create parent room (server-side). This API call may succeed even if room already exists.
-                                        runCatching { repo.createRoom(data.communityId, defaultChatRoomName) }
+                                val alreadyVoiceCreated = runCatching {
+                                    userData.isDefaultRoomCreated(data.communityId, defaultChatRoomName, "voice")
+                                }.getOrDefault(false)
 
-                                        // Fetch server rooms to find the newly created parent room id
-                                        val allRoomsRes = runCatching { repo.getAllRooms(data.communityId) }.getOrNull()
-                                        val parentRoomId = allRoomsRes?.getOrNull()?.firstOrNull { it.name.equals(defaultChatRoomName, true) }?.id
+                                if (!alreadyChatCreated || !alreadyVoiceCreated) {
+                                    // Ensure parent room exists (best-effort)
+                                    runCatching { repo.createRoom(data.communityId, defaultChatRoomName) }
 
-                                        if (!parentRoomId.isNullOrBlank()) {
-                                            // Create a chat room under the parent room (returns DataChatRoom with id)
-                                            val chatRoomRes = runCatching { repo.createChatRoom(data.communityId, parentRoomId, defaultChatRoomName) }.getOrNull()
-                                            val createdChat = chatRoomRes?.getOrNull()
+                                    // repo.getAllRooms returns Result<List<DataRoom>> so unwrap safely
+                                    val roomsResult = runCatching { repo.getAllRooms(data.communityId) }.getOrNull()
+                                    val allRooms = roomsResult?.getOrNull() ?: emptyList()
 
-                                            // If chat room created successfully, attempt to create a voice room tied to that chat room id
-                                            if (createdChat != null) {
-                                                try {
-                                                    val creatorEmail = runCatching { userData.getEmail() }.getOrNull() ?: ""
-                                                    // Best-effort create voice room
-                                                    val voiceRepo = com.example.myapplication.data.voice.VoiceRoomRepository.getInstance(requireContext())
-                                                    runCatching { voiceRepo.createVoiceRoom(chatRoomId = createdChat.id, roomName = defaultVoiceRoomName, createdBy = creatorEmail) }
-                                                    // mark voice default created
-                                                    runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "voice") }
-                                                } catch (_: Exception) { }
+                                    val parentRoom = allRooms.firstOrNull { it.name.equals(defaultChatRoomName, true) }
+                                    val parentId = parentRoom?.id
+
+                                    if (!parentId.isNullOrBlank()) {
+                                        // Avoid creating the same chat twice. First, try to find an existing chat under this parent.
+                                        val roomCode = parentRoom.roomCode.takeIf { !it.isNullOrBlank() } ?: parentId
+                                        var chatId: String? = null
+
+                                        // 1) Try to find existing chat by calling summary
+                                        try {
+                                            val chatSummaryRes = runCatching { repo.getChatRoomSummary(roomCode) }.getOrNull()
+                                            chatId = chatSummaryRes?.getOrNull()?.firstOrNull { it.name.equals(defaultChatRoomName, true) }?.id
+                                            if (!chatId.isNullOrBlank()) {
+                                                // mark as created so we don't attempt to recreate later
+                                                runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "chat") }
                                             }
+                                        } catch (_: Exception) { }
 
-                                            // Mark chat default created
-                                            runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "chat") }
-                                        } else {
-                                            // Could not resolve parent room; still mark chat as created to avoid repeated attempts
-                                            runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "chat") }
+                                        // 2) If not found and not already created, attempt to create once
+                                        if (chatId.isNullOrBlank() && !alreadyChatCreated) {
+                                            val createKey = "${data.communityId}:$parentId:$defaultChatRoomName"
+                                            var createdChat: com.example.myapplication.data.chat_room.model.DataChatRoom? = null
+                                            synchronized(inFlightChatCreates) {
+                                                if (!inFlightChatCreates.contains(createKey)) inFlightChatCreates.add(createKey) else createdChat = null
+                                            }
+                                            if (inFlightChatCreates.contains(createKey)) {
+                                                try {
+                                                    val createRes = runCatching { repo.createChatRoom(data.communityId, parentId, defaultChatRoomName) }.getOrNull()
+                                                    createdChat = createRes?.getOrNull()
+                                                    chatId = createdChat?.id
+                                                    if (!chatId.isNullOrBlank()) {
+                                                        runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "chat") }
+                                                    }
+                                                } finally {
+                                                    synchronized(inFlightChatCreates) { inFlightChatCreates.remove(createKey) }
+                                                }
+                                            }
+                                        }
+
+                                        // 3) Create voice room only if we have a chatId and voice room not created yet
+                                        // Create voice room keyed by the parent/server room id (not the chat child id)
+                                        if (!parentId.isNullOrBlank() && !alreadyVoiceCreated) {
+                                            val creatorEmail = runCatching { userData.getEmail() }.getOrNull() ?: ""
+                                            val voiceRepo = com.example.myapplication.data.voice.VoiceRoomRepository.getInstance(requireContext())
+                                            Log.d("CommunityDesc", "creating voice room for parentId=$parentId")
+                                            val voiceRes = runCatching { voiceRepo.createVoiceRoom(chatRoomId = parentId, roomName = defaultVoiceRoomName, createdBy = creatorEmail) }.getOrNull()
+                                            if (voiceRes?.isSuccess == true) {
+                                                Log.d("CommunityDesc", "voice room created for parentId=$parentId")
+                                                runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "voice") }
+                                            } else {
+                                                Log.w("CommunityDesc", "voice room creation failed for parentId=$parentId: ${voiceRes?.exceptionOrNull()?.message}")
+                                            }
+                                        }
+                                     } else {
+                                        // Parent room not visible yet; retry a few times to allow backend eventual consistency.
+                                        if (!alreadyChatCreated || !alreadyVoiceCreated) {
+                                            try {
+                                                var resolvedParentId: String? = null
+                                                var resolvedRoomCode: String? = null
+                                                repeat(4) {
+                                                    val retryRoomsRes = runCatching { repo.getAllRooms(data.communityId) }.getOrNull()
+                                                    val retryRooms = retryRoomsRes?.getOrNull() ?: emptyList()
+                                                    val retryFound = retryRooms.firstOrNull { it.name.equals(defaultChatRoomName, true) }
+                                                    if (retryFound != null) {
+                                                        resolvedParentId = retryFound.id
+                                                        resolvedRoomCode = retryFound.roomCode.takeIf { it.isNotBlank() } ?: retryFound.id
+                                                        return@repeat
+                                                    }
+                                                    kotlinx.coroutines.delay(300)
+                                                }
+
+                                                if (!resolvedParentId.isNullOrBlank()) {
+                                                    // Use same single-create logic as above
+                                                    var chatId: String? = null
+                                                    try {
+                                                        val roomCodeToQuery = resolvedRoomCode ?: resolvedParentId
+                                                        val chatSummaryRes = runCatching { repo.getChatRoomSummary(roomCodeToQuery) }.getOrNull()
+                                                        chatId = chatSummaryRes?.getOrNull()?.firstOrNull { it.name.equals(defaultChatRoomName, true) }?.id
+                                                        if (!chatId.isNullOrBlank()) runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "chat") }
+                                                    } catch (_: Exception) { }
+
+                                                    if (chatId.isNullOrBlank() && !alreadyChatCreated) {
+                                                        val createKey = "${data.communityId}:$resolvedParentId:$defaultChatRoomName"
+                                                        val acquired = synchronized(inFlightChatCreates) {
+                                                            if (!inFlightChatCreates.contains(createKey)) { inFlightChatCreates.add(createKey); true } else false
+                                                        }
+                                                        if (acquired) {
+                                                            try {
+                                                                Log.d("CommunityDesc", "creating chat (retry) for $createKey")
+                                                                val createdChatRes = runCatching { repo.createChatRoom(data.communityId, resolvedParentId, defaultChatRoomName) }.getOrNull()
+                                                                val created = createdChatRes?.getOrNull()
+                                                                chatId = created?.id
+                                                                if (!chatId.isNullOrBlank()) runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "chat") }
+                                                            } finally {
+                                                                synchronized(inFlightChatCreates) { inFlightChatCreates.remove(createKey) }
+                                                            }
+                                                        } else {
+                                                            Log.d("CommunityDesc", "createChat already in-flight for $createKey (retry), skipping")
+                                                        }
+                                                    }
+
+                                                    // Create voice room using the resolved parent/server room id
+                                                    if (!resolvedParentId.isNullOrBlank() && !alreadyVoiceCreated) {
+                                                        val creatorEmail = runCatching { userData.getEmail() }.getOrNull() ?: ""
+                                                        val voiceRepo = com.example.myapplication.data.voice.VoiceRoomRepository.getInstance(requireContext())
+                                                        Log.d("CommunityDesc", "creating voice room (retry) for parentId=$resolvedParentId")
+                                                        val voiceRes = runCatching { voiceRepo.createVoiceRoom(chatRoomId = resolvedParentId, roomName = defaultVoiceRoomName, createdBy = creatorEmail) }.getOrNull()
+                                                        if (voiceRes?.isSuccess == true) {
+                                                            Log.d("CommunityDesc", "voice room (retry) created for parentId=$resolvedParentId")
+                                                            runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "voice") }
+                                                        } else {
+                                                            Log.w("CommunityDesc", "voice room (retry) failed for parentId=$resolvedParentId: ${voiceRes?.exceptionOrNull()?.message}")
+                                                        }
+                                                    }
+                                                } else {
+                                                    // give up after retries and mark as created to avoid repeated attempts
+                                                    if (!alreadyChatCreated) runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "chat") }
+                                                    if (!alreadyVoiceCreated) runCatching { userData.markDefaultRoomCreatedBlocking(data.communityId, defaultChatRoomName, "voice") }
+                                                }
+                                            } catch (_: Exception) { /* swallow */ }
                                         }
                                     }
-                                } catch (_: Exception) { }
-                            }
-                        } catch (_: Exception) { }
+                                }
+                            } catch (_: Exception) { /* swallow */ }
 
+                        } // end withContext
+
+                        // UI and navigation
                         Snackbar.make(view, "Community created successfully!", Snackbar.LENGTH_SHORT).show()
                         sharedVm.clear()
                         // Navigate back to dashboard (pop if present, otherwise navigate)
@@ -187,6 +294,7 @@ class CommunityDescriptionFragment : BaseFragment(R.layout.fragment_comm_descrip
                                 findNavController().navigate(R.id.dashboardFragment, null, navOptions)
                             }
                         }
+
                     } else {
                         Snackbar.make(view, "Community created but response missing data.", Snackbar.LENGTH_LONG).show()
                     }

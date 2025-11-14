@@ -7,22 +7,29 @@
     app:cardCornerRadius="8dp"
     app:cardUseCompatPadding="true"
     android:id="@+id/card_member"
-    android:foregroundTintMode="src_over"
-    android:background="@drawable/card_bg_selector">
+    android:foregroundTintMode="src_over">
 
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="160dp"
-        android:padding="8dp">
+        android:duplicateParentState="true"
+        android:background="@drawable/card_bg_selector">
 
         <ImageView
             android:id="@+id/iv_member_avatar"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:padding="8dp"
             android:scaleType="fitCenter"
             android:src="@drawable/default_profile"
             android:contentDescription="@string/member_avatar" />
+
+        <!-- overlay to show speaking highlight (semi-transparent) -->
+        <View
+            android:id="@+id/highlight_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/highlight_overlay_bg"
+            android:visibility="gone" />
 
         <View
             android:id="@+id/speaking_indicator"

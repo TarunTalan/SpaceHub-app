@@ -1,6 +1,7 @@
 package com.example.myapplication.data.groups.model
 
 data class DataXX(
+    val chatRoomId: String = "",
     val chatRoomCode: String,
     val createdAt: String,
     val createdByEmail: String,

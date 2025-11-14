@@ -13,6 +13,7 @@ import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
 import com.example.myapplication.R
+import com.example.myapplication.data.groups.model.DataXX
 import com.example.myapplication.data.groups.repository.LocalGroupRepository
 import com.example.myapplication.data.voice.VoiceRoomRepository
 import com.example.myapplication.data.user.UserDataManager
@@ -116,14 +117,29 @@ class GroupDescriptionFragment : BaseFragment(R.layout.fragment_group_descriptio
                         try {
                             val gid = created?.id
                             if (!gid.isNullOrBlank()) {
-                                lifecycleScope.launch {
-                                    try {
-                                        withContext(Dispatchers.IO) {
-                                            val voiceRepo = VoiceRoomRepository.getInstance(requireContext())
-                                            val createdBy = try { UserDataManager.getInstance(requireContext()).getEmail() ?: "" } catch (_: Exception) { "" }
-                                            try { voiceRepo.createVoiceRoom(gid, "General", createdBy) } catch (_: Exception) { /* best-effort */ }
-                                        }
-                                    } catch (_: Exception) { /* swallow */ }
+                                try {
+                                    val appCtx = requireContext().applicationContext
+                                    // Schedule a WorkManager job to perform best-effort creation; WorkManager survives process death and supports retries.
+                                    val work = androidx.work.OneTimeWorkRequestBuilder<com.example.myapplication.ui.group.GroupDefaultRoomsWorker>()
+                                        .setInputData(androidx.work.workDataOf(com.example.myapplication.ui.group.GroupDefaultRoomsWorker.INPUT_GROUP_ID to gid))
+                                        .setBackoffCriteria(androidx.work.BackoffPolicy.EXPONENTIAL, 30_000L, java.util.concurrent.TimeUnit.MILLISECONDS)
+                                        .build()
+                                    androidx.work.WorkManager.getInstance(appCtx).enqueueUniqueWork("create_default_rooms_$gid", androidx.work.ExistingWorkPolicy.KEEP, work)
+                                } catch (_: Exception) {
+                                    // If scheduling fails, fall back to best-effort immediate attempt (non-blocking)
+                                    kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        try {
+                                            val appCtx = requireContext().applicationContext
+                                            val voiceRepo = VoiceRoomRepository.getInstance(appCtx)
+                                            val createdBy = try { UserDataManager.getInstance(appCtx).getEmail() ?: "" } catch (_: Exception) { "" }
+                                            val repo = LocalGroupRepository.getInstance(appCtx)
+                                            val detailsRes = repo.getLocalGroupDetails(gid)
+                                            val details: DataXX? = detailsRes.getOrNull()
+                                            val chatRoomId: String = details?.chatRoomCode?.takeIf { it.isNotBlank() } ?: (details?.id ?: gid)
+                                            try { repo.createChatRoomInGroup(chatRoomId, "General Chat") } catch (_: Exception) {}
+                                            try { voiceRepo.createVoiceRoom(chatRoomId, "General", createdBy) } catch (_: Exception) {}
+                                        } catch (_: Exception) { }
+                                    }
                                 }
                             }
                         } catch (_: Exception) { /* swallow */ }
@@ -243,4 +259,5 @@ class GroupDescriptionFragment : BaseFragment(R.layout.fragment_group_descriptio
             }
         }
     }
+
 }

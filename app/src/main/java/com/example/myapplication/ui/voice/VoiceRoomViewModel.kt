@@ -71,8 +71,8 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
     private val _members = MutableStateFlow<List<VoiceMember>>(emptyList())
     val members: StateFlow<List<VoiceMember>> = _members
 
-    private val _speakingUser = MutableStateFlow<String?>(null)
-    val speakingUser: StateFlow<String?> = _speakingUser
+    private val _speakingUser = MutableStateFlow<Set<String>>(emptySet())
+    val speakingUser: StateFlow<Set<String>> = _speakingUser
 
     private val _muted = MutableStateFlow(false)
     val muted: StateFlow<Boolean> = _muted
@@ -404,11 +404,16 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun onRemoteMuted(userId: String) {
-        // update UI or member state
+        // Remove from speaking set if present
+        if (_speakingUser.value.contains(userId)) {
+            _speakingUser.value = _speakingUser.value - userId
+        }
         Log.d(TAG, "Remote muted: $userId")
     }
 
     private fun onRemoteUnmuted(userId: String) {
+        // Add to speaking set
+        _speakingUser.value = _speakingUser.value + userId
         Log.d(TAG, "Remote unmuted: $userId")
     }
 
@@ -661,7 +666,7 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                         }
                     }
                     if (speaking) {
-                        _speakingUser.value = uid
+                        _speakingUser.value = _speakingUser.value + uid
                         val payload = JSONObject().apply {
                             put("type", "speaking")
                             put("userId", uid)
@@ -672,7 +677,7 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                         stompClient?.send("/app/speaking", payload)
                             ?.subscribe({}, { e -> Log.w(TAG, "speaking send failed: ${e?.message}") })
                     } else {
-                        _speakingUser.value = null
+                        _speakingUser.value = _speakingUser.value - uid
                         val payload = JSONObject().apply {
                             put("type", "stopped_speaking")
                             put("userId", uid)
@@ -1039,7 +1044,7 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                 pendingOfferSent = false
                 iceConnected.set(false)
                 _members.value = emptyList()
-                _speakingUser.value = null
+                _speakingUser.value = emptySet()
             }
         }
     }
@@ -1073,7 +1078,7 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun onRemoteSpeaking(userId: String) {
-        _speakingUser.value = userId
+        _speakingUser.value = _speakingUser.value + userId
     }
 
     fun onRemoteLeft(userId: String) {
@@ -1083,9 +1088,9 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
             if (removed) {
                 _members.value = list.toList()
             }
-            // If the leaving user was speaking, clear speaking state
-            if (_speakingUser.value?.equals(userId, ignoreCase = true) == true) {
-                _speakingUser.value = null
+            // Remove from speaking set if present
+            if (_speakingUser.value.contains(userId)) {
+                _speakingUser.value = _speakingUser.value - userId
             }
         } catch (_: Exception) { }
     }

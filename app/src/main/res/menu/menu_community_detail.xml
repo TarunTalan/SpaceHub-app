@@ -21,6 +21,12 @@
         app:showAsAction="always" />
 
     <item
+        android:id="@+id/action_add_voice_room"
+        android:title="Add voice room"
+        android:icon="@drawable/voice_icon"
+        app:showAsAction="always" />
+
+    <item
         android:id="@+id/action_members"
         android:title="Members"
         android:icon="@drawable/ic_group"

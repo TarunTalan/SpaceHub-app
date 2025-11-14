@@ -30,6 +30,7 @@ glide = "5.0.5"
 desugar_jdk_libs = "2.1.5"
 swiperefreshlayout = "1.1.0"
 glimmer = "1.0.0-alpha01"
+workRuntimeKtx = "2.11.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -80,6 +81,7 @@ androidx-ui-test = { group = "androidx.compose.ui", name = "ui-test", version.re
 ucrop = { module = "com.github.yalantis:ucrop", version.ref = "ucrop" }
 androidx-swiperefreshlayout = { group = "androidx.swiperefreshlayout", name = "swiperefreshlayout", version.ref = "swiperefreshlayout" }
 androidx-glimmer = { group = "androidx.xr.glimmer", name = "glimmer", version.ref = "glimmer" }
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workRuntimeKtx" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

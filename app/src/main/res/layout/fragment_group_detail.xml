@@ -87,18 +87,6 @@
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent"/>
 
-            <androidx.constraintlayout.widget.Guideline
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:id="@+id/guideline_start_top"
-                    app:layout_constraintGuide_percent="0.06"
-                    android:orientation="vertical"/>
-            <androidx.constraintlayout.widget.Guideline
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:id="@+id/guideline_end_top"
-                    app:layout_constraintGuide_percent="0.94"
-                    android:orientation="vertical"/>
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -118,20 +106,20 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                android:background="@color/transparent">
+                android:background="@drawable/background_gradient">
 
 
             <androidx.core.widget.NestedScrollView
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:fillViewport="true"
-                    android:background="@color/transparent">
+                    android:background="@drawable/background_gradient">
 
 
                 <androidx.constraintlayout.widget.ConstraintLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:background="@color/transparent">
+                        android:background="@drawable/background_gradient">
 
 
                     <ImageView
@@ -219,16 +207,51 @@
                             app:layout_constraintEnd_toEndOf="parent"/>
 
 
+                    <TextView
+                            android:id="@+id/tv_rooms_name"
+                            android:layout_marginTop="12dp"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:text="@string/chat_rooms"
+                            android:textColor="@android:color/white"
+                            android:textSize="16sp"
+                            android:fontFamily="@font/roboto_medium"
+                            app:layout_constraintTop_toBottomOf="@id/divider_line"
+                            app:layout_constraintEnd_toStartOf="@+id/iv_toggle_your_comm"
+                            app:layout_constraintStart_toStartOf="@+id/guideline_start"/>
+
+                    <ImageView
+                            android:id="@+id/iv_toggle_your_comm"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:src="@drawable/arrow_up"
+                            android:layout_marginEnd="10dp"
+                            android:contentDescription="@string/toggle"
+                            app:layout_constraintEnd_toStartOf="@+id/guideline_end_2"
+                            app:layout_constraintTop_toTopOf="@id/tv_rooms_name"
+                            app:layout_constraintBottom_toBottomOf="@id/tv_rooms_name"/>
+
+                    <ProgressBar
+                            android:id="@+id/progress"
+                            style="@android:style/Widget.Material.ProgressBar.Horizontal"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:visibility="gone"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintTop_toBottomOf="@id/tv_rooms_name"
+                            android:layout_marginTop="8dp"/>
+
                     <androidx.recyclerview.widget.RecyclerView
                             android:id="@+id/rv_rooms"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:nestedScrollingEnabled="false"
-                            app:layout_constraintTop_toBottomOf="@id/divider_line"
+                            android:layout_marginTop="12dp"
                             app:layout_constraintStart_toStartOf="@+id/guideline_start"
                             android:background="@color/transparent"
-                            android:layout_marginTop="15dp"
-                            app:layout_constraintEnd_toStartOf="@+id/guideline_end_2"/>
+                            app:layout_constraintEnd_toStartOf="@+id/guideline_end_2"
+                            app:layout_constraintTop_toBottomOf="@+id/tv_rooms_name"/>
 
                     <LinearLayout
                             android:id="@+id/empty_rooms_view"
@@ -240,7 +263,7 @@
                             android:paddingBottom="24dp"
                             android:background="@color/transparent"
                             android:visibility="gone"
-                            app:layout_constraintTop_toBottomOf="@id/divider_line"
+                            app:layout_constraintTop_toBottomOf="@id/tv_rooms_name"
                             app:layout_constraintStart_toStartOf="parent"
                             app:layout_constraintEnd_toEndOf="parent">
 
@@ -254,30 +277,108 @@
                                 android:layout_marginTop="8dp"/>
 
                     </LinearLayout>
+
+                    <!-- Voice rooms section for groups (copied from community fragment) -->
+
+                    <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/volume"
+                            android:tint="@color/white"
+                            android:contentDescription="@string/speaker"
+                            app:layout_constraintStart_toStartOf="@+id/guideline_start" android:id="@+id/imageView2"
+                            app:layout_constraintTop_toTopOf="@+id/tv_voice_rooms_name"
+                            app:layout_constraintBottom_toBottomOf="@+id/tv_voice_rooms_name"/>
+
+                    <TextView
+                            android:id="@+id/tv_voice_rooms_name"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="20dp"
+                            android:text="Voice Rooms"
+                            android:textColor="@android:color/white"
+                            android:textSize="16sp"
+                            android:layout_marginStart="6dp"
+                            android:fontFamily="@font/roboto_medium"
+                            app:layout_constraintTop_toBottomOf="@id/rv_rooms"
+                            app:layout_constraintEnd_toStartOf="@+id/iv_toggle_voice_comm"
+                            app:layout_constraintStart_toEndOf="@+id/imageView2"/>
+
+                    <ImageView
+                            android:id="@+id/iv_toggle_voice_comm"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:src="@drawable/arrow_up"
+                            android:layout_marginEnd="10dp"
+                            android:contentDescription="@string/toggle"
+                            app:layout_constraintEnd_toStartOf="@+id/guideline_end_2"
+                            app:layout_constraintTop_toTopOf="@id/tv_voice_rooms_name"
+                            app:layout_constraintBottom_toBottomOf="@id/tv_voice_rooms_name"/>
+
+                    <ProgressBar
+                            android:id="@+id/progress_voice"
+                            style="@android:style/Widget.Material.ProgressBar.Horizontal"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:visibility="gone"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintTop_toBottomOf="@id/tv_voice_rooms_name"
+                            android:layout_marginTop="8dp"/>
+
+                    <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rv_voice_rooms"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:nestedScrollingEnabled="false"
+                            android:layout_marginTop="10dp"
+                            app:layout_constraintStart_toStartOf="@+id/guideline_start"
+                            android:background="@color/transparent"
+                            app:layout_constraintEnd_toStartOf="@+id/guideline_end_2"
+                            app:layout_constraintTop_toBottomOf="@+id/tv_voice_rooms_name"/>
+
+                    <LinearLayout
+                            android:id="@+id/empty_voice_rooms_view"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:gravity="center"
+                            android:paddingTop="24dp"
+                            android:paddingBottom="24dp"
+                            android:background="@color/transparent"
+                            android:visibility="gone"
+                            app:layout_constraintTop_toBottomOf="@id/tv_voice_rooms_name"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent">
+
+                        <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="No voice rooms yet"
+                                android:textColor="#CCCCCC"
+                                android:textSize="15sp"
+                                android:layout_marginTop="8dp"/>
+
+                    </LinearLayout>
                     <androidx.constraintlayout.widget.Guideline
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:id="@+id/guideline_end_2"
-                            app:layout_constraintGuide_percent="0.94"
+                            app:layout_constraintGuide_percent="0.96"
                             android:orientation="vertical"/>
                     <androidx.constraintlayout.widget.Guideline
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:id="@+id/guideline_start"
-                            app:layout_constraintGuide_percent="0.06"
+                            app:layout_constraintGuide_percent="0.04"
                             android:orientation="vertical"/>
 
+                    <!-- ...existing code... -->
                 </androidx.constraintlayout.widget.ConstraintLayout>
             </androidx.core.widget.NestedScrollView>
         </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
 
-        <androidx.constraintlayout.widget.Guideline
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:id="@+id/guideline_top"
-                app:layout_constraintGuide_percent="0.94"
-                android:orientation="vertical"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

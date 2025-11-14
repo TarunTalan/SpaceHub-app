@@ -340,4 +340,12 @@ interface ApiService {
         @Query("displayName") displayName: String
     ): Response<JoinVoiceRoomResponse>
 
+    @DELETE("voice-room/delete")
+    suspend fun deleteVoiceRoom(
+        @Query("chatRoomId") chatRoomId: String,
+        @Query("roomName") roomName: String,
+        @Query("requester") requester: String
+    ): Response<Unit>
+
+
 }

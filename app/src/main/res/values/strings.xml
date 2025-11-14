@@ -241,4 +241,9 @@
     <string name="status_format">Status: %1$s</string>
     <string name="voice_rooms">Voice Rooms</string>
     <string name="no_voice_rooms">No voice rooms yet</string>
+    <string name="phone">Phone</string>
+    <string name="cancel">Cancel</string>
+    <string name="voice_room_title">Voice Room</string>
+    <string name="speaker_toggle">Speaker toggle</string>
+    <string name="menu">Menu</string>
 </resources>

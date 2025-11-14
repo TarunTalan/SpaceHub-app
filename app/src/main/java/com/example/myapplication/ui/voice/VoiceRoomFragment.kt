@@ -30,6 +30,9 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED
 import android.util.Log
+import android.view.MenuItem
+import android.widget.ImageView
+import android.widget.TextView
 
 class VoiceRoomFragment : Fragment(R.layout.fragment_voice_room) {
     private var _binding: FragmentVoiceRoomBinding? = null
@@ -171,21 +174,73 @@ class VoiceRoomFragment : Fragment(R.layout.fragment_voice_room) {
 
             fun updateSpeakerUi() {
                 try {
-                    val tint = if (speakerOn) ColorStateList.valueOf(Color.WHITE) else ColorStateList.valueOf(Color.GRAY)
+                    val tint =ColorStateList.valueOf(Color.WHITE)
                     speakerBtn?.imageTintList = tint
-                    speakerBtn?.contentDescription = if (speakerOn) getString(R.string.speaker_on) else getString(R.string.speaker_off)
+                    // Set icon based on state
+                    if (vm.muted.value) {
+                        speakerBtn?.setImageResource(R.drawable.mute)
+                        speakerBtn?.contentDescription = getString(R.string.mute)
+                    } else if (speakerOn) {
+                        speakerBtn?.setImageResource(R.drawable.voice_speaker)
+                        speakerBtn?.contentDescription = getString(R.string.speaker_on)
+                    } else {
+                        speakerBtn?.setImageResource(R.drawable.phone)
+                        speakerBtn?.contentDescription = getString(R.string.speaker_off)
+                    }
                 } catch (_: Exception) {}
             }
 
             updateSpeakerUi()
             speakerBtn?.setOnClickListener {
                 try {
-                    speakerOn = !speakerOn
-                    applySpeakerPreference(am, speakerOn)
-                    saveSpeakerPref(speakerOn)
-                    updateSpeakerUi()
+                    val inflater = layoutInflater
+                    val popupView = inflater.inflate(R.layout.layout_speaker_menu_popup, null)
+                    val popupWindow = android.widget.PopupWindow(popupView, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, true)
+                    popupWindow.isOutsideTouchable = true
+                    popupWindow.elevation = 8f
+
+                    // Setup each menu item
+                    val itemSpeaker = popupView.findViewById<View>(R.id.item_speaker)
+                    val itemPhone = popupView.findViewById<View>(R.id.item_phone)
+                    val itemMute = popupView.findViewById<View>(R.id.item_mute)
+                    val itemCancel = popupView.findViewById<View>(R.id.item_cancel)
+
+                    fun setupMenuItem(item: View, iconRes: Int, textRes: Int, onClick: () -> Unit) {
+                        item.findViewById<ImageView>(R.id.menu_item_icon).setImageResource(iconRes)
+                        item.findViewById<TextView>(R.id.menu_item_text).setText(textRes)
+                        item.setOnClickListener {
+                            onClick()
+                            popupWindow.dismiss()
+                        }
+                    }
+
+                    setupMenuItem(itemSpeaker, R.drawable.voice_speaker, R.string.speaker) {
+                        speakerOn = true
+                        applySpeakerPreference(am, speakerOn)
+                        saveSpeakerPref(speakerOn)
+                        speakerBtn.setImageResource(R.drawable.voice_speaker)
+                        speakerBtn.contentDescription = getString(R.string.speaker_on)
+                    }
+                    setupMenuItem(itemPhone, R.drawable.phone, R.string.phone) {
+                        speakerOn = false
+                        applySpeakerPreference(am, speakerOn)
+                        saveSpeakerPref(speakerOn)
+                        speakerBtn.setImageResource(R.drawable.phone)
+                        speakerBtn.contentDescription = getString(R.string.speaker_off)
+                    }
+                    setupMenuItem(itemMute, R.drawable.mute, R.string.mute) {
+                        try { vm.toggleMute(roomId, sessionIdArg, handleIdArg) } catch (e: Exception) { Log.w(TAG, "Failed to toggle mute from popup: ${e.message}") }
+                        speakerBtn.setImageResource(R.drawable.mute)
+                        speakerBtn.contentDescription = getString(R.string.mute)
+                    }
+                    setupMenuItem(itemCancel, R.drawable.cancel, R.string.cancel) {
+                        /* just dismiss */
+                    }
+
+                    // Show the popup below the speaker button
+                    popupWindow.showAsDropDown(speakerBtn)
                 } catch (e: Exception) {
-                    Log.w(TAG, "Failed to toggle speaker: ${e.message}")
+                    Log.w(TAG, "Failed to show speaker popup: ${e.message}")
                 }
             }
         } catch (_: Exception) {

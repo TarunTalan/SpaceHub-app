@@ -21,12 +21,13 @@ class VoiceMemberAdapter(
     private val onClick: (VoiceMember) -> Unit = {}
 ) : ListAdapter<VoiceMember, VoiceMemberAdapter.VH>(Diff) {
 
-    private var speakingUserId: String? = null
+    private var speakingUserIds: Set<String> = emptySet()
 
     class VH(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val ivAvatar: ImageView = itemView.findViewById(R.id.iv_member_avatar)
         val tvName: TextView = itemView.findViewById(R.id.tv_member_name)
         val speakingIndicator: View = itemView.findViewById(R.id.speaking_indicator)
+        val highlightOverlay: View = itemView.findViewById(R.id.highlight_overlay)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -42,17 +43,18 @@ class VoiceMemberAdapter(
                 .load(item.imageUrl)
                 .placeholder(R.drawable.default_profile)
                 .error(R.drawable.default_profile)
+                .fitCenter()
                 .into(holder.ivAvatar)
         } else {
             holder.ivAvatar.setImageResource(R.drawable.default_profile)
         }
 
-        val isSpeaking = item.userId == speakingUserId
+        val isSpeaking = speakingUserIds.contains(item.userId)
         holder.speakingIndicator.visibility = if (isSpeaking) View.VISIBLE else View.GONE
         holder.itemView.isActivated = isSpeaking
+        holder.highlightOverlay.visibility = if (isSpeaking) View.VISIBLE else View.GONE
 
         // pulse animation for speaking state: start when speaking, clear when not
-        val context = holder.itemView.context
         if (isSpeaking) {
             // simple alpha/scale animation for speaking indicator
             holder.speakingIndicator.animate().alpha(1f).scaleX(1.0f).scaleY(1.0f).setDuration(300).start()
@@ -63,8 +65,8 @@ class VoiceMemberAdapter(
         holder.itemView.setOnClickListener { onClick(item) }
     }
 
-    fun setSpeaking(userId: String?) {
-        speakingUserId = userId
+    fun setSpeaking(userIds: Set<String>?) {
+        speakingUserIds = userIds ?: emptySet()
         notifyDataSetChanged()
     }
 

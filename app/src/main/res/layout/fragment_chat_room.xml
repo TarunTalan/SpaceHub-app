@@ -31,7 +31,7 @@
                 android:layout_height="40dp"
                 android:paddingVertical="10dp"
                 android:src="@drawable/back_icon"
-                app:layout_constraintEnd_toStartOf="@+id/guideline_start_top"
+                app:layout_constraintEnd_toStartOf="@id/selection_count"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
