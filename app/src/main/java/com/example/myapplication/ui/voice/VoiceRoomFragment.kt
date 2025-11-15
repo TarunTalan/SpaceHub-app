@@ -216,7 +216,6 @@ class VoiceRoomFragment : Fragment(R.layout.fragment_voice_room) {
                     // Setup each menu item
                     val itemSpeaker = popupView.findViewById<View>(R.id.item_speaker)
                     val itemPhone = popupView.findViewById<View>(R.id.item_phone)
-                    val itemMute = popupView.findViewById<View>(R.id.item_mute)
                     val itemCancel = popupView.findViewById<View>(R.id.item_cancel)
 
                     fun setupMenuItem(item: View, iconRes: Int, textRes: Int, onClick: () -> Unit) {
@@ -241,18 +240,6 @@ class VoiceRoomFragment : Fragment(R.layout.fragment_voice_room) {
                         saveSpeakerPref(speakerOn)
                         speakerBtn.setImageResource(R.drawable.phone)
                         speakerBtn.contentDescription = getString(R.string.speaker_off)
-                    }
-                    setupMenuItem(itemMute, R.drawable.mute, R.string.mute) {
-                        // Mute speaker output (do not touch microphone)
-                        try {
-                            speakerOn = false
-                            applySpeakerPreference(am, speakerOn)
-                            saveSpeakerPref(speakerOn)
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Failed to mute speaker from popup: ${e.message}")
-                        }
-                        speakerBtn.setImageResource(R.drawable.mute)
-                        speakerBtn.contentDescription = getString(R.string.mute)
                     }
                     setupMenuItem(itemCancel, R.drawable.cancel, R.string.cancel) {
                         /* just dismiss */
