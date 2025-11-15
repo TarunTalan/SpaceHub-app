@@ -245,6 +245,14 @@ class LoginFragment : BaseFragment(R.layout.fragment_login) {
                 findNavController().navigate(R.id.action_loginFragment_to_signupFragment)
             }
         }
+
+        // Switch to phone login
+        binding.tvOrLoginWith.apply {
+            paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
+            setOnClickListener {
+                try { findNavController().navigate(R.id.action_loginFragment_to_loginWithPhoneFragment) } catch (_: Exception) {}
+            }
+        }
     }
 
     private fun validateEmail(): Boolean {
