@@ -589,6 +589,16 @@
               <option value="68235d4f-f87a-43c5-ae19-046176b97a72" />
               <option value="7dc5be9a-f4fb-493f-98e8-b5bc0d489b03" />
               <option value="aefc8e05-a3f0-4562-b0b8-1343262a6596" />
+              <option value="8cf22c37-9b91-47de-a6d5-3c86720991d6" />
+              <option value="1d45920a-0421-44db-a727-a0e9b4bee517" />
+              <option value="cb74e3e1-5d2a-43f3-99c2-2e7cf939a9e3" />
+              <option value="7960753d-62a6-474b-b46e-86908cea9d5b" />
+              <option value="5fc69c5d-3c32-4d1b-a526-401c52b6edd3" />
+              <option value="37172212-dd03-4d76-abb8-b2bb9631752b" />
+              <option value="f977120c-c37f-4042-8b24-6be18835f735" />
+              <option value="63100151-f957-409e-8438-36a10b554264" />
+              <option value="dd906d4c-ab43-40e1-9ac0-8afcde18811a" />
+              <option value="e5c9d7ea-5526-41d1-93e0-69f926613fd7" />
             </set>
           </value>
         </entry>
@@ -1041,6 +1051,12 @@
           <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/DashboardFragment.kt" />
           <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/ProfileFragment.kt" />
           <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/auth/signup/SignupFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/voice/VoiceRoomViewModel.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/chat/repository/ChatRepository.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/chat/db/ChatDao.kt" />
+          <option value="file://$PROJECT_DIR$/backend/src/main/kotlin/org/spacehub/controller/VoiceRoomWebSocketController.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/chat/websocket/DirectChatWebSocketService.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/menu/menu_speaker_toggle.xml" />
         </set>
       </entry>
       <entry key="b2e6afff-ee11-4b02-8e39-f2d53ff1b7b6" />

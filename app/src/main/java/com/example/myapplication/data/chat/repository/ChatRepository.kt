@@ -7,6 +7,9 @@ import com.example.myapplication.data.chat.model.ChatMessage
 import com.example.myapplication.data.chat.model.Conversation
 import com.example.myapplication.data.chat.model.MessageStatus
 import com.example.myapplication.data.chat.websocket.DirectChatWebSocketService
+import com.example.myapplication.data.chat.websocket.DirectChatMessage
+import com.example.myapplication.data.chat.websocket.DirectChatHistory
+import com.example.myapplication.data.chat.websocket.ChatSummary
 import com.example.myapplication.data.user.UserDataManager
 import com.google.gson.JsonElement
 import kotlinx.coroutines.CoroutineScope
@@ -21,25 +24,12 @@ import java.time.Instant
 import java.util.UUID
 import kotlin.collections.ArrayDeque
 import kotlin.collections.LinkedHashSet
-import kotlin.collections.List
-import kotlin.collections.component1
-import kotlin.collections.component2
-import kotlin.collections.distinct
 import kotlin.collections.emptyList
-import kotlin.collections.filter
-import kotlin.collections.first
-import kotlin.collections.firstOrNull
-import kotlin.collections.forEach
-import kotlin.collections.getOrNull
-import kotlin.collections.isNotEmpty
-import kotlin.collections.iterator
-import kotlin.collections.lastOrNull
-import kotlin.collections.listOf
-import kotlin.collections.maxByOrNull
 import kotlin.collections.mutableListOf
 import kotlin.collections.mutableMapOf
-import kotlin.collections.set
-import kotlin.collections.sorted
+import kotlin.collections.first
+import kotlin.collections.firstOrNull
+import kotlin.collections.maxByOrNull
 
 class ChatRepository private constructor(
     context: Context,
@@ -82,7 +72,7 @@ class ChatRepository private constructor(
 
         // Listen to history frames (bulk restore)
         scope.launch {
-            webSocketService.history.collect { hist: com.example.myapplication.data.chat.websocket.DirectChatHistory ->
+            webSocketService.history.collect { hist: DirectChatHistory ->
                 try {
                     // call restore implementation
                     val msgs = hist.messages ?: emptyList()
@@ -124,7 +114,7 @@ class ChatRepository private constructor(
      */
     fun loadHistoryFromPayload(
         chatWith: String,
-        messages: List<com.example.myapplication.data.chat.websocket.DirectChatMessage>
+        messages: List<DirectChatMessage>
     ) {
         scope.launch {
             try {
@@ -262,7 +252,7 @@ class ChatRepository private constructor(
         }
     }
 
-    private suspend fun handleIncomingMessage(wsMessage: com.example.myapplication.data.chat.websocket.DirectChatMessage) {
+    private suspend fun handleIncomingMessage(wsMessage: DirectChatMessage) {
         // Compute a compact dedupe key and skip if we've already processed a matching incoming frame recently.
         try {
             val serverIdKey = wsMessage.id?.takeIf { it.isNotBlank() }
@@ -540,9 +530,27 @@ class ChatRepository private constructor(
                 )
                 try {
                     chatDao.updateMessage(updated)
+                    Log.d(TAG, "DB_UPDATE: updated existing message id=${existingById.id} conv=$conversationId isFromMe=$isFromMe")
                 } catch (_: Exception) {
                 }
             } else {
+                // If the incoming message content is blank and this is not a system/delete frame, try to reconcile using echoed client id.
+                // This prevents inserting a blank message when the client already has the optimistic copy.
+                val clientEchoedId = wsMessage.messageIdElement?.let { extractMessageId(it) }
+                if (messageContent.isBlank() && !wsMessage.type.equals("system", ignoreCase = true) && !wsMessage.type.equals("deleted", ignoreCase = true) && !clientEchoedId.isNullOrBlank()) {
+                    try {
+                        val local = chatDao.getMessageById(clientEchoedId)
+                        if (local != null) {
+                            // update local message to mark as delivered and set server id if available
+                            val updated = local.copy(status = MessageStatus.DELIVERED, serverId = local.serverId ?: serverAssignedId)
+                            chatDao.updateMessage(updated)
+                            Log.d(TAG, "DB_RECONCILE: matched blank incoming to local optimistic id=${local.id}")
+                            return
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Reconcile blank incoming failed: ${e.message}")
+                    }
+                }
                 // Fuzzy dedupe: match by normalized content + sender + small time window
                 fun normalize(s: String?) = s?.trim()?.replace(Regex("\\s+"), " ")?.lowercase() ?: ""
                 val incomingNormalized = normalize(messageContent)
@@ -580,6 +588,7 @@ class ChatRepository private constructor(
                                 serverId = serverAssignedId
                             )
                             saveOrUpdateMessage(msg)
+                            Log.d(TAG, "DB_INSERT: inserted message id=$incomingId conv=$conversationId isFromMe=$isFromMe sender=$senderEmailRaw receiver=$receiverEmailRaw")
                         } catch (_: Exception) {
                         }
                     }
@@ -601,6 +610,7 @@ class ChatRepository private constructor(
                             serverId = serverAssignedId
                         )
                         saveOrUpdateMessage(msg)
+                        Log.d(TAG, "DB_INSERT: inserted message id=$incomingId conv=$conversationId isFromMe=$isFromMe sender=$senderEmailRaw receiver=$receiverEmailRaw")
                     } catch (_: Exception) {
                     }
                 }
@@ -652,7 +662,7 @@ class ChatRepository private constructor(
      */
     suspend fun restoreConversationFromHistory(
         chatWith: String,
-        messages: List<com.example.myapplication.data.chat.websocket.DirectChatMessage>
+        messages: List<DirectChatMessage>
     ): Result<Unit> {
         return try {
             // Do not abort if local email is not yet available; persist history anyway.
