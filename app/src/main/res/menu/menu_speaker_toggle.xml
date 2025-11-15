@@ -9,10 +9,6 @@
         android:title="@string/phone"
         android:icon="@drawable/phone" />
     <item
-        android:id="@+id/action_mute"
-        android:title="@string/mute"
-        android:icon="@drawable/mute" />
-    <item
         android:id="@+id/action_cancel"
         android:title="@string/cancel"
         android:icon="@drawable/cancel" />

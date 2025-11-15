@@ -1,6 +1,5 @@
 package com.example.myapplication.ui.dashboard
 
-import android.app.AlertDialog
 import android.content.ContentValues
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -14,12 +13,18 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.graphics.scale
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
 import com.bumptech.glide.signature.ObjectKey
 import com.example.myapplication.R
 import com.example.myapplication.ui.common.BaseFragment
 import com.example.myapplication.ui.common.ProfileSharedViewModel
+import com.example.myapplication.data.network.NetworkModule
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import com.google.android.material.snackbar.Snackbar
 import kotlin.math.min
 
 class CommunityNamePicFragment : BaseFragment(R.layout.fragment_community_name_pic) {
@@ -174,15 +179,47 @@ class CommunityNamePicFragment : BaseFragment(R.layout.fragment_community_name_p
             val createBtn = view.findViewById<View>(R.id.btn_create_comm)
             val etCommName = view.findViewById<android.widget.EditText>(R.id.etCommName)
             createBtn.setOnClickListener {
-                // Store community name in SharedViewModel
                 val commName = etCommName?.text?.toString()?.trim() ?: ""
-                sharedVm.setCommunityName(commName)
+                if (commName.isBlank()) {
+                    android.widget.Toast.makeText(requireContext(), "Community name is required", android.widget.Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
 
-                // Image is already stored in sharedVm.selectedContentUri from picker
-                // Just navigate to description fragment
-                try {
-                    navigateWithDelay(R.id.action_communityNamePicFragment_to_communityDescriptionFragment)
-                } catch (_: Exception) {}
+                // Validate name using API before proceeding
+                viewLifecycleOwner.lifecycleScope.launch {
+                    try { setLoaderVisible(true) } catch (_: Exception) {}
+                    try {
+                        val api = NetworkModule.createApiService(requireContext())
+                        val checkRes = try { withContext(Dispatchers.IO) { api.checkCommunityNameExists(commName) } } catch (_: Throwable) { null }
+                        if (checkRes == null) {
+                            Snackbar.make(view, "Failed to validate name. Check connection.", Snackbar.LENGTH_LONG).show()
+                            return@launch
+                        }
+                        if (!checkRes.isSuccessful) {
+                            Snackbar.make(view, "Failed to validate name. Please try again.", Snackbar.LENGTH_LONG).show()
+                            return@launch
+                        }
+                        val body = checkRes.body()
+                        if (body == null || body.status != 200 || body.data == null) {
+                            // Unexpected response structure or non-success status in body
+                            Snackbar.make(view, "Failed to validate name. Please try again.", Snackbar.LENGTH_LONG).show()
+                            return@launch
+                        }
+                        val exists = body.data.exists
+                        if (exists) {
+                            Snackbar.make(view, "Name already taken. Choose another name.", Snackbar.LENGTH_LONG).show()
+                            return@launch
+                        }
+
+                        // OK: persist and navigate
+                        sharedVm.setCommunityName(commName)
+                        try { navigateWithDelay(R.id.action_communityNamePicFragment_to_communityDescriptionFragment) } catch (_: Exception) {}
+                    } catch (_: Exception) {
+                        Snackbar.make(view, "Failed to validate name. Please try again.", Snackbar.LENGTH_LONG).show()
+                    } finally {
+                        try { setLoaderVisible(false) } catch (_: Exception) {}
+                    }
+                }
             }
         } catch (_: Exception) {}
     }

@@ -125,6 +125,30 @@ class EditCommunityFragment : Fragment(R.layout.fragment_edit_community) {
                     }
                 } catch (_: Exception) { imagePart = null }
 
+                // If still null, attach default community drawable
+                if (imagePart == null) {
+                    try {
+                        val drawable = androidx.core.content.ContextCompat.getDrawable(requireContext(), R.drawable.default_comm_icon)
+                        val bmp2 = when (drawable) {
+                            is android.graphics.drawable.BitmapDrawable -> drawable.bitmap
+                            else -> {
+                                val width = drawable?.intrinsicWidth?.takeIf { it > 0 } ?: 256
+                                val height = drawable?.intrinsicHeight?.takeIf { it > 0 } ?: 256
+                                val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+                                val canvas = android.graphics.Canvas(bitmap)
+                                drawable?.setBounds(0, 0, canvas.width, canvas.height)
+                                drawable?.draw(canvas)
+                                bitmap
+                            }
+                        }
+                        val baos = ByteArrayOutputStream()
+                        bmp2.compress(Bitmap.CompressFormat.JPEG, 80, baos)
+                        val bytes = baos.toByteArray()
+                        val reqBody = bytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                        imagePart = MultipartBody.Part.createFormData("file", "default_comm_banner.jpg", reqBody)
+                    } catch (_: Exception) { imagePart = null }
+                }
+
                 performUpdate(communityId, etName.text?.toString().orEmpty(), etDesc.text?.toString().orEmpty(), imagePart)
             }
         }

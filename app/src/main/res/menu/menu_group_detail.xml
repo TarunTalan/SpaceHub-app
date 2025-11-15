@@ -16,20 +16,20 @@
 
     <item
         android:id="@+id/action_add_room"
-        android:title="Add room"
+        android:title="Add chat room"
         android:icon="@drawable/ic_add_room"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_add_voice_room"
+        android:title="Add voice room"
+        android:icon="@drawable/voice_icon"
         app:showAsAction="always" />
 
     <item
         android:id="@+id/action_members"
         android:title="Members"
         android:icon="@drawable/ic_group"
-        app:showAsAction="never" />
-
-    <item
-        android:id="@+id/action_leave_community"
-        android:title="Leave"
-        android:icon="@drawable/ic_exit"
         app:showAsAction="never" />
 
     <item

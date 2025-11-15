@@ -282,7 +282,23 @@
                             android:textColor="#2563EB"
                             android:textSize="@dimen/login_text_size" />
                 </LinearLayout>
+
+
+
             </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <TextView android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                android:id="@+id/tvOrLoginWith"
+                android:layout_marginTop="10dp"
+                android:fontFamily="@font/roboto_regular"
+                android:text="Or login with phone number"
+                android:textColor="#FFFFFF"
+                android:textSize="16dp"
+                app:layout_constraintTop_toBottomOf="@id/actionsGroup"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+            />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 

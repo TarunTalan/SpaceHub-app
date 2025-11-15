@@ -9,6 +9,8 @@
       <option value="4e8bd3d4-a77e-4abb-ae79-7797e962ccfc" />
       <option value="51ddf032-a05c-455c-b844-098efdaf2341" />
       <option value="97412686-05d6-4972-8b37-9b761b36dc8e" />
+      <option value="a17a8bed-f62c-4d18-a3d3-1fd37d664fb5" />
+      <option value="b2e6afff-ee11-4b02-8e39-f2d53ff1b7b6" />
       <option value="c0e73003-ff73-4df9-9cf2-17cc3d6f9009" />
       <option value="c80984df-c9ef-4cfb-8177-6308a7cd979a" />
       <option value="f35216ec-ecee-4c6a-8f8d-d7847bfa661c" />
@@ -560,6 +562,76 @@
             </set>
           </value>
         </entry>
+        <entry key="a17a8bed-f62c-4d18-a3d3-1fd37d664fb5">
+          <value>
+            <set>
+              <option value="40397cd2-8d5c-4f04-a3a1-e998ba935b40" />
+              <option value="88afea0b-023c-465d-88ea-a1879d55ce69" />
+              <option value="15b17f3d-4da0-4b92-ba16-50067d065962" />
+              <option value="10d7eb16-d248-4e89-bfd6-a0cec01e4ceb" />
+              <option value="da6c066b-27bb-4d15-801f-68755f2c2a08" />
+              <option value="fd0c6ee6-6b64-4266-94b2-b6116eaf9a55" />
+              <option value="6d35f563-7e3d-4c7c-aa72-9e2df0c6dd67" />
+              <option value="ece2a144-8d83-4d2d-aee8-cd6c1e1c337d" />
+              <option value="4f6e7e8d-c02b-4168-a7c3-3ee09b8159fa" />
+              <option value="ec81b245-69af-4c4c-8722-8dad250542b2" />
+              <option value="d4e828bd-0d08-46b8-a02d-c73de62b305c" />
+              <option value="382bb0ea-8fb2-4bc2-881f-a73ce2ba5874" />
+              <option value="656ea382-6365-4f70-ac2d-fdeed8c952e0" />
+              <option value="d8f3f62c-f904-4f08-b642-03ac6ea82410" />
+              <option value="b2f51396-a3fe-408e-8b47-03df277d1e7b" />
+              <option value="093298d0-4f4b-4f66-935e-687320016e23" />
+              <option value="bf687747-48cc-4da0-9be1-4e6ade8ddff1" />
+              <option value="b3659721-f617-4ee2-9d44-e87d51b513d1" />
+              <option value="6f1215cb-3c9a-46a3-af32-5b83fd668c54" />
+              <option value="9c61cd78-78a7-44a6-9731-53d23769402b" />
+              <option value="68f6dc3c-c8f3-4fc3-8041-e891d706454b" />
+              <option value="68235d4f-f87a-43c5-ae19-046176b97a72" />
+              <option value="7dc5be9a-f4fb-493f-98e8-b5bc0d489b03" />
+              <option value="aefc8e05-a3f0-4562-b0b8-1343262a6596" />
+              <option value="8cf22c37-9b91-47de-a6d5-3c86720991d6" />
+              <option value="1d45920a-0421-44db-a727-a0e9b4bee517" />
+              <option value="cb74e3e1-5d2a-43f3-99c2-2e7cf939a9e3" />
+              <option value="7960753d-62a6-474b-b46e-86908cea9d5b" />
+              <option value="5fc69c5d-3c32-4d1b-a526-401c52b6edd3" />
+              <option value="37172212-dd03-4d76-abb8-b2bb9631752b" />
+              <option value="f977120c-c37f-4042-8b24-6be18835f735" />
+              <option value="63100151-f957-409e-8438-36a10b554264" />
+              <option value="dd906d4c-ab43-40e1-9ac0-8afcde18811a" />
+              <option value="e5c9d7ea-5526-41d1-93e0-69f926613fd7" />
+            </set>
+          </value>
+        </entry>
+        <entry key="b2e6afff-ee11-4b02-8e39-f2d53ff1b7b6">
+          <value>
+            <set>
+              <option value="01185d22-7792-4f83-b5a7-0f2b35f20b24" />
+              <option value="03a06b92-845d-4e66-a0ce-c0a14993d50e" />
+              <option value="1f763217-3b8e-4639-80f3-a6b2cabcbc43" />
+              <option value="3b4d9368-9d6a-4c63-9ad6-a18309351370" />
+              <option value="4159d139-6de5-4b81-9b06-afe90d7411e6" />
+              <option value="4e9e4f80-fc32-49cf-8e27-410a424f5f45" />
+              <option value="502983c6-8e91-47d6-9a30-4fe8c0669494" />
+              <option value="7627c327-35a7-4959-952f-592d3a1ed6fd" />
+              <option value="77ea4b1c-d191-41cb-bc64-eb10a9df6d62" />
+              <option value="79ab86ca-9350-4ab3-b0f9-124e1f8091a9" />
+              <option value="7a42860d-a5d4-4f08-a366-f09b5990038f" />
+              <option value="7daa9f1c-7ba2-4f3b-aa53-cdc1b9b60b3c" />
+              <option value="8515227c-2d0d-4b45-b73e-ab2d145821d8" />
+              <option value="875d3463-e7f8-4cd7-a040-e3eb3a038680" />
+              <option value="8c1d5696-3f59-42d4-9c10-1dfbf0a0b07e" />
+              <option value="910e329f-3f6b-401e-9650-bd9a43e74ab0" />
+              <option value="9362bf84-7e51-44e1-9f98-594d4efa9966" />
+              <option value="9fdc861f-4a14-441f-be93-7c2b84822a42" />
+              <option value="b36b5e54-aff4-40df-91a4-73b2acce6414" />
+              <option value="b9deed70-fb4d-4f6a-9091-aefc46ef464a" />
+              <option value="c4cf5c6e-2858-400f-b696-a3ec9d4b8cf6" />
+              <option value="c7579717-b87a-43f9-ac60-a5942922d9af" />
+              <option value="d95fc394-734a-44e7-9330-f03a61d2ee39" />
+              <option value="dcb16fc0-2e32-4a07-8d5e-0ccdc047f72a" />
+            </set>
+          </value>
+        </entry>
         <entry key="c0e73003-ff73-4df9-9cf2-17cc3d6f9009">
           <value>
             <set>
@@ -581,56 +653,101 @@
         <entry key="c80984df-c9ef-4cfb-8177-6308a7cd979a">
           <value>
             <set>
-              <option value="dfe2353b-6196-4240-9c64-89ef0cf8fdde" />
-              <option value="eb774047-0110-4beb-afee-81abcebe38da" />
-              <option value="e88cca1b-d806-4913-9cda-c9b05b7562aa" />
-              <option value="471b814d-d7e0-44e7-9878-0ca9de7e008c" />
-              <option value="9b073a69-c5c7-4f44-ae85-37cd014df7bf" />
-              <option value="490b25a5-9d24-4496-bae8-e0e568570e8c" />
-              <option value="7a62ba3f-5869-4339-b8a3-31140e05e839" />
+              <option value="04cd3d3b-db07-4065-addf-4afcd22a811e" />
               <option value="08ba3b80-c320-41aa-9c61-d0902a6b2d39" />
-              <option value="386e2421-bc03-4ded-8673-7c8332837afd" />
-              <option value="e10cf420-d543-4ac8-a65f-d84ed5bd4008" />
-              <option value="9de20182-5844-4032-8040-e86afaaf5b30" />
-              <option value="a5a5e871-30c7-44d3-8b63-13618613df42" />
+              <option value="0b0745e4-43a8-4ff2-b272-646e680c4697" />
+              <option value="0b954912-b017-4ebd-a027-258b35522c7f" />
+              <option value="0f7b4c3c-0897-4c2f-aec5-be4ad268af70" />
+              <option value="10146759-5150-4886-9b2c-cb38af01ea62" />
+              <option value="14431ecb-b9f7-48dc-9e21-5dd7e77050b0" />
+              <option value="19e3ae5e-2e02-4009-94b2-237ef6cf5c5b" />
               <option value="2564b472-f67d-4468-8657-8da6eb47bb6b" />
+              <option value="2b6b296a-564a-4ecd-87ba-821fd9d7b2e7" />
+              <option value="322e4e9c-b4cf-46b2-835c-57bdd130ab6b" />
+              <option value="3280905e-991e-41fb-9e4b-e8a9db4158e2" />
+              <option value="38020dc2-4e71-420e-a7f9-f3be558333ec" />
+              <option value="386e2421-bc03-4ded-8673-7c8332837afd" />
+              <option value="390077aa-27fd-40a3-892d-ee62703e0541" />
+              <option value="3ce93007-66ef-44d4-ba22-296368d70b9b" />
               <option value="3e87e993-017f-4d15-bdaf-a821b48a1328" />
-              <option value="8859f8a7-1224-42d1-bc6d-de08411e7cac" />
+              <option value="4128e622-3b23-49cf-b921-724e150e7850" />
+              <option value="41b322a2-7d00-453c-9c66-632d16e6797a" />
+              <option value="461f8784-46bc-44bb-92a3-940428ee0992" />
+              <option value="46c0f4da-652c-4ee6-8f40-2c03655f7919" />
+              <option value="46e9cdff-4429-4464-9af3-8df6892c567a" />
+              <option value="471b814d-d7e0-44e7-9878-0ca9de7e008c" />
+              <option value="490b25a5-9d24-4496-bae8-e0e568570e8c" />
+              <option value="4ad7d2e0-06e7-4af2-ba49-eddb4cdf19c6" />
+              <option value="4c08c69a-0acc-43e3-afd9-ff63152e96dc" />
+              <option value="4c9a0ce5-bedb-4aef-86e4-ba1dc8c63958" />
+              <option value="4e229664-792b-4838-97ea-491380097221" />
+              <option value="4fc7b8c4-6b75-42b8-9bd3-caf20b941e00" />
+              <option value="4fe77b41-39e7-4d72-a127-a00c425fc390" />
+              <option value="574930f7-14cd-4f08-9293-6eb38b0f9df2" />
+              <option value="5b02bc4c-7c44-471e-914a-86709763088b" />
+              <option value="61eb2cf0-3428-4824-ac1c-7583143304ff" />
+              <option value="6631d2df-0579-4903-b241-b95256a61f89" />
+              <option value="6651c980-0a35-460e-90eb-6d5963b9f49c" />
+              <option value="6ad0ce23-f538-405f-a928-198704a42a30" />
+              <option value="6cf5c65c-b8f3-4701-983a-5da8834db6ff" />
+              <option value="70551bcb-3e54-4443-9b2d-efc69f6e3ebf" />
               <option value="70a1c1d6-c9b9-4a16-a725-23c4755566c3" />
               <option value="7119b6e2-6e8e-4124-ac5b-480ede42251d" />
-              <option value="6651c980-0a35-460e-90eb-6d5963b9f49c" />
-              <option value="c54eec85-ca6a-4870-aea8-879e3b613ad4" />
-              <option value="ecf20ca0-7dfa-4244-86e9-97393dee6bfb" />
-              <option value="6cf5c65c-b8f3-4701-983a-5da8834db6ff" />
-              <option value="574930f7-14cd-4f08-9293-6eb38b0f9df2" />
-              <option value="8c4f852c-df1d-43e4-9c32-a13b0e7b02cb" />
-              <option value="14431ecb-b9f7-48dc-9e21-5dd7e77050b0" />
-              <option value="971e1349-603d-4680-ab1d-2972fe38f41f" />
-              <option value="85f148eb-3f8a-41ec-94b2-1a7468071643" />
-              <option value="6ad0ce23-f538-405f-a928-198704a42a30" />
-              <option value="879c141e-5ce5-4c67-ab2a-50d841cf7e8e" />
-              <option value="de119131-d2fb-4308-b616-b9aa96742a6f" />
-              <option value="cc68dd9a-e27f-4d7c-8b52-7622974226bb" />
-              <option value="d32f8dda-bc7e-4207-a0bb-8cdd3f840f2b" />
-              <option value="38020dc2-4e71-420e-a7f9-f3be558333ec" />
-              <option value="0f7b4c3c-0897-4c2f-aec5-be4ad268af70" />
               <option value="779ca40e-926e-47f1-9379-fdd7284d8a3c" />
-              <option value="eb7eb864-9fc4-48f5-9100-8987c669399c" />
-              <option value="a6925758-47ee-472a-ab5a-6c0765d769c3" />
-              <option value="3ce93007-66ef-44d4-ba22-296368d70b9b" />
+              <option value="77f47358-05f7-4224-a2d4-3d484665d321" />
+              <option value="7a62ba3f-5869-4339-b8a3-31140e05e839" />
+              <option value="7c434cde-23fe-41e6-938b-4dfd2d08edef" />
               <option value="7d72e66b-7440-4e49-8924-3b4c326c8744" />
-              <option value="3280905e-991e-41fb-9e4b-e8a9db4158e2" />
-              <option value="8b3a7502-0611-4ee1-b024-a67c4b3b06c9" />
-              <option value="ae7f42ea-7fca-41f0-b48e-d447b3151426" />
-              <option value="4c08c69a-0acc-43e3-afd9-ff63152e96dc" />
-              <option value="c5a3f453-d020-42ac-93d7-e2036fffcfb0" />
               <option value="7e2147fb-12ec-4f2d-82d3-b70c3c264e43" />
               <option value="7f1897f5-9b65-4739-8452-cfc6c9ce4cbf" />
-              <option value="461f8784-46bc-44bb-92a3-940428ee0992" />
-              <option value="41b322a2-7d00-453c-9c66-632d16e6797a" />
-              <option value="70551bcb-3e54-4443-9b2d-efc69f6e3ebf" />
-              <option value="46c0f4da-652c-4ee6-8f40-2c03655f7919" />
+              <option value="85f148eb-3f8a-41ec-94b2-1a7468071643" />
+              <option value="879c141e-5ce5-4c67-ab2a-50d841cf7e8e" />
+              <option value="8859f8a7-1224-42d1-bc6d-de08411e7cac" />
+              <option value="8b3a7502-0611-4ee1-b024-a67c4b3b06c9" />
+              <option value="8c4f852c-df1d-43e4-9c32-a13b0e7b02cb" />
+              <option value="8ccdb03a-6865-4888-90b8-936dc71ad51a" />
+              <option value="8dbf0b7d-f998-444b-b118-d49af74e4c7b" />
+              <option value="8eb2545d-3883-454b-b615-4db39547fb48" />
+              <option value="8f146dd7-586b-47c6-a5b8-43a997ca86ab" />
+              <option value="918b0dd4-f4ec-40e6-a1a2-5d106756abe3" />
+              <option value="971e1349-603d-4680-ab1d-2972fe38f41f" />
+              <option value="98da4fb6-2fbe-4086-b18a-a911217c4ba8" />
               <option value="99660ad7-c728-4aea-8b68-d092e47ea5ed" />
+              <option value="9b073a69-c5c7-4f44-ae85-37cd014df7bf" />
+              <option value="9de20182-5844-4032-8040-e86afaaf5b30" />
+              <option value="9f81e426-5175-4bd6-8658-af2248314703" />
+              <option value="a5a5e871-30c7-44d3-8b63-13618613df42" />
+              <option value="a6925758-47ee-472a-ab5a-6c0765d769c3" />
+              <option value="a76228a3-803d-4285-aedf-9e6d2e5ba48d" />
+              <option value="ae7f42ea-7fca-41f0-b48e-d447b3151426" />
+              <option value="af7fcd99-e217-4ebe-ad45-885e300e3f5c" />
+              <option value="b04a3175-f664-4c1a-a0b7-74aca63b0137" />
+              <option value="b11c2d90-1b6b-43f3-9d6e-f03ca57cb05c" />
+              <option value="b66fa923-13cd-4f28-af84-78a623a26a29" />
+              <option value="b7bebcbb-e00b-4a1d-afa6-af003d0eb677" />
+              <option value="b7e5e998-eed5-4dbc-958d-cbcb0927f092" />
+              <option value="b87934a6-3c67-4195-92e4-6ed1cbe44aac" />
+              <option value="c54eec85-ca6a-4870-aea8-879e3b613ad4" />
+              <option value="c5a3f453-d020-42ac-93d7-e2036fffcfb0" />
+              <option value="cc68dd9a-e27f-4d7c-8b52-7622974226bb" />
+              <option value="cdad1601-8e2b-4424-a754-c33e99f5f584" />
+              <option value="d32f8dda-bc7e-4207-a0bb-8cdd3f840f2b" />
+              <option value="d7d01c56-74a0-41af-8f27-9d705beac246" />
+              <option value="d9544902-83bd-4466-a4d7-6e06e4b48f74" />
+              <option value="dcfae171-2817-49b6-814c-3d16ba0d4471" />
+              <option value="de119131-d2fb-4308-b616-b9aa96742a6f" />
+              <option value="dfe2353b-6196-4240-9c64-89ef0cf8fdde" />
+              <option value="e10cf420-d543-4ac8-a65f-d84ed5bd4008" />
+              <option value="e7350c75-7a3b-4dd8-8696-d9cf7d0ba347" />
+              <option value="e85b05b8-5015-4341-b179-4c9b9aac6938" />
+              <option value="e88cca1b-d806-4913-9cda-c9b05b7562aa" />
+              <option value="ea8376d8-b846-4478-886a-1c062ec489de" />
+              <option value="eb774047-0110-4beb-afee-81abcebe38da" />
+              <option value="eb7eb864-9fc4-48f5-9100-8987c669399c" />
+              <option value="ebc1adcc-0c39-42e8-8660-be8e28621635" />
+              <option value="ecf016a6-5a61-4f28-8bd2-25c1c94c49d4" />
+              <option value="ecf20ca0-7dfa-4244-86e9-97393dee6bfb" />
+              <option value="f47de327-e317-4721-9b2d-2a29b70e3e47" />
             </set>
           </value>
         </entry>
@@ -921,36 +1038,30 @@
       <entry key="4e8bd3d4-a77e-4abb-ae79-7797e962ccfc" />
       <entry key="51ddf032-a05c-455c-b844-098efdaf2341" />
       <entry key="97412686-05d6-4972-8b37-9b761b36dc8e" />
-      <entry key="c0e73003-ff73-4df9-9cf2-17cc3d6f9009" />
-      <entry key="c80984df-c9ef-4cfb-8177-6308a7cd979a">
+      <entry key="a17a8bed-f62c-4d18-a3d3-1fd37d664fb5">
         <set>
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/voice/VoiceRoomFragment.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/menu/menu_speaker_toggle.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/dialog_speaker_menu_item.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/layout_speaker_menu_popup.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/voice/VoiceMemberAdapter.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/voice/VoiceRoomViewModel.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/drawable/mute.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/item_voice_member.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/drawable/highlight_overlay_bg.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/CommunityDescriptionFragment.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/network/ApiService.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_voice_room.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/values/strings.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/group/GroupDescriptionFragment.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_group_detail.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/group/GroupDetailFragment.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/res/menu/menu_community_detail.xml" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/groups/model/DataXX.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/groups/model/LocalGroup.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/groups/repository/LocalGroupRepository.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/groups/model/DataX.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/groups/model/Data.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/groups/model/DataXXXX.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/session/SessionManager.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/auth/AuthRepository.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_login_with_phone.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/auth/login/LoginWithPhoneFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/navigation/auth_nav_graph.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/auth/login/LoginFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/auth/login/LoginViewModel.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/auth/reset/ResetPasswordViewModel.kt" />
           <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/DashboardFragment.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/group/GroupDefaultRoomsWorker.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/dashboard/ProfileFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/auth/signup/SignupFragment.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/voice/VoiceRoomViewModel.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/chat/repository/ChatRepository.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/chat/db/ChatDao.kt" />
+          <option value="file://$PROJECT_DIR$/backend/src/main/kotlin/org/spacehub/controller/VoiceRoomWebSocketController.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/com/example/myapplication/data/chat/websocket/DirectChatWebSocketService.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/res/menu/menu_speaker_toggle.xml" />
         </set>
       </entry>
+      <entry key="b2e6afff-ee11-4b02-8e39-f2d53ff1b7b6" />
+      <entry key="c0e73003-ff73-4df9-9cf2-17cc3d6f9009" />
+      <entry key="c80984df-c9ef-4cfb-8177-6308a7cd979a" />
       <entry key="f35216ec-ecee-4c6a-8f8d-d7847bfa661c" />
     </pendingWorkingSetItems>
   </component>

@@ -372,62 +372,95 @@ class DirectChatWebSocketService private constructor(private val context: Contex
 
             // Fallback: try to parse as a single message
             val message = gson.fromJson(text, DirectChatMessage::class.java)
-            // defensive normalization
-            // If server omits sender/receiver in compact MESSAGE frames, fall back to the connected pair
-            val sender =
-                message.senderEmail?.trim().takeUnless { it.isNullOrBlank() } ?: connectedSender?.trim().orEmpty()
-            val receiver =
-                message.receiverEmail?.trim().takeUnless { it.isNullOrBlank() } ?: connectedReceiver?.trim().orEmpty()
-            val normalized = message.copy(
-                senderEmail = sender,
-                receiverEmail = receiver,
-                content = message.content?.trim().orEmpty(),
-                timestamp = message.timestamp?.trim().orEmpty(),
-                type = message.type?.trim()?.lowercase() ?: "message"
-            )
-
-            // Deduplicate here: compute a compact key using server id or messageId when available,
-            // otherwise normalize content+sender+receiver+timestamp bucket.
-            fun normalizeContent(s: String?) = s?.trim()?.replace(Regex("\\s+"), " ")?.lowercase() ?: ""
-
-            val key = when {
-                !normalized.id.isNullOrBlank() -> "id:${normalized.id}"
-                normalized.messageIdElement != null -> "mid:${normalized.messageIdElement}"
-                else -> {
-                    val tsBucket = try {
-                        (normalized.timestamp?.toLong() ?: System.currentTimeMillis()) / 2000L
-                    } catch (_: Exception) {
-                        System.currentTimeMillis() / 2000L
+            // If content is blank, attempt to extract from alternate field names that some servers use
+            if (message.content.isNullOrBlank()) {
+                try {
+                    val obj = jsonElement.asJsonObject
+                    val altKeys = listOf("message", "text", "body", "msg", "payload")
+                    var found: String? = null
+                    for (k in altKeys) {
+                        if (obj.has(k) && obj.get(k).isJsonPrimitive) {
+                            val s = obj.get(k).asString.trim()
+                            if (s.isNotEmpty()) { found = s; break }
+                        }
                     }
-                    "sig:${normalized.senderEmail}:${normalized.receiverEmail}:${normalizeContent(normalized.content)}:$tsBucket"
-                }
+                    if (found != null) {
+                        val replaced = message.copy(content = found)
+                        Log.d(TAG, "WS_PARSE: replaced empty content with alt key value for messageId=${message.id}")
+                        // forward replaced message
+                        val normalized = replaced.copy(
+                            senderEmail = replaced.senderEmail?.trim().orEmpty(),
+                            receiverEmail = replaced.receiverEmail?.trim().orEmpty(),
+                            content = replaced.content?.trim().orEmpty(),
+                            timestamp = replaced.timestamp?.trim().orEmpty(),
+                            type = replaced.type?.trim()?.lowercase() ?: "message"
+                        )
+                        // Dedup & forward below using same logic (bypass fallthrough)
+                        // compute key
+                        fun normalizeContent(s: String?) = s?.trim()?.replace(Regex("\\s+"), " ")?.lowercase() ?: ""
+                        val key = when {
+                            !normalized.id.isNullOrBlank() -> "id:${normalized.id}"
+                            normalized.messageIdElement != null -> "mid:${normalized.messageIdElement}"
+                            else -> {
+                                val tsBucket = try { (normalized.timestamp?.toLong() ?: System.currentTimeMillis()) / 2000L } catch (_: Exception) { System.currentTimeMillis() / 2000L }
+                                "sig:${normalized.senderEmail}:${normalized.receiverEmail}:${normalizeContent(normalized.content)}:$tsBucket"
+                            }
+                        }
+                        var isDuplicate = false
+                        synchronized(recentMessageKeysSet) {
+                            if (recentMessageKeysSet.contains(key)) {
+                                isDuplicate = true
+                            } else {
+                                recentMessageQueue.addLast(key)
+                                recentMessageKeysSet.add(key)
+                                if (recentMessageQueue.size > RECENT_CACHE_SIZE) {
+                                    val old = recentMessageQueue.removeFirst()
+                                    recentMessageKeysSet.remove(old)
+                                }
+                            }
+                        }
+                        if (!isDuplicate) {
+                            Log.d(TAG, "WS_FORWARD (alt-content): forwarding message key=$key type=${normalized.type} from=${normalized.senderEmail} to=${normalized.receiverEmail}")
+                            val sent = messageChannel.trySend(normalized)
+                            Log.d(TAG, "WS_FORWARD_RESULT (alt-content): key=$key sentToChannel=$sent")
+                        } else {
+                            Log.d(TAG, "WS_DEDUPE: Duplicate WS message skipped (alt-content): $key")
+                        }
+                        return
+                    } else {
+                        Log.d(TAG, "WS_PARSE: message content blank and no alt key found for raw=$text")
+                    }
+                } catch (e: Exception) { Log.w(TAG, "Alt-content extraction failed: ${e.message}") }
             }
 
-            var isDuplicate = false
-            synchronized(recentMessageKeysSet) {
-                if (recentMessageKeysSet.contains(key)) {
-                    isDuplicate = true
-                } else {
-                    recentMessageQueue.addLast(key)
-                    recentMessageKeysSet.add(key)
-                    if (recentMessageQueue.size > RECENT_CACHE_SIZE) {
-                        val old = recentMessageQueue.removeFirst()
-                        recentMessageKeysSet.remove(old)
+            // Normal flow: dedupe & forward parsed message
+            try {
+                fun normalizeContent(s: String?) = s?.trim()?.replace(Regex("\\s+"), " ")?.lowercase() ?: ""
+                val key = when {
+                    !message.id.isNullOrBlank() -> "id:${message.id}"
+                    message.messageIdElement != null -> "mid:${message.messageIdElement}"
+                    else -> {
+                        val tsBucket = try { (message.timestamp?.toLong() ?: System.currentTimeMillis()) / 2000L } catch (_: Exception) { System.currentTimeMillis() / 2000L }
+                        "sig:${message.senderEmail}:${message.receiverEmail}:${normalizeContent(message.content)}:$tsBucket"
                     }
                 }
-            }
+                var isDuplicate = false
+                synchronized(recentMessageKeysSet) {
+                    if (recentMessageKeysSet.contains(key)) isDuplicate = true else {
+                        recentMessageQueue.addLast(key)
+                        recentMessageKeysSet.add(key)
+                        if (recentMessageQueue.size > RECENT_CACHE_SIZE) recentMessageQueue.removeFirst()
+                    }
+                }
+                if (isDuplicate) {
+                    Log.d(TAG, "WS_DEDUPE: Duplicate WS message skipped: $key")
+                    return
+                }
+                Log.d(TAG, "WS_FORWARD: forwarding message key=$key type=${message.type} from=${message.senderEmail} to=${message.receiverEmail}")
+                val sent = messageChannel.trySend(message)
+                Log.d(TAG, "WS_FORWARD_RESULT: key=$key sentToChannel=$sent")
+            } catch (e: Exception) { Log.w(TAG, "Failed to forward parsed message: ${e.message}") }
 
-            if (isDuplicate) {
-                Log.d(TAG, "WS_DEDUPE: Duplicate WS message skipped: $key")
-                return
-            }
-
-            Log.d(
-                TAG,
-                "WS_FORWARD: forwarding message key=$key type=${normalized.type} from=${normalized.senderEmail} to=${normalized.receiverEmail}"
-            )
-            val sent = messageChannel.trySend(normalized)
-            Log.d(TAG, "WS_FORWARD_RESULT: key=$key sentToChannel=$sent")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to parse WS message", e)
         }
@@ -438,19 +471,12 @@ class DirectChatWebSocketService private constructor(private val context: Contex
     fun sendMessage(senderEmail: String, receiverEmail: String, content: String, messageId: String): Boolean {
         val ws = webSocket
         if (ws == null || _connectionState.value != ConnectionState.CONNECTED) {
-            // queue and attempt connect
-            synchronized(outgoingLock) {
-                outgoingQueue.add(DirectChatMessageRequest(senderEmail, receiverEmail, content, messageId))
-                Log.d(TAG, "Not connected; queuing outgoing direct message and attempting connect")
-            }
-
-            // start a connection for this pair (will add auth header if set)
+            synchronized(outgoingLock) { outgoingQueue.add(DirectChatMessageRequest(senderEmail, receiverEmail, content, messageId)); Log.d(TAG, "Not connected; queuing outgoing direct message and attempting connect") }
             connect(senderEmail, receiverEmail)
             return true
         }
 
         return try {
-            // include client messageId so server can ACK/echo mapping
             val outgoing = OutgoingSimpleMessage(type = "MESSAGE", content = content, messageId = messageId)
             val json = gson.toJson(outgoing)
             val sent = ws.send(json)
@@ -462,40 +488,21 @@ class DirectChatWebSocketService private constructor(private val context: Contex
         }
     }
 
-    /**
-     * Send a delete request for messages. Server expects: { "type":"DELETE", "messageIds":[...]}.
-     * Returns true if sent or queued successfully.
-     */
     fun sendDelete(messageIds: List<String>, conversationWith: String, deletedBy: String? = null): Boolean {
         val ws = webSocket
         if (ws == null || _connectionState.value != ConnectionState.CONNECTED) {
-            synchronized(outgoingLock) {
-                outgoingDeleteQueue.add(DeleteMessageRequest(messageIds, conversationWith, deletedBy))
-                Log.d(TAG, "Not connected; queuing delete request and attempting connect")
-            }
-
-            // attempt connect for the pair (conversationWith is the peer email)
-            // We need the local sender email if available in the service; this implementation will attempt to reconnect without sender,
-            // server will still accept delete frames based on auth.
+            synchronized(outgoingLock) { outgoingDeleteQueue.add(DeleteMessageRequest(messageIds, conversationWith, deletedBy)); Log.d(TAG, "Not connected; queuing delete request and attempting connect") }
             connect()
             return true
         }
 
         return try {
-            // For compatibility include messageUuid when deleting a single message and include deletedBy when provided
             val singleUuid = messageIds.firstOrNull()
-            val base = mutableMapOf<String, Any>(
-                "type" to "DELETE",
-                "messageIds" to messageIds,
-                "conversationWith" to conversationWith
-            )
+            val base = mutableMapOf<String, Any>("type" to "DELETE", "messageIds" to messageIds, "conversationWith" to conversationWith)
             if (!deletedBy.isNullOrBlank()) base["deletedBy"] = deletedBy
             if (!singleUuid.isNullOrBlank()) base["messageUuid"] = singleUuid
             val json = gson.toJson(base)
-            // record pending delete mapping so system responses can be reconciled
-            if (!singleUuid.isNullOrBlank()) synchronized(pendingDeleteMap) {
-                pendingDeleteMap[singleUuid] = messageIds
-            }
+            if (!singleUuid.isNullOrBlank()) synchronized(pendingDeleteMap) { pendingDeleteMap[singleUuid] = messageIds }
             val sent = ws.send(json)
             Log.d(TAG, "Sent delete request ids=$messageIds sent=$sent json=$json")
             sent
@@ -563,14 +570,9 @@ data class DirectChatMessage(
     @SerializedName("type")
     val type: String? = null,
 
-    /**
-     * messageId may be sent as a number or string from server. Keep original JSON element
-     * so callers can extract a usable identifier robustly.
-     */
     @SerializedName("messageId")
     val messageIdElement: JsonElement? = null,
 
-    // additional optional fields
     @SerializedName("senderUsername")
     val senderUsername: String? = null,
 
@@ -586,11 +588,9 @@ data class DirectChatMessage(
     @SerializedName("receiverDeleted")
     val receiverDeleted: Boolean? = null,
 
-    // who deleted the message (for DELETE frames)
     @SerializedName("deletedBy")
     val deletedBy: String? = null,
 
-    // messageIds array for bulk-delete frames
     @SerializedName("messageIds")
     val messageIds: List<String>? = null
 )
@@ -598,7 +598,6 @@ data class DirectChatMessage(
 // History wrapper for server-sent conversation history
 data class DirectChatHistory(
     @SerializedName("chatWith") val chatWith: String,
-    // server sends "messages": [ ... ] — include it so callers (ChatRepository) can iterate
     @SerializedName("messages") val messages: List<DirectChatMessage>? = null
 )
 

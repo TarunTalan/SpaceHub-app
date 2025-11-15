@@ -202,6 +202,7 @@
                             android:id="@+id/rv_rooms"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
+                            android:minHeight="200dp"
                             android:nestedScrollingEnabled="false"
                             app:layout_constraintStart_toStartOf="@+id/guideline_start"
                             android:background="@color/transparent"
@@ -217,19 +218,22 @@
                             android:gravity="center"
                             android:paddingTop="24dp"
                             android:paddingBottom="24dp"
+                            android:paddingStart="16dp"
+                            android:paddingEnd="16dp"
                             android:background="@color/transparent"
                             android:visibility="gone"
                             app:layout_constraintTop_toBottomOf="@id/divider_line"
                             app:layout_constraintStart_toStartOf="parent"
                             app:layout_constraintEnd_toEndOf="parent">
 
+
                         <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="No rooms yet"
-                                android:textColor="@android:color/white"
-                                android:textSize="16sp"
-                                android:layout_marginTop="8dp"/>
+                                android:textColor="#CCCCCC"
+                                android:textSize="14sp"
+                                android:layout_marginTop="100dp"/>
 
                     </LinearLayout>
                     <androidx.constraintlayout.widget.Guideline

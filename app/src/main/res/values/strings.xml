@@ -246,4 +246,6 @@
     <string name="voice_room_title">Voice Room</string>
     <string name="speaker_toggle">Speaker toggle</string>
     <string name="menu">Menu</string>
+    <string name="no_rooms_or_voice">No rooms or voice rooms yet</string>
+    <string name="no_rooms_group_message">No chat rooms or voice rooms yet</string>
 </resources>

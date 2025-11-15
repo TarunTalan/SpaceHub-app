@@ -8,6 +8,7 @@ import com.example.myapplication.data.chat_room.model.GetChatRoomSummaryResponse
 import com.example.myapplication.data.community.model.*
 import com.example.myapplication.data.dashboard.model.*
 import com.example.myapplication.data.friends.model.*
+import com.example.myapplication.data.groups.model.CheckLocalGroupNameResponse
 import com.example.myapplication.data.groups.model.CreateLocalGroupResponse
 import com.example.myapplication.data.groups.model.DeleteLocalGroupRequest
 import com.example.myapplication.data.groups.model.DeleteLocalGroupResponse
@@ -125,11 +126,19 @@ interface ApiService {
         @Body body: LeaveCommunityRequest
     ): Response<LeaveCommunityResponse>
 
-    @POST("community/updateInfo")
+    @Multipart
+    @POST("community/{communityId}/upload-banner")
     suspend fun updateCommunityInfo(
-        @Body body: UpdateCommunityRequest
-    ): Response<UpdateCommunityResponse>
+        @Path("communityId") communityId: String,
+        @Part("requesterEmail") requesterEmail: RequestBody,
+        @Part("name") name: RequestBody,
+        @Part("description") description: RequestBody,
+        @Part imageFile: MultipartBody.Part? = null,
+        @Part avatarFile: MultipartBody.Part? = null,
+        @Part userAvatarFile: MultipartBody.Part? = null,
+    ): Response<JsonElement>
 
+    @Multipart
     @POST("community/{communityId}/upload-banner")
     suspend fun uploadCommunityBanner(
         @Path("communityId") communityId: String,
@@ -226,11 +235,6 @@ interface ApiService {
         @Part("name") name: RequestBody,
         @Part("roomCode") roomCode: RequestBody
     ): Response<CreateChatRoomResponse>
-
-    @POST("rooms/deleteRoom")
-    suspend fun deleteChatRoom(
-        @Body body: DeleteChatRoomRequest
-    ): Response<DeleteChatRoomResponse>
 
     @POST("friends/request")
     suspend fun sendFriendRequest(
@@ -346,6 +350,24 @@ interface ApiService {
         @Query("roomName") roomName: String,
         @Query("requester") requester: String
     ): Response<Unit>
+
+    @DELETE("new-chatroom/{chatRoomCode}/delete")
+    suspend fun deleteChatRoom(
+        @Path("chatRoomCode") chatRoomCode: String,
+        @Query("RoomCode") roomCode: String,
+    ): Response<DeleteChatRoomResponse>
+
+
+    @GET("community/exists")
+    suspend fun checkCommunityNameExists(
+        @Query("name") name: String
+    ): Response<CheckCommunityNameResponse>
+
+    @GET("local-group/exists")
+    suspend fun checkLocalGroupNameExists(
+        @Query("name") name: String
+    ): Response<CheckLocalGroupNameResponse>
+
 
 
 }

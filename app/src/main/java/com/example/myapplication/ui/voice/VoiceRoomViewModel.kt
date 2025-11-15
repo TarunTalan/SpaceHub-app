@@ -58,7 +58,8 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
     // Keep track of stomp subscriptions (lifecycle/topic/send disposables) so we can dispose on clear
     private val stompDisposables = mutableListOf<Disposable>()
     private val BASE_URL = "https://codewithketan.me"
-    private val WS_URL = "$BASE_URL/ws/websocket" // SockJS websocket fallback
+    // Use wss scheme for STOMP websocket endpoint (SockJS websocket fallback expects ws/wss)
+    private val WS_URL = "wss://codewithketan.me/ws/websocket"
 
     // Peer manager & audio
     private var peerManager: VoicePeerManager? = null
@@ -248,6 +249,7 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                 _status.value = "socket_connecting"
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to start STOMP: ${e.message}", e)
+                // Emit a more explicit status so UI/tests can detect STOMP connect failure
                 _status.value = "socket_connect_failed:${e.message}"
                 stompClient = null
             }
@@ -279,21 +281,32 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                     if (handleId.isNotBlank()) put("handleId", handleId)
                 }.toString()
 
+                // Attempt to send register. Some servers may not ack the send quickly; treat a non-null disposable
+                // as a successful send so we can proceed with peer setup and offer creation without waiting for ACK.
                 val regDisp = stompClient?.send("/app/register", registerObj)?.subscribe({
-                    Log.d(TAG, "Register sent payload=$registerObj")
+                    // server ACK completion (optional)
+                    Log.d(TAG, "Register send completed (server ACK) payload=$registerObj")
+                }, { err ->
+                    Log.e(TAG, "Register send failed (error callback): ${err?.message}")
+                    // mark as failed for visibility but do not block existing optimistic flow
+                    _status.value = "register_failed:${err?.message}"
+                })
+
+                if (regDisp != null) {
+                    // optimistic success: mark registered and run setup/send once
+                    Log.d(TAG, "Register sent payload=$registerObj (optimistic success)")
                     _status.value = "registered"
                     try {
                         setupPeer(roomId, sessionId, handleId)
                         createAndSendOffer(roomId, sessionId, handleId)
                         scheduleOfferResend(roomId, sessionId, handleId)
                     } catch (e: Exception) {
-                        Log.w(TAG, "Failed to setup/send offer after register: ${e.message}")
+                        Log.w(TAG, "Failed to setup/send offer after optimistic register: ${e.message}")
                     }
-                }, { err ->
-                    Log.e(TAG, "Register send failed: ${err?.message}")
-                    _status.value = "register_failed:${err?.message}"
-                })
-                regDisp?.let { stompDisposables.add(it) }
+                    stompDisposables.add(regDisp)
+                } else {
+                    Log.w(TAG, "stompClient.send returned null for register; will keep queued state")
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "sendRegisterIfConnected error: ${e.message}", e)
             }
@@ -605,10 +618,14 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                 Log.w(TAG, "AudioManager config failed: ${e.message}")
             }
 
-            // create local audio and peer connection
-            peerManager?.createLocalAudioTrack()
-            val stunServers = listOf(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
-            peerManager?.createPeerConnection(stunServers)
+            // create local audio and peer connection. Log if local audio could not be created.
+            val localTrack = try { peerManager?.createLocalAudioTrack() } catch (e: Exception) { null }
+            if (localTrack == null) {
+                Log.w(TAG, "Local audio track creation returned null — microphone may be unavailable or permission missing")
+                _status.value = "local_audio_missing"
+            }
+             val stunServers = listOf(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
+             peerManager?.createPeerConnection(stunServers)
 
             // collect ICE candidates produced by peerManager and forward via STOMP
             // peerManager should expose a Flow/Callback for local ICE - if not, it must be added in that class
@@ -704,6 +721,19 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
             return
         }
 
+         // Do not send offers until STOMP is connected and user is registered on the server
+        // If STOMP client isn't present, queue. Otherwise allow optimistic send even if server-side registration may not have ACKed yet.
+        if (stompClient == null) {
+            val stat = try { _status.value } catch (_: Exception) { "" }
+            Log.w(TAG, "STOMP client missing (status=$stat). Queueing offer for room=$roomId and returning.")
+            // queue the offer so it can be flushed once registration completes
+            pendingOfferRoomId = roomId
+            pendingOfferSessionId = sessionId.takeIf { it.isNotBlank() }
+            pendingOfferHandleId = handleId.takeIf { it.isNotBlank() }
+            pendingOfferSent = false
+            return
+        }
+
         // dedupe rapid repeats
         if (System.currentTimeMillis() - lastOfferSentAt < OFFER_DEDUP_MS) {
             Log.d(TAG, "Skipping offer creation — lastOfferSent ${System.currentTimeMillis() - lastOfferSentAt}ms ago")
@@ -728,37 +758,42 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
         }
 
         peerManager?.createOffer(onSdpReady = { sdp ->
-            viewModelScope.launch(Dispatchers.IO) {
-                try {
-                    Log.d(TAG, "Local SDP created, length=${sdp.description.length}")
-                    val uid = currentUserIdRef.get().ifBlank {
+             viewModelScope.launch(Dispatchers.IO) {
+                 try {
+                     Log.d(TAG, "Local SDP created, length=${sdp.description.length}")
+                     if (sdp.description.isBlank()) {
+                        Log.w(TAG, "Created SDP is blank — aborting offer send")
+                        isCreatingOffer.set(false)
+                        return@launch
+                     }
+                     val uid = currentUserIdRef.get().ifBlank {
                         try {
                             UserDataManager.getInstance(getApplication()).getEmail() ?: ""
                         } catch (_: Exception) {
                             ""
                         }
-                    }
-                    val payloadObj = JSONObject().apply {
+                     }
+                     val payloadObj = JSONObject().apply {
                         put("userId", uid)
                         put("roomId", roomId)
                         put("sdp", sdp.description)
                         if (sessionId.isNotBlank()) put("sessionId", sessionId)
                         if (handleId.isNotBlank()) put("handleId", handleId)
-                    }
-                    val payloadStr = payloadObj.toString()
-                    pendingOfferSent = false
+                     }
+                     val payloadStr = payloadObj.toString()
+                     pendingOfferSent = false
 
-                    Log.d(TAG, "Attempting to send offer via /app/offer payload len=${payloadStr.length}")
-                    val sendDisposable = stompClient?.send("/app/offer", payloadStr)
-                    if (sendDisposable == null) {
-                        Log.w(TAG, "stompClient.send returned null (not connected). Queueing and resetting guard.")
-                        pendingOfferRoomId = roomId
-                        pendingOfferSessionId = sessionId.takeIf { it.isNotBlank() }
-                        pendingOfferHandleId = handleId.takeIf { it.isNotBlank() }
-                        pendingOfferSent = false
-                        isCreatingOffer.set(false)
-                    } else {
-                        val disp = sendDisposable.subscribe({
+                     Log.d(TAG, "Attempting to send offer via /app/offer payload len=${payloadStr.length}")
+                     val sendDisposable = stompClient?.send("/app/offer", payloadStr)
+                     if (sendDisposable == null) {
+                         Log.w(TAG, "stompClient.send returned null (not connected). Queueing and resetting guard.")
+                         pendingOfferRoomId = roomId
+                         pendingOfferSessionId = sessionId.takeIf { it.isNotBlank() }
+                         pendingOfferHandleId = handleId.takeIf { it.isNotBlank() }
+                         pendingOfferSent = false
+                         isCreatingOffer.set(false)
+                     } else {
+                         val disp = sendDisposable.subscribe({
                             Log.d(TAG, "✅ Offer sent successfully for room=$roomId")
                             pendingOfferSent = true
                             lastOfferSentAt = System.currentTimeMillis()
@@ -769,22 +804,22 @@ class VoiceRoomViewModel(application: Application) : AndroidViewModel(applicatio
                             pendingOfferHandleId = null
                             _status.value = "offer_sent"
                             isCreatingOffer.set(false)
-                        }, { err ->
+                         }, { err ->
                             Log.e(TAG, "❌ Offer send failed: ${err?.message}")
                             pendingOfferSent = false
                             _status.value = "offer_send_failed:${err?.message}"
                             isCreatingOffer.set(false)
-                        })
-                        disp?.let { stompDisposables.add(it) }
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "createAndSendOffer error: ${e.message}", e)
-                    pendingOfferSent = false
-                    isCreatingOffer.set(false)
-                }
-            }
-        })
-    }
+                         })
+                         if (disp != null) stompDisposables.add(disp)
+                     }
+                 } catch (e: Exception) {
+                     Log.e(TAG, "createAndSendOffer error: ${e.message}", e)
+                     pendingOfferSent = false
+                     isCreatingOffer.set(false)
+                 }
+             }
+         })
+     }
 
     private fun scheduleOfferResend(roomId: String, sessionId: String, handleId: String) {
         offerResendJob?.cancel()

@@ -60,10 +60,22 @@ class VoiceRoomRepository private constructor(private val context: Context) {
                     val body = resp.body()
                     if (body != null) Result.success(body) else Result.failure(Exception("Empty body"))
                 } else {
-                    Result.failure(Exception("HTTP ${resp.code()}: ${resp.message()}"))
+                    Result.failure(Exception("HTTP ${'$'}{resp.code()}: ${'$'}{resp.message()}"))
                 }
             } catch (t: Throwable) {
                 Result.failure(t)
             }
         }
+
+    // Delete a voice room. `chatRoomId` is the parent chat room identifier (server uses this key),
+    // `roomName` is the voice room name (server may require it), and `requester` is the user's email.
+    suspend fun deleteVoiceRoom(chatRoomId: String, roomName: String, requester: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val resp = api.deleteVoiceRoom(chatRoomId = chatRoomId, roomName = roomName, requester = requester)
+            if (resp.isSuccessful) return@withContext Result.success(Unit)
+            Result.failure(Exception("HTTP ${'$'}{resp.code()}: ${'$'}{resp.message()}"))
+        } catch (t: Throwable) {
+            Result.failure(t)
+        }
+    }
 }

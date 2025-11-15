@@ -211,7 +211,7 @@
                                 android:id="@+id/tv_local_groups"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Local groups"
+                                android:text="Groups"
                                 android:textColor="@color/white"
                                 android:textSize="18sp"
                                 android:layout_marginStart="25dp"

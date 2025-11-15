@@ -498,11 +498,18 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                         is SignupViewModel.UiState.Error -> {
                             setLoading(false)
                             val msg = state.message.trim()
+                            // If backend reports a password rule violation, show it against password
                             if (msg.contains("password must contain at least one", ignoreCase = true)) {
                                 binding.tvPasswordError.text = getString(R.string.password_require_special)
                                 binding.tvPasswordError.visibility = View.VISIBLE
                             }
+                            // If message appears to be phone-related (contains +91 or 'phone' keywords or a phone-like number)
+                            else if (isPhoneRelatedError(msg)) {
+                                // Use existing helper to present phone errors and visuals
+                                try { showPhoneError(msg) } catch (_: Exception) { binding.tvPhoneError.text = msg; binding.tvPhoneError.visibility = View.VISIBLE }
+                            }
                             else {
+                                // Default to showing email-related errors
                                 binding.tvEmailError.text = msg
                                 binding.tvEmailError.visibility = View.VISIBLE
                             }
@@ -1027,5 +1034,23 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
             animator.start()
         } catch (_: Exception) {
         }
+    }
+
+    // Heuristic to decide whether a backend error message is phone-related so we show it in the phone error view.
+    private fun isPhoneRelatedError(msg: String?): Boolean {
+        if (msg.isNullOrBlank()) return false
+        val lower = msg.lowercase()
+        // Common indicators
+        if (lower.contains("phone") || lower.contains("mobile")) return true
+        // If backend sends an international-prefixed phone such as +91...
+        if (msg.contains("+91") || msg.contains("91")) {
+            // crude check: if message contains +91 followed by digits, or contains 'not found' along with +91
+            val phoneRegex = Regex("\\+?91[0-9]{8,12}")
+            if (phoneRegex.containsMatchIn(msg)) return true
+        }
+        // Generic phone number pattern (10+ digits) combined with common error keywords
+        val genericNum = Regex("\\+?\\d{10,13}")
+        if (genericNum.containsMatchIn(msg) && (lower.contains("not found") || lower.contains("exists") || lower.contains("already") || lower.contains("invalid"))) return true
+        return false
     }
 }

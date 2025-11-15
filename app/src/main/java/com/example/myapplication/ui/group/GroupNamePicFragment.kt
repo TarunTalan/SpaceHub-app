@@ -11,8 +11,14 @@ import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import com.example.myapplication.ui.common.ImagePickerHelper
 import com.bumptech.glide.Glide
+import com.example.myapplication.data.network.NetworkModule
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
+import com.google.android.material.snackbar.Snackbar
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 class GroupNamePicFragment : BaseFragment(R.layout.fragment_group_name_pic) {
     private val sharedVm: ProfileSharedViewModel by activityViewModels()
@@ -116,15 +122,48 @@ class GroupNamePicFragment : BaseFragment(R.layout.fragment_group_name_pic) {
         addIcon?.setOnClickListener { openPicker() }
         grpPicIcon?.setOnClickListener { openPicker() }
 
-        // Next: save name to shared VM and navigate to description fragment
+        // Next: validate name via server then save and navigate
         btnNext?.setOnClickListener {
             val name = etName?.text?.toString()?.trim() ?: ""
             if (name.isBlank()) {
                 android.widget.Toast.makeText(requireContext(), "Group name is required", android.widget.Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            sharedVm.setCommunityName(name)
-            try { navigateWithDelay(R.id.action_groupNamePicFragment_to_groupDescriptionFragment) } catch (_: Exception) {}
+
+            // Validate name before proceeding
+            viewLifecycleOwner.lifecycleScope.launch {
+                try { setLoaderVisible(true) } catch (_: Exception) {}
+                try {
+                    val api = NetworkModule.createApiService(requireContext())
+                    val checkRes = try { withContext(Dispatchers.IO) { api.checkLocalGroupNameExists(name) } } catch (_: Throwable) { null }
+                    if (checkRes == null) {
+                        Snackbar.make(view, "Failed to validate name. Check connection.", Snackbar.LENGTH_LONG).show()
+                        return@launch
+                    }
+                    if (!checkRes.isSuccessful) {
+                        Snackbar.make(view, "Failed to validate name. Please try again.", Snackbar.LENGTH_LONG).show()
+                        return@launch
+                    }
+                    val body = checkRes.body()
+                    if (body == null || body.status != 200 || body.data == null) {
+                        Snackbar.make(view, "Failed to validate name. Please try again.", Snackbar.LENGTH_LONG).show()
+                        return@launch
+                    }
+                    val exists = body.data.exists
+                    if (exists) {
+                        Snackbar.make(view, "Name already taken. Choose another name.", Snackbar.LENGTH_LONG).show()
+                        return@launch
+                    }
+
+                    // OK: persist and navigate
+                    sharedVm.setCommunityName(name)
+                    try { navigateWithDelay(R.id.action_groupNamePicFragment_to_groupDescriptionFragment) } catch (_: Exception) {}
+                } catch (_: Exception) {
+                    Snackbar.make(view, "Failed to validate name. Please try again.", Snackbar.LENGTH_LONG).show()
+                } finally {
+                    try { setLoaderVisible(false) } catch (_: Exception) {}
+                }
+            }
         }
 
     }

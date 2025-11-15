@@ -8,8 +8,6 @@
 
     <include layout="@layout/dialog_speaker_menu_item" android:id="@+id/item_speaker" />
     <include layout="@layout/dialog_speaker_menu_item" android:id="@+id/item_phone" />
-    <include layout="@layout/dialog_speaker_menu_item" android:id="@+id/item_mute" />
     <include layout="@layout/dialog_speaker_menu_item" android:id="@+id/item_cancel" />
 
 </LinearLayout>
-

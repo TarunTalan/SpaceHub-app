@@ -95,4 +95,20 @@ object SessionManager {
             } catch (_: Exception) { }
         }
     }
+
+    /**
+     * Persist a login email into the auth DataStore. Used for compatibility when the user logged in using
+     * a phone number but the backend returned the canonical email inside the login response.
+     * This allows other components reading the small `auth_prefs` DataStore to access the email.
+     */
+    fun setLoginEmail(context: Context, email: String?) {
+        scope.launch {
+            try {
+                val emailKey = stringPreferencesKey("email")
+                context.authDataStore.edit { prefs ->
+                    if (!email.isNullOrBlank()) prefs[emailKey] = email else prefs.remove(emailKey)
+                }
+            } catch (_: Exception) { }
+        }
+    }
 }

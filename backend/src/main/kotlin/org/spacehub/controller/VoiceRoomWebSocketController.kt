@@ -26,29 +26,37 @@ class VoiceRoomWebSocketController(
         val handleId = payload["handleId"]
         val roomId = payload["roomId"]
 
-        if (userId == null || sessionId == null || handleId == null || roomId == null) {
-            logger.warn("Invalid registration payload: {}", payload)
+        // Require at minimum userId and roomId. sessionId/handleId are optional (may be provided after REST join).
+        if (userId == null || roomId == null) {
+            logger.warn("Invalid registration payload (missing userId or roomId): {}", payload)
             return
         }
 
-        userSessionMap[userId] = sessionId
-        userHandleMap[userId] = handleId
+        // Store basic mapping and room association
         userRoomMap[userId] = roomId
 
-        logger.info("User {} registered for room {}. Starting event polling.", userId, roomId)
+        // Only store session/handle mapping and start Janus polling if sessionId and handleId are provided and non-blank
+        if (!sessionId.isNullOrBlank() && !handleId.isNullOrBlank()) {
+            userSessionMap[userId] = sessionId
+            userHandleMap[userId] = handleId
+            logger.info("User {} registered for room {} with session/handle (starting event polling)", userId, roomId)
 
-        janusService.startEventPolling(sessionId) { janusEvent ->
             try {
-                val senderHandle = janusEvent.path("sender").asLong(0L)
-                if (senderHandle == 0L || senderHandle.toString() == handleId) {
-                    messagingTemplate.convertAndSend("/topic/room/$roomId/answer/$userId", janusEvent)
-                } else {
-                    // noop for now
-                    janusEvent.path("janus").asText()
+                janusService.startEventPolling(sessionId) { janusEvent ->
+                    try {
+                        val senderHandle = janusEvent.path("sender").asLong(0L)
+                        if (senderHandle == 0L || senderHandle.toString() == handleId) {
+                            messagingTemplate.convertAndSend("/topic/room/$roomId/answer/$userId", janusEvent)
+                        }
+                    } catch (e: Exception) {
+                        logger.error("Error forwarding Janus event: {}", e.message)
+                    }
                 }
             } catch (e: Exception) {
-                logger.error("Error forwarding Janus event: {}", e.message)
+                logger.error("Failed to start Janus event polling for session=$sessionId: {}", e.message)
             }
+        } else {
+            logger.info("User {} registered for room {} without session/handle (will not start Janus polling yet)", userId, roomId)
         }
 
         val event = mapOf("type" to "joined", "userId" to userId)
@@ -114,4 +122,3 @@ class VoiceRoomWebSocketController(
         messagingTemplate.convertAndSend("/topic/room/$roomId/events", event)
     }
 }
-

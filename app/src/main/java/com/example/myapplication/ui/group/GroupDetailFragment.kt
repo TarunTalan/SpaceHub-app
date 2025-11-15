@@ -1,6 +1,7 @@
 package com.example.myapplication.ui.group
 
 import android.animation.ObjectAnimator
+import android.annotation.SuppressLint
 import android.os.Bundle
 import android.view.View
 import android.widget.EditText
@@ -22,7 +23,6 @@ import com.example.myapplication.ui.group.viewmodel.GroupDetailViewModel
 import com.example.myapplication.ui.group.viewmodel.GroupRoomViewModel
 import com.google.android.material.imageview.ShapeableImageView
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.lifecycle.Lifecycle
@@ -32,7 +32,9 @@ import kotlinx.coroutines.withContext
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.ui.community.adapter.VoiceRoomAdapter
 import com.example.myapplication.data.voice.VoiceRoomRepository
+import com.example.myapplication.data.groups.repository.LocalGroupRepository
 
+@SuppressLint("UnspecifiedRegisterReceiverFlag")
 class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
     // Receiver for worker completion broadcasts (initialized in onViewCreated)
     private lateinit var defaultRoomsReceiver: android.content.BroadcastReceiver
@@ -48,6 +50,7 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
     private var chatRoomsExpanded = true
     private var voiceRoomsExpanded = true
 
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -62,14 +65,14 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
         val memberCountTv = view.findViewById<TextView>(R.id.member_count_tv)
         val overlay = view.findViewById<View>(R.id.loading_overlay)
         val settingsAnchor = view.findViewById<ImageView>(R.id.setting_grp)
-        val rvRooms = view.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.rv_rooms)
+        val rvRooms = view.findViewById<RecyclerView>(R.id.rv_rooms)
         val emptyRoomsView = view.findViewById<View>(R.id.empty_rooms_view)
         val swipeRefresh = view.findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
 
         // Voice views and adapter setup
         val rvVoiceRooms = view.findViewById<RecyclerView>(R.id.rv_voice_rooms)
-        val emptyVoiceView = view.findViewById<View>(R.id.empty_voice_rooms_view)
-        val progressVoice = view.findViewById<View>(R.id.progress_voice)
+        // Use single shared loader inside layout
+        val progressVoice = view.findViewById<View>(R.id.progress_loader)
 
         // Determine groupId early so lambdas defined below can capture it
         val groupId = arguments?.getString("communityId") ?: arguments?.getString("id")
@@ -101,13 +104,37 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
                     try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to join voice room: ${e.message}", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {}
                 }
             }
+        }, onLongClick = { vr ->
+            try {
+                com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(requireContext(), "Delete Voice Room", "Are you sure you want to delete '${vr.name}'?", positiveText = "Delete", negativeText = getString(android.R.string.cancel), onPositive = {
+                    lifecycleScope.launch {
+                        try {
+                            val requester = try { withContext(Dispatchers.IO) { UserDataManager.getInstance(requireContext()).getEmail() } } catch (_: Exception) { null }
+                            val chatRoomId = vm.group.value?.chatRoomId?.takeIf { it.isNotBlank() } ?: groupId
+                            if (chatRoomId.isNullOrBlank()) {
+                                try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Missing parent chat room id", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {}
+                                return@launch
+                            }
+                            val res = withContext(Dispatchers.IO) { try { voiceRepo.deleteVoiceRoom(chatRoomId, vr.name, requester ?: "") } catch (t: Throwable) { Result.failure<Unit>(t) } }
+                            if (res.isSuccess) {
+                                // reload
+                                try { loadVoiceRooms(chatRoomId, progressVoice) } catch (_: Exception) {}
+                                try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Voice room '${vr.name}' deleted", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT).show() } catch (_: Exception) {}
+                            } else {
+                                try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to delete voice room: ${res.exceptionOrNull()?.message}", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {}
+                            }
+                        } catch (e: Exception) {
+                            try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to delete voice room: ${e.message}", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {}
+                        }
+                    }
+                })
+            } catch (_: Exception) {}
         })
         rvVoiceRooms?.layoutManager = LinearLayoutManager(requireContext())
         rvVoiceRooms?.adapter = voiceRoomsAdapter
 
         // Ensure toggles are expanded by default (match community behavior)
-        try { view.findViewById<ImageView>(R.id.iv_toggle_your_comm)?.rotation = 0f } catch (_: Exception) {}
-        try { view.findViewById<ImageView>(R.id.iv_toggle_voice_comm)?.rotation = 0f } catch (_: Exception) {}
+        // (rotation will be applied later to the same views)
 
         // Make marquee scroll without focus requirement (header username)
         tvUser?.isSelected = true
@@ -153,21 +180,18 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
         }
 
         // observe VM state with debounce: show overlay only if loading persists beyond 300ms
-        var overlayShowJob: Job? = null
+        var overlayRunnable: Runnable? = null
         vm.loading.observe(viewLifecycleOwner) { loading ->
             if (loading) {
-                // cancel any previous show job and start a delayed show
-                overlayShowJob?.cancel()
-                overlayShowJob = viewLifecycleOwner.lifecycleScope.launch {
-                    try {
-                        delay(300) // short debounce to avoid flicker on fast loads
-                        overlay?.visibility = View.VISIBLE
-                    } catch (_: Exception) {}
-                }
+                // cancel any previous pending runnable and post a delayed show
+                try { view.removeCallbacks(overlayRunnable) } catch (_: Exception) {}
+                overlayRunnable = Runnable { try { overlay?.visibility = View.VISIBLE } catch (_: Exception) {} }
+                try { view.postDelayed(overlayRunnable, 300) } catch (_: Exception) {}
             } else {
-                // cancel pending job and hide immediately
-                try { overlayShowJob?.cancel() } catch (_: Exception) {}
-                overlayShowJob = null
+                // cancel pending runnable and hide immediately
+                try { view.removeCallbacks(overlayRunnable) } catch (_: Exception) {}
+                // cancel pending runnable and hide immediately
+                try { view.removeCallbacks(overlayRunnable) } catch (_: Exception) {}
                 overlay?.visibility = View.GONE
             }
         }
@@ -187,6 +211,51 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "Failed to open chat: ${e.message}", Toast.LENGTH_SHORT).show()
             }
+        }, onLongClick = { room ->
+            // Confirm and delete chat room inside this local group. Resolve parent chatRoomCode first.
+            try {
+                val ctx = requireContext()
+                com.example.myapplication.ui.common.AppDialogHelper.showConfirmation(ctx, "Delete Chat Room", "Are you sure you want to delete '${room.name}'?", positiveText = "Delete", negativeText = ctx.getString(android.R.string.cancel), onPositive = {
+                    lifecycleScope.launch {
+                        try {
+                            val repo = LocalGroupRepository.getInstance(requireContext())
+                            // Resolve parent code: prefer vm.group.chatRoomCode; if missing, try to refresh and wait briefly
+                            var parentCode = vm.group.value?.chatRoomCode?.takeIf { it.isNotBlank() }
+                            if (parentCode.isNullOrBlank()) {
+                                try { vm.refreshDetails() } catch (_: Exception) {}
+                                // wait briefly (max ~2s) for VM to update
+                                var waited = 0
+                                while (parentCode.isNullOrBlank() && waited < 2000) {
+                                    delay(250)
+                                    parentCode = vm.group.value?.chatRoomCode?.takeIf { it.isNotBlank() }
+                                    waited += 250
+                                }
+                            }
+
+                            // If still missing, fall back to fragment argument (group id) but warn that deletion may fail if server expects different code
+                            if (parentCode.isNullOrBlank()) parentCode = arguments?.getString("communityId") ?: arguments?.getString("id") ?: ""
+
+                            if (parentCode.isBlank()) {
+                                try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Unable to determine parent room code; try refreshing and retrying", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {}
+                                return@launch
+                            }
+
+                            val targetRoomCode = room.roomCode.ifBlank { room.id }
+                            val res = withContext(Dispatchers.IO) { repo.deleteChatRoom(parentCode, targetRoomCode) }
+                            if (res.isSuccess) {
+                                // refresh the list via ViewModel using resolved parentCode
+                                try { roomsVm.loadChatRoomsForGroup(parentCode) } catch (_: Exception) {}
+                                try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Chat room '${room.name}' deleted", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT).show() } catch (_: Exception) {}
+                            } else {
+                                val msg = res.exceptionOrNull()?.message ?: "Failed to delete chat room"
+                                try { com.google.android.material.snackbar.Snackbar.make(requireView(), msg, com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {}
+                            }
+                        } catch (e: Exception) {
+                            try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to delete chat room: ${e.message}", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {}
+                        }
+                    }
+                })
+            } catch (_: Exception) {}
         })
         rvRooms?.layoutManager = LinearLayoutManager(requireContext())
         rvRooms?.adapter = roomsAdapter
@@ -250,6 +319,7 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
                         rvRooms?.visibility = if (chatRoomsExpanded) View.VISIBLE else View.GONE
                     }
                     roomsAdapter.submitList(mapped)
+                    try { updateCombinedEmpty() } catch (_: Exception) {}
                 }
             }
         }
@@ -259,18 +329,18 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
         val ivToggleVoice = view.findViewById<ImageView>(R.id.iv_toggle_voice_comm)
         ivToggleYourComm?.setOnClickListener {
             chatRoomsExpanded = !chatRoomsExpanded
-            applyChatRoomsToggleState(ivToggleYourComm, rvRooms, emptyRoomsView)
+            applyChatRoomsToggleState(ivToggleYourComm, rvRooms)
         }
         ivToggleVoice?.setOnClickListener {
             voiceRoomsExpanded = !voiceRoomsExpanded
-            applyVoiceRoomsToggleState(ivToggleVoice, rvVoiceRooms, emptyVoiceView)
-            // load voice rooms when expanding if empty
-            if (voiceRoomsExpanded && voiceRooms.isEmpty()) {
-                // Prefer the group's chatRoomId from VM (returned by getLocalGroupDetails); fallback to groupId
-                val effectiveRoomId = vm.group.value?.chatRoomId?.takeIf { it.isNotBlank() } ?: groupId
-                try { loadVoiceRooms(effectiveRoomId, progressVoice) } catch (_: Exception) {}
-            }
-        }
+            applyVoiceRoomsToggleState(ivToggleVoice, rvVoiceRooms)
+             // load voice rooms when expanding if empty
+             if (voiceRoomsExpanded && voiceRooms.isEmpty()) {
+                 // Prefer the group's chatRoomId from VM (returned by getLocalGroupDetails); fallback to groupId
+                 val effectiveRoomId = vm.group.value?.chatRoomId?.takeIf { it.isNotBlank() } ?: groupId
+                 try { loadVoiceRooms(effectiveRoomId, progressVoice) } catch (_: Exception) {}
+             }
+         }
 
         // when group resolves, ensure voice rooms loaded once
         vm.group.observe(viewLifecycleOwner) { data ->
@@ -324,13 +394,23 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
                 } catch (_: Exception) {}
             }
         }
-        try { requireContext().registerReceiver(defaultRoomsReceiver, android.content.IntentFilter("com.example.myapplication.ACTION_DEFAULT_ROOMS_CREATED")) } catch (_: Exception) {}
+        try {
+            val filter = android.content.IntentFilter("com.example.myapplication.ACTION_DEFAULT_ROOMS_CREATED")
+            // Register platform receiver: provide explicit not-exported flag on Android 13+ to satisfy security lint.
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    requireContext().registerReceiver(defaultRoomsReceiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED)
+                } else {
+                    requireContext().registerReceiver(defaultRoomsReceiver, filter)
+                }
+            } catch (_: Exception) {}
+        } catch (_: Exception) {}
 
         settingsAnchor?.setOnClickListener { anchor ->
             // Show popup menu same as community detail
             val popup = androidx.appcompat.widget.PopupMenu(requireContext(), anchor)
             try {
-                popup.menuInflater.inflate(R.menu.menu_community_detail, popup.menu)
+                popup.menuInflater.inflate(R.menu.menu_group_detail, popup.menu)
             } catch (_: Exception) {}
             popup.setOnMenuItemClickListener { item ->
                 when (item.itemId) {
@@ -359,15 +439,11 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
                             val inflater = layoutInflater
                             val dialogView = inflater.inflate(R.layout.dialog_create_chat_room, null)
                             // Resolve IDs at runtime to avoid any R generation timing issues
-                            val pkg = requireContext().packageName
-                            val etId = dialogView.resources.getIdentifier("et_room_name", "id", pkg)
-                            val errId = dialogView.resources.getIdentifier("dialog_error", "id", pkg)
-                            val btnCreateId = dialogView.resources.getIdentifier("btn_create", "id", pkg)
-                            val btnCancelId = dialogView.resources.getIdentifier("btn_cancel", "id", pkg)
-                            val etName = dialogView.findViewById<EditText?>(etId)
-                            val tvError = dialogView.findViewById<TextView?>(errId)
-                            val btnCreate = dialogView.findViewById<android.widget.Button?>(btnCreateId)
-                            val btnCancel = dialogView.findViewById<android.widget.Button?>(btnCancelId)
+                            // Dialog view: use direct id lookups (compile-time safe)
+                            val etName = dialogView.findViewById<EditText?>(R.id.et_room_name)
+                            val tvError = dialogView.findViewById<TextView?>(R.id.dialog_error)
+                            val btnCreate = dialogView.findViewById<android.widget.Button?>(R.id.btn_create)
+                            val btnCancel = dialogView.findViewById<android.widget.Button?>(R.id.btn_cancel)
 
                             val dialog = try {
                                 com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
@@ -389,7 +465,7 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
                             btnCreate?.setOnClickListener {
                                 val name = etName?.text?.toString()?.trim().orEmpty()
                                 if (name.isEmpty()) {
-                                    try { tvError?.text = "Name is required" } catch (_: Exception) {}
+                                    try { tvError?.text = getString(R.string.name_required) } catch (_: Exception) {}
                                     try { tvError?.visibility = View.VISIBLE } catch (_: Exception) {}
                                     return@setOnClickListener
                                 }
@@ -441,6 +517,7 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
                         try {
                             val inflater = layoutInflater
                             val dialogView = inflater.inflate(R.layout.dialog_create_chat_room, null)
+                            // Use direct id lookups for create-voice dialog as well
                             val etName = dialogView.findViewById<EditText>(R.id.et_room_name)
                             val tvError = dialogView.findViewById<TextView>(R.id.dialog_error)
                             val btnCreate = dialogView.findViewById<android.widget.Button>(R.id.btn_create)
@@ -470,6 +547,7 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
                                             val mapped = com.example.myapplication.data.voice.model.VoiceRoomX(active = true, createdAt = "", createdBy = vr.createdBy, id = vr.janusRoomId, janusRoomId = vr.janusRoomId, name = vr.name, roomCode = vr.name)
                                             voiceRooms.add(0, mapped)
                                             try { voiceRoomsAdapter.submitList(voiceRooms.toList()) } catch (_: Exception) {}
+                                            try { updateCombinedEmpty() } catch (_: Exception) {}
                                             try { dialog.dismiss() } catch (_: Exception) {}
                                         } else {
                                             val msg = res.exceptionOrNull()?.message ?: "Failed to create voice room"
@@ -494,10 +572,6 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
                         } catch (_: Exception) {
                             Toast.makeText(requireContext(), "Failed to open members", Toast.LENGTH_SHORT).show()
                         }
-                        true
-                    }
-                    R.id.action_leave_community -> {
-                        Toast.makeText(requireContext(), "Leave not supported for local groups", Toast.LENGTH_SHORT).show()
                         true
                     }
                     R.id.action_delete_community -> {
@@ -545,14 +619,14 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
         }
     }
 
-    private fun applyChatRoomsToggleState(ivToggle: ImageView?, rvChat: RecyclerView?, emptyRooms: View?) {
-        rvChat?.visibility = if (chatRoomsExpanded && rvChat?.adapter?.itemCount ?: 0 > 0) View.VISIBLE else View.GONE
+    private fun applyChatRoomsToggleState(ivToggle: ImageView?, rvChat: RecyclerView?) {
+        rvChat?.visibility = if (chatRoomsExpanded && (rvChat.adapter?.itemCount ?: 0) > 0) View.VISIBLE else View.GONE
         val targetRotation = if (chatRoomsExpanded) 0f else 180f
         ivToggle?.let { ObjectAnimator.ofFloat(it, "rotation", targetRotation).apply { duration = 200; start() } }
     }
 
-    private fun applyVoiceRoomsToggleState(ivToggle: ImageView?, rvVoice: RecyclerView?, emptyVoice: View?) {
-        rvVoice?.visibility = if (voiceRoomsExpanded && rvVoice?.adapter?.itemCount ?: 0 > 0) View.VISIBLE else View.GONE
+    private fun applyVoiceRoomsToggleState(ivToggle: ImageView?, rvVoice: RecyclerView?) {
+        rvVoice?.visibility = if (voiceRoomsExpanded && (rvVoice.adapter?.itemCount ?: 0) > 0) View.VISIBLE else View.GONE
         val targetRotation = if (voiceRoomsExpanded) 0f else 180f
         ivToggle?.let { ObjectAnimator.ofFloat(it, "rotation", targetRotation).apply { duration = 200; start() } }
     }
@@ -570,6 +644,7 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
                     voiceRooms.addAll(list)
                     voiceRoomsAdapter.submitList(voiceRooms.toList())
                     try { view?.findViewById<View>(R.id.empty_voice_rooms_view)?.visibility = if (voiceRooms.isEmpty()) View.VISIBLE else View.GONE } catch (_: Exception) {}
+                    try { updateCombinedEmpty() } catch (_: Exception) {}
                 } else {
                     try { com.google.android.material.snackbar.Snackbar.make(requireView(), "Failed to load voice rooms: ${res.exceptionOrNull()?.message}", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() } catch (_: Exception) {}
                 }
@@ -577,6 +652,30 @@ class GroupDetailFragment : BaseFragment(R.layout.fragment_group_detail) {
                 progressVoice?.visibility = View.GONE
             }
         }
+    }
+
+    private fun updateCombinedEmpty() {
+        try {
+            val emptyGroup = view?.findViewById<View>(R.id.empty_group_view)
+            val emptyRooms = view?.findViewById<View>(R.id.empty_rooms_view)
+            val emptyVoice = view?.findViewById<View>(R.id.empty_voice_rooms_view)
+            val roomsRv = view?.findViewById<RecyclerView>(R.id.rv_rooms)
+            val voiceRv = view?.findViewById<RecyclerView>(R.id.rv_voice_rooms)
+            val roomsEmpty = (roomsRv?.adapter?.itemCount ?: 0) == 0
+            val voiceEmpty = (voiceRv?.adapter?.itemCount ?: 0) == 0
+
+            if (roomsEmpty && voiceEmpty) {
+                // Show single combined empty message for group
+                emptyGroup?.visibility = View.VISIBLE
+                // hide the per-section empty views to avoid duplicate messages
+                emptyRooms?.visibility = View.GONE
+                emptyVoice?.visibility = View.GONE
+            } else {
+                // Hide combined group-empty when either section has items
+                emptyGroup?.visibility = View.GONE
+                // per-section empty views are controlled by their individual loaders
+            }
+        } catch (_: Exception) {}
     }
 
     override fun onDestroyView() {

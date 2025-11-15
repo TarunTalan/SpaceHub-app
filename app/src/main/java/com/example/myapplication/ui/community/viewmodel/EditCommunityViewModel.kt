@@ -34,32 +34,14 @@ class EditCommunityViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _loading.postValue(true)
             try {
-                val detailsRes = repo.updateCommunityInfoRemote(communityId, name.trim(), description.trim())
-                if (detailsRes.isFailure) {
-                    _loading.postValue(false)
-                    _toast.postValue(detailsRes.exceptionOrNull()?.message ?: "Failed to update community")
-                    return@launch
-                }
-
-                if (imagePart != null) {
-                    val email = com.example.myapplication.data.user.UserDataManager.getInstance(getApplication()).getEmail()
-                    if (email.isNullOrBlank()) {
-                        _loading.postValue(false)
-                        _toast.postValue("User email missing")
-                        return@launch
-                    }
-                    val uploadRes = repo.uploadCommunityBannerRemote(communityId, email, imagePart)
-                    if (uploadRes.isFailure) {
-                        _loading.postValue(false)
-                        _toast.postValue(uploadRes.exceptionOrNull()?.message ?: "Failed to upload banner")
-                        return@launch
-                    }
-                    // Refresh remote communities to pick up updated banner/profile URLs into Room
-                    runCatching { repo.fetchMyCommunitiesRemote(email) }
-                }
-
+                // Use the new multipart endpoint to update details and optionally upload an image in one request
+                val detailsRes = repo.updateCommunityInfoRemote(communityId, name.trim(), description.trim(), imagePart = imagePart)
                 _loading.postValue(false)
-                _toast.postValue("Community updated")
+                if (detailsRes.isSuccess) {
+                    _toast.postValue("Community updated")
+                } else {
+                    _toast.postValue(detailsRes.exceptionOrNull()?.message ?: "Failed to update community")
+                }
             } catch (t: Throwable) {
                 _loading.postValue(false)
                 _toast.postValue(t.message ?: "Failed to update community")

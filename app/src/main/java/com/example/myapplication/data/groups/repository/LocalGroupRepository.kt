@@ -365,4 +365,19 @@ class LocalGroupRepository private constructor(private val context: Context) {
             }
         } catch (t: Throwable) { Result.failure(t) }
     }
+
+    suspend fun deleteChatRoom(parentGroupRoomCode: String, chatRoomCode: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            // The ApiService exposes deleteChatRoom as DELETE /new-chatroom/{chatRoomCode}/delete?RoomCode={roomCode}
+            // Here chatRoomCode is the chat room identifier to delete and parentGroupRoomCode is passed as RoomCode query param.
+            val resp = api.deleteChatRoom(chatRoomCode, parentGroupRoomCode)
+            if (resp.isSuccessful && (resp.body()?.status in listOf(200, 201))) {
+                // refresh chat room summary for the parent group (best-effort)
+                runCatching { getGroupChatRooms(parentGroupRoomCode) }
+                return@withContext Result.success(Unit)
+            }
+            val err = try { resp.body()?.message } catch (_: Exception) { null }
+            Result.failure(RuntimeException(err ?: "HTTP ${resp.code()} - ${resp.errorBody()?.string()}"))
+        } catch (t: Throwable) { Result.failure(t) }
+    }
 }

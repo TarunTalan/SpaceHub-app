@@ -55,11 +55,17 @@ class VoiceMemberAdapter(
         holder.highlightOverlay.visibility = if (isSpeaking) View.VISIBLE else View.GONE
 
         // pulse animation for speaking state: start when speaking, clear when not
-        if (isSpeaking) {
-            // simple alpha/scale animation for speaking indicator
-            holder.speakingIndicator.animate().alpha(1f).scaleX(1.0f).scaleY(1.0f).setDuration(300).start()
-        } else {
-            holder.speakingIndicator.animate().alpha(0f).scaleX(1f).scaleY(1f).setDuration(150).start()
+        try {
+            if (isSpeaking) {
+                // simple alpha/scale animation for speaking indicator
+                holder.speakingIndicator.animate().alpha(1f).scaleX(1.0f).scaleY(1.0f).setDuration(300).start()
+            } else {
+                holder.speakingIndicator.animate().alpha(0f).scaleX(1f).scaleY(1f).setDuration(150).start()
+            }
+        } catch (_: Exception) {
+            // fallback to immediate property changes if animation fails
+            try { holder.speakingIndicator.alpha = if (isSpeaking) 1f else 0f } catch (_: Exception) {}
+            try { holder.speakingIndicator.scaleX = 1f; holder.speakingIndicator.scaleY = 1f } catch (_: Exception) {}
         }
 
         holder.itemView.setOnClickListener { onClick(item) }

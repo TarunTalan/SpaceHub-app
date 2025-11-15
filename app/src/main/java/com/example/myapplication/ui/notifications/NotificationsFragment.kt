@@ -33,7 +33,6 @@ class NotificationsFragment : Fragment(R.layout.fragment_notifications) {
         val rvFriends = view.findViewById<RecyclerView>(R.id.rv_friend_requests)
         val rvJoins = view.findViewById<RecyclerView>(R.id.rv_join_requests)
         val progress = view.findViewById<ProgressBar>(R.id.progress)
-        val empty = view.findViewById<TextView>(R.id.tv_empty)
 
         friendAdapter = FriendRequestsAdapter(onAccept = { item ->
             friendAdapter.setProcessing(item.id, true)
@@ -61,9 +60,8 @@ class NotificationsFragment : Fragment(R.layout.fragment_notifications) {
 
         friendVm.requests.observe(viewLifecycleOwner) { list ->
             friendAdapter.submitList(list)
+            // update per-section and combined empties
             updateEmptyVisibility()
-            // ensure empty view updated immediately
-            empty.visibility = if (friendAdapter.currentList.isEmpty() && joinAdapter.currentList.isEmpty()) View.VISIBLE else View.GONE
         }
         friendVm.loading.observe(viewLifecycleOwner) { loading ->
             progress.visibility = if (loading) View.VISIBLE else View.GONE
@@ -74,9 +72,8 @@ class NotificationsFragment : Fragment(R.layout.fragment_notifications) {
 
         joinVm.requests.observe(viewLifecycleOwner) { list ->
             joinAdapter.submitList(list)
+            // update per-section and combined empties
             updateEmptyVisibility()
-            // ensure empty view updated immediately
-            empty.visibility = if (friendAdapter.currentList.isEmpty() && joinAdapter.currentList.isEmpty()) View.VISIBLE else View.GONE
         }
         joinVm.loading.observe(viewLifecycleOwner) { loading ->
             progress.visibility = if (loading) View.VISIBLE else View.GONE
@@ -92,10 +89,19 @@ class NotificationsFragment : Fragment(R.layout.fragment_notifications) {
     }
 
     private fun updateEmptyVisibility() {
+        val v = view ?: return
+        val pkg = requireContext().packageName
+        val idEf = v.resources.getIdentifier("tv_empty_friends", "id", pkg)
+        val idEj = v.resources.getIdentifier("tv_empty_joins", "id", pkg)
+        val idCombined = v.resources.getIdentifier("tv_empty", "id", pkg)
+        val ef = if (idEf != 0) v.findViewById<TextView>(idEf) else null
+        val ej = if (idEj != 0) v.findViewById<TextView>(idEj) else null
+        val combined = if (idCombined != 0) v.findViewById<TextView>(idCombined) else null
         val friendsEmpty = friendAdapter.currentList.isEmpty()
         val joinsEmpty = joinAdapter.currentList.isEmpty()
-        val emptyView = view?.findViewById<TextView>(R.id.tv_empty)
-        emptyView?.visibility = if (friendsEmpty && joinsEmpty) View.VISIBLE else View.GONE
+        ef?.visibility = if (friendsEmpty) View.VISIBLE else View.GONE
+        ej?.visibility = if (joinsEmpty) View.VISIBLE else View.GONE
+        combined?.visibility = if (friendsEmpty && joinsEmpty) View.VISIBLE else View.GONE
     }
 
     private fun loadAll() {

@@ -200,7 +200,7 @@
                 android:layout_width="0dp"
                 android:layout_height="40dp"
                 android:paddingHorizontal="20dp"
-                app:layout_constraintStart_toStartOf="@id/guideline_start_bottom"
+                app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="@id/guideline_end_bottom"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
@@ -208,6 +208,7 @@
                 android:inputType="text"
                 android:textColor="@color/white"
                 android:textSize="@dimen/input_text_size"
+                android:layout_marginStart="20dp"
                 android:background="@drawable/edit_text_outline_selector"
                 android:textColorHint="#C6CAD1"/>
 
@@ -229,6 +230,7 @@
                 android:padding="10dp"
                 android:src="@drawable/add_rounded"
                 android:contentDescription="@null"
+                android:visibility="gone"
                 app:layout_constraintEnd_toEndOf="@id/guideline_start_bottom"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"

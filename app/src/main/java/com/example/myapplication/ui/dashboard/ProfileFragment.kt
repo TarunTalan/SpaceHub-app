@@ -244,7 +244,18 @@ class ProfileFragment : BaseFragment(R.layout.fragment_profile) {
 
         val constraints = CalendarConstraints.Builder().setEnd(System.currentTimeMillis()).build()
         val picker = MaterialDatePicker.Builder.datePicker().setTitleText("Select date of birth").setCalendarConstraints(constraints).setSelection(selection).build()
-        picker.addOnPositiveButtonClickListener { sel -> runCatching { val instant = Instant.ofEpochMilli(sel as Long); val local = instant.atZone(ZoneId.systemDefault()).toLocalDate(); target.setText(local.format(dobFormat)) } }
+        picker.addOnPositiveButtonClickListener { sel ->
+            runCatching {
+                val instant = Instant.ofEpochMilli(sel as Long)
+                val local = instant.atZone(ZoneId.systemDefault()).toLocalDate()
+                val formatted = local.format(dobFormat)
+                target.setText(formatted)
+                // Persist the DOB immediately so navigating away and back retains the value
+                try {
+                    com.example.myapplication.data.user.UserDataManager.getInstance(requireContext()).updateProfile(dateOfBirth = formatted)
+                } catch (_: Exception) {}
+            }
+        }
         picker.show(parentFragmentManager, "DOB_PICKER")
     }
 }

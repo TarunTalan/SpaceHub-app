@@ -3,7 +3,6 @@ package com.example.myapplication.ui.auth.reset
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.myapplication.data.auth.AuthRepository
 import com.example.myapplication.data.auth.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,7 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class ResetPasswordViewModel(app: Application) : AndroidViewModel(app) {
-    private val repo = AuthRepository(app)
+    private val repo: com.example.myapplication.data.auth.AuthRepository = com.example.myapplication.data.auth.AuthRepository(app)
 
     sealed class UiState {
         object Idle : UiState()

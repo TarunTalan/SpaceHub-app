@@ -18,6 +18,7 @@ import com.example.myapplication.data.session.SessionManager
 import com.example.myapplication.ui.common.BaseFragment
 import com.example.myapplication.ui.community.adapter.YourCommunityAdapter
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -35,25 +36,31 @@ import com.example.myapplication.ui.dashboard.adapter.CommunityListAdapter
 import com.example.myapplication.ui.dashboard.adapter.CommunityUi
 import kotlinx.coroutines.flow.first
 import com.example.myapplication.data.community.model.Community as CommunityModel
+import com.example.myapplication.data.dashboard.DashboardRepository
 
 class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
 
-    private val sharedVm: ProfileSharedViewModel by activityViewModels()
+     private val sharedVm: ProfileSharedViewModel by activityViewModels()
 
-    // Store reference to badge update function
-    private var updateBadgeFn: (() -> Unit)? = null
+    // Adapters promoted to class-level so their state is available when fragment resumes
+    private lateinit var yourAdapter: YourCommunityAdapter
+    private lateinit var joinedAdapter: YourCommunityAdapter
+    private lateinit var localGroupsAdapter: CommunityListAdapter
 
-    private var rvLocalGroups: RecyclerView? = null
-    private var tvLocalGroupsHeader: TextView? = null
+     // Store reference to badge update function
+     private var updateBadgeFn: (() -> Unit)? = null
 
-    private val TAG = "DashboardLocalGroups"
+     private var rvLocalGroups: RecyclerView? = null
+     private var tvLocalGroupsHeader: TextView? = null
 
-     // Debounce/animation helpers for the empty illustration to avoid flicker
-     private var illustrationPendingRunnable: Runnable? = null
-     private val illustrationDelayMillis: Long = 150
-     private var isIllustrationVisible: Boolean = false
-    // Track remote loading so we don't show the empty illustration while data is loading
-    private var isLoadingData: Boolean = false
+     private val TAG = "DashboardLocalGroups"
+
+      // Debounce/animation helpers for the empty illustration to avoid flicker
+      private var illustrationPendingRunnable: Runnable? = null
+      private val illustrationDelayMillis: Long = 150
+      private var isIllustrationVisible: Boolean = false
+     // Track remote loading so we don't show the empty illustration while data is loading
+     private var isLoadingData: Boolean = false
 
     companion object {
         // Startup refresh guard persisted across DashboardFragment instances so simple navigation
@@ -88,7 +95,6 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
 
         // Navigate to requests inbox on notification icon click
         val ivNotification = view.findViewById<ImageView>(R.id.iv_notification)
-        val tvBadge = view.findViewById<TextView>(R.id.tv_notification_badge)
 
         ivNotification?.setOnClickListener {
             runCatching {
@@ -97,35 +103,9 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
             }
         }
 
-        // Load and display incoming friend requests count
-        fun updateBadge() {
-            viewLifecycleOwner.lifecycleScope.launch {
-                try {
-                    // friend requests
-                    val friendRepo = com.example.myapplication.data.friends.repository.FriendsRepository.getInstance(requireContext())
-                    val friendRes = friendRepo.getIncomingRequests()
-                    val friendCount = friendRes.getOrNull()?.size ?: 0
-
-                    // local community join requests (pending join requests)
-                    val commRepo = CommunityRepository.getInstance(requireContext())
-                    val joinRes = commRepo.getMyPendingRequests()
-                    val joinCount = joinRes.getOrNull()?.size ?: 0
-
-                    val total = friendCount + joinCount
-                    if (total > 0) {
-                        tvBadge?.text = if (total > 99) "99+" else total.toString()
-                        tvBadge?.visibility = View.VISIBLE
-                    } else {
-                        tvBadge?.visibility = View.GONE
-                    }
-                } catch (_: Exception) {
-                    tvBadge?.visibility = View.GONE
-                }
-            }
-        }
-
-        // Store reference for onResume
-        updateBadgeFn = ::updateBadge
+        // Store reference for onResume — will be assigned after we define the method below
+        // (updateBadge is implemented as a private method on the fragment)
+        updateBadgeFn = { updateBadge() }
         // Update badge on fragment start
         updateBadge()
 
@@ -137,14 +117,18 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         // Use UserDataManager for centralized, reactive data access
         val userDataManager = UserDataManager.getInstance(requireContext())
 
-        // Observe username and profile image via UserDataManager flows so nav header updates immediately.
+        // When username becomes available (first non-blank), trigger a one-time remote profile fetch
         viewLifecycleOwner.lifecycleScope.launch {
-            // username -> update nav header title and drawer username text
-            userDataManager.usernameFlow.collect { uname ->
+            try {
+                val unameFirst = userDataManager.usernameFlow.first { !it.isNullOrBlank() }
                 try {
-                    val name = if (!uname.isNullOrBlank()) uname else getString(R.string.username_fallback)
+                    val name = if (!unameFirst.isNullOrBlank()) unameFirst else getString(R.string.username_fallback)
                     navHeaderTitle?.text = getString(R.string.hello_name, name)
                 } catch (_: Exception) {}
+                // Run profile fetch once on IO
+                try { withContext(Dispatchers.IO) { DashboardRepository(requireContext()).getProfile() } } catch (_: Exception) {}
+            } catch (_: Exception) {
+                // ignore
             }
         }
         viewLifecycleOwner.lifecycleScope.launch {
@@ -248,7 +232,6 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         // Setup Your Communities Recycler
         val rvYourCommunities = view.findViewById<RecyclerView>(R.id.rv_your_communities)
         val rvJoinedCommunities = view.findViewById<RecyclerView>(R.id.rv_joined_communities)
-        val emptyIllustrationContainer = view.findViewById<View>(R.id.illustration)
         // Header labels and toggles for sections (declare early so helper can reference them)
         val tvMyCommunitiesHeader = view.findViewById<TextView>(R.id.tv_my_communities)
         val tvJoinedCommunitiesHeader = view.findViewById<TextView>(R.id.tv_joined_communities)
@@ -266,98 +249,96 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
 
         // Helper to apply toggle state with 200ms animations (rotation + fade)
         fun applySectionToggle(iv: ImageView?, rv: RecyclerView?, expanded: Boolean) {
-            try {
-                val duration = 200L
+             try {
+                 val duration = 200L
                 if (expanded) {
-                    iv?.animate()?.rotation(0f)?.setDuration(duration)?.start()
-                    rv?.visibility = View.VISIBLE
-                    rv?.alpha = 0f
-                    rv?.animate()?.alpha(1f)?.setDuration(duration)?.start()
+                    try {
+                        iv?.animate()?.rotation(0f)?.setDuration(duration)?.start()
+                        rv?.visibility = View.VISIBLE
+                        rv?.alpha = 0f
+                        rv?.animate()?.alpha(1f)?.setDuration(duration)?.start()
+                    } catch (_: Exception) {
+                        // Fallback to immediate state change if animation or its listeners throw
+                        try { iv?.rotation = 0f } catch (_: Exception) {}
+                        try { rv?.visibility = View.VISIBLE; rv?.alpha = 1f } catch (_: Exception) {}
+                    }
                 } else {
-                    iv?.animate()?.rotation(180f)?.setDuration(duration)?.start()
-                    rv?.animate()?.alpha(0f)?.setDuration(duration)?.withEndAction {
-                        try { rv.visibility = View.GONE } catch (_: Exception) {}
-                    }?.start()
-                }
-            } catch (_: Exception) {}
-        }
+                    try {
+                        iv?.animate()?.rotation(180f)?.setDuration(duration)?.start()
+                        rv?.animate()?.alpha(0f)?.setDuration(duration)?.withEndAction {
+                            try { rv.visibility = View.GONE } catch (_: Exception) {}
+                        }?.start()
+                    } catch (_: Exception) {
+                         // Fallback immediate hide
+                         try { iv?.rotation = 180f } catch (_: Exception) {}
+                         try { rv?.visibility = View.GONE; rv?.alpha = 0f } catch (_: Exception) {}
+                     }
+                 }
+              } catch (_: Exception) {}
+          }
 
+        // Helper: update illustration visibility and header/list visibility based on adapter counts
         fun updateIllustrationVisibility() {
             try {
-                // Evaluate desired state synchronously
-                val showIllustration = isMyCommunitiesEmpty && isJoinedCommunitiesEmpty && isLocalGroupsEmpty
+                val myEmpty = if (::yourAdapter.isInitialized) yourAdapter.itemCount == 0 else isMyCommunitiesEmpty
+                val joinedEmpty = if (::joinedAdapter.isInitialized) joinedAdapter.itemCount == 0 else isJoinedCommunitiesEmpty
+                val localEmpty = if (::localGroupsAdapter.isInitialized) localGroupsAdapter.itemCount == 0 else isLocalGroupsEmpty
+                val showIllustration = myEmpty && joinedEmpty && localEmpty
 
-                // Immediately update headers/toggles/lists (no debounce) so the sections themselves won't flicker
-                try { tvMyCommunitiesHeader?.visibility = if (isMyCommunitiesEmpty) View.GONE else View.VISIBLE } catch (_: Exception) {}
-                try { ivToggleYour?.visibility = if (isMyCommunitiesEmpty) View.GONE else View.VISIBLE } catch (_: Exception) {}
-                try { rvYourCommunities?.visibility = if (isMyCommunitiesEmpty) View.GONE else View.VISIBLE } catch (_: Exception) {}
+                // Update section headers / toggles / lists
+                try { tvMyCommunitiesHeader?.visibility = if (myEmpty) View.GONE else View.VISIBLE } catch (_: Exception) {}
+                try { ivToggleYour?.visibility = if (myEmpty) View.GONE else View.VISIBLE } catch (_: Exception) {}
+                try { rvYourCommunities?.visibility = if (myEmpty) View.GONE else View.VISIBLE } catch (_: Exception) {}
 
-                try { tvJoinedCommunitiesHeader?.visibility = if (isJoinedCommunitiesEmpty) View.GONE else View.VISIBLE } catch (_: Exception) {}
-                try { ivToggleJoined?.visibility = if (isJoinedCommunitiesEmpty) View.GONE else View.VISIBLE } catch (_: Exception) {}
-                try { rvJoinedCommunities?.visibility = if (isJoinedCommunitiesEmpty) View.GONE else View.VISIBLE } catch (_: Exception) {}
+                try { tvJoinedCommunitiesHeader?.visibility = if (joinedEmpty) View.GONE else View.VISIBLE } catch (_: Exception) {}
+                try { ivToggleJoined?.visibility = if (joinedEmpty) View.GONE else View.VISIBLE } catch (_: Exception) {}
+                try { rvJoinedCommunities?.visibility = if (joinedEmpty) View.GONE else View.VISIBLE } catch (_: Exception) {}
 
-                try { tvLocalGroupsHeader?.visibility = if (isLocalGroupsEmpty) View.GONE else View.VISIBLE } catch (_: Exception) {}
-                try { rvLocalGroups?.visibility = if (isLocalGroupsEmpty) View.GONE else View.VISIBLE } catch (_: Exception) {}
+                try { tvLocalGroupsHeader?.visibility = if (localEmpty) View.GONE else View.VISIBLE } catch (_: Exception) {}
+                try { rvLocalGroups?.visibility = if (localEmpty) View.GONE else View.VISIBLE } catch (_: Exception) {}
 
                 // Debounce the actual illustration visibility change to avoid quick show/hide flicker
-                // If the desired state equals current, cancel any pending runnable and do nothing.
                 if (showIllustration == isIllustrationVisible) {
-                    // nothing to do; cancel pending
                     illustrationPendingRunnable?.let { rootView.removeCallbacks(it) }
                     illustrationPendingRunnable = null
                     return
                 }
 
-                // Cancel previous pending runnable
                 illustrationPendingRunnable?.let { rootView.removeCallbacks(it) }
-
                 val runnable = Runnable {
                     try {
+                        val illustrationView = rootView.findViewById<View>(R.id.illustration)
                         if (showIllustration) {
-                            emptyIllustrationContainer?.apply {
-                                alpha = 0f
-                                visibility = View.VISIBLE
-                                bringToFront()
-                                animate().alpha(1f).setDuration(180).start()
-                            }
+                            illustrationView?.apply { alpha = 0f; visibility = View.VISIBLE; bringToFront(); try { animate().alpha(1f).setDuration(180).start() } catch (_: Exception) { alpha = 1f } }
                         } else {
-                            emptyIllustrationContainer?.apply {
-                                animate().alpha(0f).setDuration(180).withEndAction {
-                                    try { visibility = View.GONE } catch (_: Exception) {}
-                                }.start()
-                            }
+                            illustrationView?.apply { try { animate().alpha(0f).setDuration(180).withEndAction { visibility = View.GONE }.start() } catch (_: Exception) { alpha = 0f; visibility = View.GONE } }
                         }
                         isIllustrationVisible = showIllustration
-                    } catch (_: Exception) {
-                    }
+                    } catch (_: Exception) {}
                     illustrationPendingRunnable = null
                 }
-
                 illustrationPendingRunnable = runnable
-                // Post with a small delay to avoid flicker when data toggles quickly
                 rootView.postDelayed(runnable, illustrationDelayMillis)
             } catch (_: Exception) {}
         }
 
-        // Ensure initial illustration visibility reflects current (initially-empty) adapters quickly
-        updateIllustrationVisibility()
         // For "My communities" we don't want to display the admin/owner badge — pass false
-        val yourAdapter = YourCommunityAdapter(showRoleBadge = false) { item ->
-            runCatching { navigateWithDelay(R.id.action_dashboardFragment_to_communityDetailFragment, Bundle().apply { putString("communityId", item.communityId) }) }
-        }
-        // For Joined communities keep the role badge visible
-        val joinedAdapter = YourCommunityAdapter { item ->
-            runCatching { navigateWithDelay(R.id.action_dashboardFragment_to_communityDetailFragment, Bundle().apply { putString("communityId", item.communityId) }) }
-        }
+        this.yourAdapter = YourCommunityAdapter(showRoleBadge = false) { item ->
+             runCatching { navigateWithDelay(R.id.action_dashboardFragment_to_communityDetailFragment, Bundle().apply { putString("communityId", item.communityId) }) }
+         }
+         // For Joined communities keep the role badge visible
+        this.joinedAdapter = YourCommunityAdapter { item ->
+             runCatching { navigateWithDelay(R.id.action_dashboardFragment_to_communityDetailFragment, Bundle().apply { putString("communityId", item.communityId) }) }
+         }
         rvYourCommunities?.layoutManager = LinearLayoutManager(requireContext())
-        rvYourCommunities?.adapter = yourAdapter
+        rvYourCommunities?.adapter = this.yourAdapter
         rvJoinedCommunities?.layoutManager = LinearLayoutManager(requireContext())
-        rvJoinedCommunities?.adapter = joinedAdapter
+        rvJoinedCommunities?.adapter = this.joinedAdapter
         // Setup local groups RecyclerView and adapter (DB-backed list shown on fast-path)
         rvLocalGroups = view.findViewById(R.id.rv_local_groups_dashboard)
         // Find the local groups header text view (id used in layouts is tv_local_groups)
         tvLocalGroupsHeader = view.findViewById(R.id.tv_local_groups)
-        val localGroupsAdapter = CommunityListAdapter({ item ->
+        this.localGroupsAdapter = CommunityListAdapter({ item ->
             // Navigate to community detail (reuse community detail action). If you have a specific
             // local-group detail screen, replace this action id.
             // Use the dedicated local group detail destination so the app calls LocalGroup APIs
@@ -372,7 +353,7 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
             }
         })
         rvLocalGroups?.layoutManager = LinearLayoutManager(requireContext())
-        rvLocalGroups?.adapter = localGroupsAdapter
+        rvLocalGroups?.adapter = this.localGroupsAdapter
 
         // Helper to apply a list of LocalGroup entities to the local groups adapter
         fun applyLocalGroupsToUi(list: List<com.example.myapplication.data.groups.model.LocalGroup>, currentEmail: String?) {
@@ -391,7 +372,7 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
                         isAdmin = false
                     )
                 }
-                try { localGroupsAdapter.submitList(uiList) } catch (_: Exception) {}
+                try { this.localGroupsAdapter.submitList(uiList) } catch (_: Exception) {}
                 // update emptiness tracker used for illustration and header visibility
                 isLocalGroupsEmpty = uiList.isEmpty()
                 try {
@@ -457,18 +438,19 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
                      if (existing == null) normalized[key] = c
                      else {
                         fun score(itm: CommunityModel): Int {
-                            var s = 0
-                            val role = itm.role?.trim()?.uppercase()
-                            if (role != null && adminRoleKeywords.any { k -> role.contains(k) }) s += 4
-                            if (itm.isOwner) s += 3
-                            if (itm.isModerator) s += 2
-                            if (itm.isMember) s += 1
-                            return s
-                        }
+                             var s = 0
+                             val role = itm.role?.trim()?.uppercase()
+                             if (role != null && adminRoleKeywords.any { k -> role.contains(k) }) s += 4
+                             if (itm.isOwner) s += 3
+                             if (itm.isModerator) s += 2
+                             if (itm.isMember) s += 1
+                             return s
+                         }
+                        // choose the entry with the higher score (prefer admin/owner entries)
                         val keep = if (score(c) > score(existing)) c else existing
                         normalized[key] = keep
-                     }
-                }
+                      }
+                 }
 
                 // Convert back to sorted list for RecyclerView (owner/moderator first, sorted by name)
                 val sorted = normalized.values.sortedWith(compareByDescending<CommunityModel> { it.isOwner || it.isModerator }.thenBy { it.name })
@@ -563,7 +545,6 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
 
         }
 
-        // Load initial data on view created
         // DB-only loader for local groups (fast, used on navigation/ restart).
         fun loadLocalGroupsFromDb() {
             viewLifecycleOwner.lifecycleScope.launch {
@@ -618,68 +599,52 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
                 }
             }
         }
-
-        // Load initial data (fast-path aware) when view is created.
-        // Keep illustration hidden until loading finishes.
-        try { isLoadingData = true; updateIllustrationVisibility() } catch (_: Exception) {}
-        // If this is the very first time the dashboard is shown in this session (initialDataLoaded==false),
-        // run the normal maybeLoadInitialData() which may perform a remote authoritative refresh.
-        // Otherwise (navigating back to dashboard) avoid any remote refresh — perform a fast DB-only load
-        // so UI is populated from local DB without hitting network.
-        if (!initialDataLoaded) {
-            maybeLoadInitialData()
+        if (savedInstanceState == null) {
+            try { isLoadingData = true; updateIllustrationVisibility() } catch (_: Exception) {}
+            if (!initialDataLoaded) {
+                maybeLoadInitialData()
+            } else {
+                // Fast DB-only load (no network). This ensures UI populates quickly without refreshing remote data.
+                viewLifecycleOwner.lifecycleScope.launch {
+                    try {
+                        try { isLoadingData = true; updateIllustrationVisibility() } catch (_: Exception) {}
+                        val repo = CommunityRepository.getInstance(requireContext())
+                        val email = try { UserDataManager.getInstance(requireContext()).getEmail() } catch (_: Exception) { null }
+                        val dbList = try { withContext(Dispatchers.IO) { repo.observeMyCommunities().first() } } catch (_: Throwable) { emptyList<CommunityModel>() }
+                        val allList = try { withContext(Dispatchers.IO) { repo.observeAllCommunities().first() } } catch (_: Throwable) { emptyList<CommunityModel>() }
+                        val sourceList = if (dbList.isEmpty() && allList.isNotEmpty()) allList else dbList
+                        applyCommunitiesToUi(sourceList, email)
+                        try { loadLocalGroupsFromDb() } catch (_: Exception) {}
+                    } catch (_: Exception) {
+                        // If DB read fails, we still don't want to force a remote refresh here — skip.
+                    } finally {
+                        try { isLoadingData = false; updateIllustrationVisibility() } catch (_: Exception) {}
+                    }
+                }
+            }
         } else {
-            // Fast DB-only load (no network). This ensures UI populates quickly without refreshing remote data.
-            viewLifecycleOwner.lifecycleScope.launch {
-                try {
-                    try { isLoadingData = true; updateIllustrationVisibility() } catch (_: Exception) {}
-                    val repo = CommunityRepository.getInstance(requireContext())
-                    val email = try { UserDataManager.getInstance(requireContext()).getEmail() } catch (_: Exception) { null }
-                    val dbList = try { withContext(Dispatchers.IO) { repo.observeMyCommunities().first() } } catch (_: Throwable) { emptyList<CommunityModel>() }
-                    val allList = try { withContext(Dispatchers.IO) { repo.observeAllCommunities().first() } } catch (_: Throwable) { emptyList<CommunityModel>() }
-                    val sourceList = if (dbList.isEmpty() && allList.isNotEmpty()) allList else dbList
-                    applyCommunitiesToUi(sourceList, email)
-                    try { loadLocalGroupsFromDb() } catch (_: Exception) {}
-                } catch (_: Exception) {
-                    // If DB read fails, we still don't want to force a remote refresh here — skip.
-                } finally {
-                    try { isLoadingData = false; updateIllustrationVisibility() } catch (_: Exception) {}
-                }
-            }
+            // Navigated back via bottom navigation or fragment recreation — do not refresh communities/groups.
+            Log.d(TAG, "Skipping community/group refresh on fragment recreate (savedInstanceState != null)")
         }
 
-        // Initial load (remote): fetch local groups from API and apply (used by swipe refresh or authoritative refresh)
-        fun loadAndApplyLocalGroups() {
-            viewLifecycleOwner.lifecycleScope.launch {
-                try {
-                    try { isLoadingData = true; updateIllustrationVisibility() } catch (_: Exception) {}
-                    val repo = LocalGroupRepository.getInstance(requireContext())
-                    val res = try { withContext(Dispatchers.IO) { repo.getAllLocalGroups() } } catch (t: Throwable) { Result.failure<List<com.example.myapplication.data.groups.model.DataX>>(t) }
-                    val groups = res.getOrNull() ?: emptyList()
-                    // local groups fetched: size=${groups.size}
-                    val currentEmail = try { UserDataManager.getInstance(requireContext()).getEmail() } catch (_: Exception) { null }
-                    applyLocalGroupsToUi(groups.map { d ->
-                        // Map DataX to LocalGroup model used above
-                        com.example.myapplication.data.groups.model.LocalGroup(
-                            groupId = d.id,
-                            name = d.name,
-                            description = d.description,
-                            imageUrl = d.imageUrl as? String,
-                            memberEmails = d.memberEmails,
-                            memberCount = d.totalMembers,
-                            createdByEmail = d.createdByEmail,
-                            chatRoomCode = d.chatRoomCode,
-                            createdAt = d.createdAt,
-                            updatedAt = d.updatedAt
-                        )
-                    }, currentEmail)
-                } catch (t: Throwable) {
-                    Log.w(TAG, "Failed loading local groups: ${t.message}")
-                } finally {
-                    try { isLoadingData = false; updateIllustrationVisibility() } catch (_: Exception) {}
+
+
+        // Observe navigation savedState for local_group_created flag to refresh list
+        try {
+            val nav = findNavController()
+            val entry = nav.getBackStackEntry(R.id.dashboardFragment)
+            // Observe requests/invite flow: when a join request is accepted elsewhere, refresh communities
+            entry.savedStateHandle.getLiveData<Boolean>("refresh_communities").observe(viewLifecycleOwner) { shouldRefresh ->
+                if (shouldRefresh == true) {
+                    try {
+                        // Trigger the authoritative reload logic (fast-path aware)
+                        maybeLoadInitialData()
+                    } catch (_: Exception) {}
+                    // Clear the flag to avoid repeated reloads
+                    entry.savedStateHandle["refresh_communities"] = false
                 }
             }
-        }
+        } catch (_: Exception) {}
 
         // Load initial data for local groups on view created: use DB fast-path (avoid network on navigation)
         loadLocalGroupsFromDb()
@@ -687,9 +652,43 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
         // Attach swipe refresh listener after functions are declared so local helpers are in-scope.
         swipe.setOnRefreshListener {
             viewLifecycleOwner.lifecycleScope.launch {
-                try { loadAndApplyInitialData() } catch (_: Exception) {}
-                try { loadAndApplyLocalGroups() } catch (_: Exception) {}
-                swipe.isRefreshing = false
+                try {
+                    swipe.isRefreshing = true
+                    Log.d(TAG, "Swipe refresh: refreshing communities, groups and notifications")
+
+                    val email = try { UserDataManager.getInstance(requireContext()).getEmail() } catch (_: Exception) { null }
+                    val commRepo = CommunityRepository.getInstance(requireContext())
+                    val groupRepo = LocalGroupRepository.getInstance(requireContext())
+
+                    // Fire both remote fetches concurrently on IO
+                    val commDeferred = viewLifecycleOwner.lifecycleScope.async(Dispatchers.IO) { commRepo.fetchMyCommunitiesRemote(email) }
+                    val groupDeferred = viewLifecycleOwner.lifecycleScope.async(Dispatchers.IO) { groupRepo.getAllLocalGroups() }
+
+                    try { commDeferred.await() } catch (t: Throwable) { Log.w(TAG, "Swipe refresh: community fetch failed: ${t.message}") }
+                    try { groupDeferred.await() } catch (t: Throwable) { Log.w(TAG, "Swipe refresh: group fetch failed: ${t.message}") }
+
+                    // After remote refresh completes, read DB snapshots and apply to UI
+                    try {
+                        val dbList = withContext(Dispatchers.IO) { commRepo.observeMyCommunities().first() }
+                        val allList = withContext(Dispatchers.IO) { commRepo.observeAllCommunities().first() }
+                        val sourceList = if (dbList.isEmpty() && allList.isNotEmpty()) allList else dbList
+                        applyCommunitiesToUi(sourceList, email)
+                    } catch (t: Throwable) {
+                        Log.w(TAG, "Swipe refresh: failed to read community DB snapshot: ${t.message}")
+                    }
+
+                    // Reload local groups from DB (fast-path)
+                    try { loadLocalGroupsFromDb() } catch (t: Throwable) { Log.w(TAG, "Swipe refresh: failed to reload local groups: ${t.message}") }
+
+                    // Refresh badge counts (friend + join requests)
+                    try { updateBadge() } catch (_: Exception) {}
+
+                } catch (t: Throwable) {
+                    Log.w(TAG, "Swipe refresh: failed: ${t.message}")
+                    try { com.google.android.material.snackbar.Snackbar.make(rootView, "Refresh failed", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT).show() } catch (_: Exception) {}
+                } finally {
+                    try { swipe.isRefreshing = false } catch (_: Exception) {}
+                }
             }
         }
         // (local groups refresh handled above)
@@ -721,4 +720,34 @@ class DashboardFragment : BaseFragment(R.layout.fragment_dashboard) {
     }
 
     // NOTE: Fragment does not override onBackPressed; BaseFragment may handle back presses.
+
+    // Private helper to update notification badge (friend requests + pending join requests)
+    private fun updateBadge() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val tvBadge = view?.findViewById<TextView>(R.id.tv_notification_badge)
+            try {
+                Log.d(TAG, "updateBadge: starting")
+                // friend requests
+                val friendRepo = com.example.myapplication.data.friends.repository.FriendsRepository.getInstance(requireContext())
+                val friendRes = friendRepo.getIncomingRequests()
+                val friendCount = friendRes.getOrNull()?.size ?: 0
+
+                // local community join requests (pending join requests)
+                val commRepo = CommunityRepository.getInstance(requireContext())
+                val joinRes = commRepo.getMyPendingRequests()
+                val joinCount = joinRes.getOrNull()?.size ?: 0
+
+                val total = friendCount + joinCount
+                Log.d(TAG, "updateBadge: friend=$friendCount join=$joinCount total=$total")
+                if (total > 0) {
+                    tvBadge?.text = if (total > 99) "99+" else total.toString()
+                    tvBadge?.visibility = View.VISIBLE
+                } else {
+                    tvBadge?.visibility = View.GONE
+                }
+            } catch (_: Exception) {
+                try { tvBadge?.visibility = View.GONE } catch (_: Exception) {}
+            }
+        }
+    }
 }

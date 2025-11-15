@@ -29,4 +29,20 @@ object ResponseParser {
             "Request failed."
         }
     }
+
+    // Convenience overload: parse error from raw string (avoids creating ResponseBody)
+    fun parseError(raw: String?): String {
+        if (raw.isNullOrBlank()) return "Request failed."
+        return try {
+            val json = JSONObject(raw)
+            when {
+                json.has("message") -> json.optString("message")
+                json.has("error") -> json.optString("error")
+                json.has("errors") -> json.optString("errors")
+                else -> raw
+            }
+        } catch (_: Exception) {
+            raw
+        }
+    }
 }
