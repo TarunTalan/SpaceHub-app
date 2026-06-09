@@ -28,6 +28,21 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import android.widget.Toast
+import android.net.Uri
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import java.io.File
+import java.io.FileOutputStream
+import com.example.myapplication.data.network.NetworkModule
+import androidx.appcompat.app.AlertDialog
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 class DirectChatFragment: Fragment(R.layout.fragment_direct_chat) {
 
@@ -45,6 +60,8 @@ class DirectChatFragment: Fragment(R.layout.fragment_direct_chat) {
         val count = messagesAdapter.getSelectedIds().size
         view?.findViewById<TextView>(R.id.selection_count)?.text = getString(R.string.selected_count, count)
     }
+
+    private lateinit var filePickerLauncher: ActivityResultLauncher<String>
 
     @Suppress("DEPRECATION")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -122,6 +139,22 @@ class DirectChatFragment: Fragment(R.layout.fragment_direct_chat) {
             finishSelection()
         }
 
+        // Register file picker launcher
+        filePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            uri ?: return@registerForActivityResult
+            lifecycleScope.launch {
+                uploadAndSendWithRetry(uri)
+            }
+        }
+
+        // Hook add button to picker
+        view.findViewById<View>(R.id.iv_add)?.setOnClickListener {
+            try {
+                filePickerLauncher.launch("*/*")
+            } catch (_: Exception) {
+            }
+        }
+
         // Use WindowInsets to move the chat bar up with keyboard and ensure the message list is padded
         val originalRootPaddingBottom = view.paddingBottom
         val originalRvBottom = rvMessages?.paddingBottom ?: 0
@@ -157,7 +190,8 @@ class DirectChatFragment: Fragment(R.layout.fragment_direct_chat) {
                     try {
                         val lastIndex = messagesAdapter.itemCount - 1
                         if (lastIndex >= 0) rvMessages.smoothScrollToPosition(lastIndex)
-                    } catch (_: Exception) { }
+                    } catch (_: Exception) {
+                    }
                 }
             }
 
@@ -222,7 +256,8 @@ class DirectChatFragment: Fragment(R.layout.fragment_direct_chat) {
                     try {
                         val lastIndex = messagesAdapter.itemCount - 1
                         if (lastIndex >= 0) rvMessages.smoothScrollToPosition(lastIndex)
-                    } catch (_: Exception) { }
+                    } catch (_: Exception) {
+                    }
                 }
             }
             // If after update there are no selected ids, ensure action mode closed and restore title
@@ -252,6 +287,7 @@ class DirectChatFragment: Fragment(R.layout.fragment_direct_chat) {
                     }
                 }
             }
+
             override fun afterTextChanged(s: Editable?) {}
         })
 
@@ -262,19 +298,26 @@ class DirectChatFragment: Fragment(R.layout.fragment_direct_chat) {
                     MotionEvent.ACTION_DOWN -> {
                         try {
                             etMessage?.requestFocus()
-                            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                            val imm =
+                                requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                             // Show keyboard for the EditText; use SHOW_IMPLICIT to avoid toggling
                             imm.showSoftInput(etMessage, InputMethodManager.SHOW_IMPLICIT)
-                        } catch (_: Exception) {}
+                        } catch (_: Exception) {
+                        }
                     }
+
                     MotionEvent.ACTION_UP -> {
-                        try { v?.performClick() } catch (_: Exception) {}
+                        try {
+                            v?.performClick()
+                        } catch (_: Exception) {
+                        }
                     }
                 }
                 // Return false so child views (buttons etc.) still receive touch events
                 false
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
 
         // Mark messages as read when visible
         chatViewModel.markAsRead()
@@ -313,5 +356,170 @@ class DirectChatFragment: Fragment(R.layout.fragment_direct_chat) {
         view?.findViewById<View>(R.id.selection_toolbar)?.visibility = View.GONE
         view?.findViewById<View>(R.id.constraintLayoutTitle)?.visibility = View.VISIBLE
         updateSelectionTitle()
+    }
+
+    private var uploadJob: Job? = null
+    private val MAX_FILE_BYTES = 100L * 1024L * 1024L // 100 MB
+    private val allowedMimePrefixes = listOf("image/", "video/", "audio/", "text/")
+    private val allowedExtensions = listOf("pdf", "zip", "doc", "docx", "xls", "xlsx", "ppt", "pptx")
+
+    private suspend fun askRetryDialog(): Boolean = suspendCancellableCoroutine { cont ->
+        try {
+            val dlg = AlertDialog.Builder(requireContext())
+                .setTitle("Upload failed")
+                .setMessage("File upload failed. Retry?")
+                .setPositiveButton("Retry") { d, _ ->
+                    cont.resume(true)
+                    try {
+                        d.dismiss()
+                    } catch (_: Exception) {
+                    }
+                }
+                .setNegativeButton("Cancel") { d, _ ->
+                    cont.resume(false)
+                    try {
+                        d.dismiss()
+                    } catch (_: Exception) {
+                    }
+                }
+                .setOnCancelListener { cont.resume(false) }
+                .create()
+            dlg.show()
+            cont.invokeOnCancellation {
+                try {
+                    dlg.dismiss()
+                } catch (_: Exception) {
+                }
+            }
+        } catch (e: Exception) {
+            cont.resumeWithException(e)
+        }
+    }
+
+    private fun showProgressCancelable(onCancel: () -> Unit): AlertDialog {
+        val dlg = AlertDialog.Builder(requireContext())
+            .setTitle("Uploading")
+            .setMessage("Uploading file...")
+            .setNegativeButton("Cancel") { d, _ ->
+                onCancel(); try {
+                d.dismiss()
+            } catch (_: Exception) {
+            }
+            }
+            .setCancelable(false)
+            .create()
+        dlg.show()
+        return dlg
+    }
+
+    private fun getFileSize(uri: Uri): Long {
+        return try {
+            val afd = requireContext().contentResolver.openFileDescriptor(uri, "r")
+            afd?.use { it.statSize } ?: -1L
+        } catch (_: Exception) {
+            -1L
+        }
+    }
+
+    private fun isMimeAllowed(uri: Uri): Boolean {
+        return try {
+            val cr = requireContext().contentResolver
+            val mime = cr.getType(uri) ?: ""
+            if (mime.isBlank()) return false
+            allowedMimePrefixes.any { mime.startsWith(it) } || run {
+                val path = uri.lastPathSegment ?: ""
+                val ext = path.substringAfterLast('.', "").lowercase()
+                allowedExtensions.contains(ext)
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private suspend fun uploadAndSendWithRetry(uri: Uri) {
+        // Size/type checks
+        val size = getFileSize(uri)
+        if (size > 0 && size > MAX_FILE_BYTES) {
+            Toast.makeText(requireContext(), "File too large (>100 MB)", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (!isMimeAllowed(uri)) {
+            Toast.makeText(requireContext(), "Unsupported file type", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        while (true) {
+            val progressDlg = showProgressCancelable {
+                uploadJob?.cancel()
+            }
+            var success: Boolean
+            try {
+                uploadJob = lifecycleScope.launch {
+                    val api = NetworkModule.createApiService(requireContext())
+                    val part = createFilePartFromUri(uri)
+                    if (part == null) throw java.lang.Exception("Failed to prepare file")
+                    val resp = withContext(Dispatchers.IO) { api.uploadFileAndGetUrl(part) }
+                    if (!resp.isSuccessful) throw java.lang.Exception("Upload failed: ${resp.code()}")
+                    val body = resp.body()
+                    val data = body?.data
+                    val fileUrl = data?.fileUrl
+                    val fileKey = data?.fileKey
+                    val fileNameResp = data?.fileName
+                    val contentTypeResp = data?.contentType
+                    if (fileUrl.isNullOrBlank() || fileKey.isNullOrBlank()) throw java.lang.Exception("Invalid upload response")
+                    // Build FILE payload using fileKey, fileName and contentType from upload response
+                    val payload = mapOf(
+                        "type" to "FILE",
+                        "fileKey" to fileKey,
+                        "fileName" to (fileNameResp ?: fileKey),
+                        "fileUrl" to fileUrl,
+                        "contentType" to (contentTypeResp ?: "application/octet-stream")
+                    )
+                    val jsonPayload = com.google.gson.Gson().toJson(payload)
+                    withContext(Dispatchers.Main) { chatViewModel.sendMessage(jsonPayload) }
+                }
+                uploadJob?.join()
+                success = true
+            } catch (_: java.util.concurrent.CancellationException) {
+                // cancelled by user
+                Toast.makeText(requireContext(), "Upload cancelled", Toast.LENGTH_SHORT).show()
+                success = false
+            } catch (t: Throwable) {
+                android.util.Log.w("DirectChatFragment", "upload failed: ${t.message}")
+                success = false
+            } finally {
+                try {
+                    progressDlg.dismiss()
+                } catch (_: Exception) {
+                }
+                uploadJob = null
+            }
+
+            if (success) return
+            // ask retry
+            val retry = askRetryDialog()
+            if (!retry) return
+            // else loop to retry
+        }
+    }
+
+    private fun createFilePartFromUri(uri: Uri): MultipartBody.Part? {
+        return try {
+            val cr = requireContext().contentResolver
+            val mime = cr.getType(uri) ?: "application/octet-stream"
+            val fileName = uri.lastPathSegment ?: "upload"
+
+            // Copy to cache
+            val tmp = File.createTempFile("upload", null, requireContext().cacheDir)
+            tmp.deleteOnExit()
+            cr.openInputStream(uri)?.use { input ->
+                FileOutputStream(tmp).use { output -> input.copyTo(output) }
+            }
+
+            val req = tmp.asRequestBody(mime.toMediaTypeOrNull())
+            MultipartBody.Part.createFormData("file", fileName, req)
+        } catch (e: Exception) {
+            null
+        }
     }
 }

@@ -256,6 +256,16 @@ class ChatWebSocket(private val baseUrl: String, private val authToken: String? 
                                                             else -> extractStringFromJson(m.toString(), listOf("receiverEmail", "recipientId", "to")) ?: ""
                                                         }
                                                         val content = when {
+                                                            // If server marked this item as a FILE payload prefer the fileName as displayed content
+                                                            (m.has("type") && try { m.get("type").asString.equals("FILE", ignoreCase = true) } catch (_: Exception) { false }) ->
+                                                                when {
+                                                                    m.has("fileName") -> m.get("fileName").asString
+                                                                    m.has("file_url") -> try { m.get("file_url").asString } catch (_: Exception) { m.get("fileUrl").asString }
+                                                                    m.has("fileUrl") -> m.get("fileUrl").asString
+                                                                    else -> extractStringFromJson(m.toString(), listOf("fileName", "file.name", "data.fileName"), /*allowAnyString=*/ false) ?: extractStringFromJson(m.toString(), listOf("content", "message", "text"), /*allowAnyString=*/ false) ?: ""
+                                                                }
+                                                            // Some servers may not include explicit type but include fileName keys; prefer them too
+                                                            m.has("fileName") -> m.get("fileName").asString
                                                             m.has("content") -> if (m.get("content").isJsonPrimitive) m.get("content").asString else m.get("content").toString()
                                                             m.has("message") -> m.get("message").asString
                                                             else -> extractStringFromJson(m.toString(), listOf("content", "message", "text")) ?: ""
@@ -324,17 +334,28 @@ class ChatWebSocket(private val baseUrl: String, private val authToken: String? 
                             var recipientId = wsMsg.recipientId ?: wsMsg.receiverEmail ?: ""
                             // prefer explicit 'content' then fallback to 'message' key
                             var content = wsMsg.content ?: wsMsg.message ?: ""
-                            // If content is blank, try common alternative keys in the raw JSON
-                            val candidateContentKeys = listOf("content", "message", "text", "body", "data.content", "data.message", "payload.text")
-                            if (content.isBlank()) {
-                                content = extractStringFromJson(text, candidateContentKeys, /*allowAnyString=*/ false) ?: ""
+                            // If this WS message is of type FILE prefer the fileName from the raw JSON
+                            val candidateContentKeys = listOf("content", "message", "text", "body", "data.content", "data.message", "payload.text", "fileName", "data.fileName")
+                            if (wsMsg.type?.equals("FILE", ignoreCase = true) == true) {
+                                val fname = extractStringFromJson(text, listOf("fileName", "data.fileName", "data.file_name"), /*allowAnyString=*/ false)
+                                if (!fname.isNullOrBlank()) {
+                                    content = fname
+                                } else {
+                                    // fallback to any content summary
+                                    content = extractDataSummary(text) ?: "[file]"
+                                }
+                            } else {
+                                // If content is blank, try common alternative keys in the raw JSON
                                 if (content.isBlank()) {
-                                    if (wsMsg.type?.equals("MESSAGE", ignoreCase = true) == true) {
-                                        // don't fill with full JSON; leave blank so UI can match optimistic text
-                                        content = wsMsg.message ?: ""
-                                    } else {
-                                        // Non-message types: produce a short summary for display
-                                        content = extractDataSummary(text) ?: "[non-text message]"
+                                    content = extractStringFromJson(text, candidateContentKeys, /*allowAnyString=*/ false) ?: ""
+                                    if (content.isBlank()) {
+                                        if (wsMsg.type?.equals("MESSAGE", ignoreCase = true) == true) {
+                                            // don't fill with full JSON; leave blank so UI can match optimistic text
+                                            content = wsMsg.message ?: ""
+                                        } else {
+                                            // Non-message types: produce a short summary for display
+                                            content = extractDataSummary(text) ?: "[non-text message]"
+                                        }
                                     }
                                 }
                             }
@@ -447,6 +468,35 @@ class ChatWebSocket(private val baseUrl: String, private val authToken: String? 
             val conv = msg.conversationId.takeIf { !it.isNullOrBlank() } ?: currentRoomCode
             // For chat-room payloads we use "message" key for the textual body so server
             // receives {"type":"MESSAGE","message":"hello", ...}
+            // If the message content itself is a JSON with top-level type FILE, send it as-is (but enrich with ids)
+            try {
+                val trimmed = contentStr.trim()
+                if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+                    val parsed = try { JsonParser.parseString(trimmed) } catch (_: Exception) { null }
+                    if (parsed != null && parsed.isJsonObject) {
+                        val obj = parsed.asJsonObject
+                        val topType = try { if (obj.has("type")) obj.get("type").asString else null } catch (_: Exception) { null }
+                        if (!topType.isNullOrBlank() && topType.equals("FILE", ignoreCase = true)) {
+                            // Enrich object with ids if missing
+                            try {
+                                if (!obj.has("messageId")) obj.addProperty("messageId", msg.id)
+                            } catch (_: Exception) {}
+                            try {
+                                if (!obj.has("tempId")) obj.addProperty("tempId", msg.id)
+                            } catch (_: Exception) {}
+                            try {
+                                if (!obj.has("conversationId") && !conv.isNullOrBlank()) obj.addProperty("conversationId", conv)
+                            } catch (_: Exception) {}
+
+                            val json = gson.toJson(obj)
+                            val sent = wsLocal.send(json)
+                            Log.d("ChatWebSocket", "Sent FILE payload (tempId=${msg.id}) sent=$sent json=$json")
+                            return
+                        }
+                    }
+                }
+            } catch (_: Exception) { /* fallback to normal message */ }
+
             val outgoingMap = mutableMapOf<String, Any?>(
                 "type" to "MESSAGE",
                 "message" to contentStr,
@@ -459,11 +509,11 @@ class ChatWebSocket(private val baseUrl: String, private val authToken: String? 
             val json = gson.toJson(outgoingMap)
             val sent = wsLocal.send(json)
             Log.d("ChatWebSocket", "Sent outgoing chat-room message (tempId=${msg.id}) sent=$sent json=$json")
-        } catch (t: Throwable) {
-            Log.e("ChatWebSocket", "sendMessageImmediate error: ${t.message}", t)
-            // on failure, re-queue so it can be retried later
-            synchronized(queueLock) { outgoingQueue.add(msg) }
-        }
+         } catch (t: Throwable) {
+             Log.e("ChatWebSocket", "sendMessageImmediate error: ${t.message}", t)
+             // on failure, re-queue so it can be retried later
+             synchronized(queueLock) { outgoingQueue.add(msg) }
+         }
     }
 
     private fun scheduleReconnectWithBackoff() {
