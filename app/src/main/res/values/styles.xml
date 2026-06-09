@@ -1,35 +1,159 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Compatibility aliases for older style names some layouts/themes expect -->
+    <!-- Avoid resource cycle by inheriting from a concrete body text appearance -->
+    <style name="TextAppearance.App" parent="TextAppearance.App.Body1" />
+    <style name="Widget.App" parent="Widget.App.EditText" />
+
+    <!-- ========================================== -->
+    <!-- TEXT APPEARANCES -->
+    <!-- ========================================== -->
+
+    <!-- Error Text -->
     <style name="ErrorTextAppearance" parent="TextAppearance.Design.Error">
-        <item name="android:textColor">#F44336</item>
-        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/error_text</item>
+        <item name="android:textSize">@dimen/error_text_size</item>
         <item name="android:gravity">start</item>
         <item name="android:fontFamily">@font/app_font</item>
     </style>
 
-    <!-- Unified style for all input fields -->
+    <!-- Text Styles -->
+    <style name="TextAppearance.App.Title">
+        <item name="android:textSize">@dimen/title_text_size</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:fontFamily">@font/roboto_medium</item>
+    </style>
+
+    <style name="TextAppearance.App.Subtitle">
+        <item name="android:textSize">@dimen/subtitle_text_size</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:fontFamily">@font/roboto_regular</item>
+    </style>
+
+    <style name="TextAppearance.App.Label">
+        <item name="android:textSize">@dimen/label_text_size</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:fontFamily">@font/roboto_medium</item>
+        <item name="android:paddingBottom">@dimen/label_padding_bottom</item>
+    </style>
+
+    <style name="TextAppearance.App.Body">
+        <item name="android:textSize">@dimen/text_size_body</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:fontFamily">@font/roboto_regular</item>
+    </style>
+
+    <!-- ========================================== -->
+    <!-- INPUT FIELDS -->
+    <!-- ========================================== -->
+
+    <!-- Base Input EditText style -->
     <style name="AppInputEditText">
-        <item name="android:textSize">15sp</item>
-        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textSize">@dimen/input_text_size</item>
+        <item name="android:textColor">@color/text_primary</item>
         <item name="android:textColorHint">@color/hint_color</item>
         <item name="android:fontFamily">@font/app_font</item>
         <item name="android:paddingStart">45dp</item>
         <item name="android:paddingEnd">45dp</item>
         <item name="android:paddingTop">0dp</item>
         <item name="android:paddingBottom">0dp</item>
+        <item name="android:includeFontPadding">false</item>
         <item name="android:gravity">center_vertical</item>
     </style>
 
-    <!-- Style for input fields without start icon -->
+    <!-- Input field without start icon -->
     <style name="AppInputEditText.NoStartIcon">
-        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingStart">@dimen/input_padding_horizontal</item>
     </style>
 
-    <!-- Bottom Navigation Label Styles -->
+    <!-- TextInputLayout Base Style -->
+    <style name="Widget.App.TextInputLayout" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="android:layout_height">@dimen/input_height</item>
+        <item name="android:maxWidth">@dimen/input_max_width</item>
+        <item name="boxBackgroundMode">outline</item>
+        <item name="boxCollapsedPaddingTop">@dimen/box_collapsed_padding_top</item>
+        <item name="boxCornerRadiusBottomEnd">@dimen/input_corner_radius</item>
+        <item name="boxCornerRadiusBottomStart">@dimen/input_corner_radius</item>
+        <item name="boxCornerRadiusTopEnd">@dimen/input_corner_radius</item>
+        <item name="boxCornerRadiusTopStart">@dimen/input_corner_radius</item>
+        <item name="boxStrokeColor">@color/outlined_box_stroke_color</item>
+        <item name="boxStrokeWidth">@dimen/box_stroke_width</item>
+        <item name="boxStrokeWidthFocused">@dimen/box_stroke_width</item>
+        <item name="endIconTint">@color/gray_medium</item>
+        <item name="startIconTint">@color/gray_medium</item>
+        <item name="errorEnabled">false</item>
+        <item name="helperTextEnabled">false</item>
+        <item name="hintEnabled">false</item>
+        <item name="hintTextColor">@color/hint_color</item>
+    </style>
+
+    <!-- Plain EditText Style -->
+    <style name="Widget.App.EditText">
+        <item name="android:layout_height">@dimen/input_height</item>
+        <item name="android:maxWidth">@dimen/input_max_width</item>
+        <item name="android:background">@drawable/edit_text_outline_selector</item>
+        <item name="android:fontFamily">@font/roboto_regular</item>
+        <item name="android:paddingStart">@dimen/input_padding_start</item>
+        <item name="android:paddingEnd">@dimen/input_padding_start</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textColorHint">@color/hint_color</item>
+        <item name="android:textSize">@dimen/input_text_size</item>
+    </style>
+
+    <!-- ========================================== -->
+    <!-- BUTTONS -->
+    <!-- ========================================== -->
+
+    <!-- Primary Button -->
+    <style name="Widget.App.Button.Primary" parent="Widget.MaterialComponents.Button">
+        <item name="android:layout_height">@dimen/button_height</item>
+        <item name="android:background">@drawable/rounded_button_bg_blue</item>
+        <item name="android:fontFamily">@font/roboto_regular</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">@dimen/button_text_size</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="backgroundTint">@null</item>
+    </style>
+
+    <!-- Secondary Button (Gray) -->
+    <style name="Widget.App.Button.Secondary" parent="Widget.MaterialComponents.Button">
+        <item name="android:layout_height">@dimen/button_height</item>
+        <item name="android:background">@drawable/rounded_button_bg_gray</item>
+        <item name="android:fontFamily">@font/roboto_regular</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">@dimen/button_text_size</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="backgroundTint">@null</item>
+    </style>
+
+    <!-- Outlined Button -->
+    <style name="Widget.App.Button.Outlined" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="android:layout_height">@dimen/button_height</item>
+        <item name="android:background">@drawable/rounded_button_bg_gray_outline</item>
+        <item name="android:fontFamily">@font/roboto_regular</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">@dimen/button_text_size</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="backgroundTint">@null</item>
+    </style>
+
+    <!-- Text Button (for links) -->
+    <style name="Widget.App.Button.Text" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:fontFamily">@font/roboto_regular</item>
+        <item name="android:textColor">@color/primary_blue</item>
+        <item name="android:textSize">@dimen/text_size_body</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:paddingTop">@dimen/spacing_small</item>
+        <item name="android:paddingBottom">@dimen/spacing_small</item>
+    </style>
+
+    <!-- ========================================== -->
+    <!-- BOTTOM NAVIGATION -->
+    <!-- ========================================== -->
+
     <style name="BottomNavLabel.Base" parent="@style/TextAppearance.AppCompat.Caption">
         <item name="android:textSize">11sp</item>
         <item name="android:includeFontPadding">false</item>
-        <item name="android:lineHeight">1sp</item>
     </style>
 
     <style name="BottomNavLabel.Active" parent="BottomNavLabel.Base">
@@ -40,10 +164,41 @@
         <item name="android:textColor">@color/white</item>
     </style>
 
-    <!-- Circle Shape for community avatar -->
+    <!-- ========================================== -->
+    <!-- SHAPES -->
+    <!-- ========================================== -->
+
+    <!-- Circle Shape for avatars -->
     <style name="ShapeAppearance.App.Circle" parent="ShapeAppearance.MaterialComponents.SmallComponent">
         <item name="cornerFamily">rounded</item>
-        <!-- use percentage corner so it becomes a perfect circle for any size -->
         <item name="cornerSize">50%</item>
+    </style>
+
+    <!-- Rounded corners -->
+    <style name="ShapeAppearance.App.RoundedCorner" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/card_corner_radius</item>
+    </style>
+
+    <!-- ========================================== -->
+    <!-- TOOLBAR -->
+    <!-- ========================================== -->
+
+    <style name="Widget.App.Toolbar">
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:paddingTop">@dimen/toolbar_padding_vertical</item>
+        <item name="android:paddingBottom">@dimen/toolbar_padding_vertical</item>
+        <item name="android:background">@color/surface</item>
+    </style>
+
+    <!-- ========================================== -->
+    <!-- CARDS -->
+    <!-- ========================================== -->
+
+    <style name="Widget.App.Card" parent="Widget.MaterialComponents.CardView">
+        <item name="cardCornerRadius">@dimen/card_corner_radius</item>
+        <item name="cardElevation">@dimen/elevation_low</item>
+        <item name="contentPadding">@dimen/card_padding</item>
+        <item name="cardBackgroundColor">@color/surface</item>
     </style>
 </resources>

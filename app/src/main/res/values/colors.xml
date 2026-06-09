@@ -1,21 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Base Colors -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="error_red">#ED2828</color>
+
+    <!-- Primary Colors -->
     <color name="primary_blue">#2563EB</color>
+    <color name="primary_dark">#1E40AF</color>
+
+    <!-- Gray Scale -->
+    <color name="gray_dark">#475569</color>
     <color name="gray_medium">#ADADAD</color>
     <color name="gray_light">#D3D3D3</color>
+    <color name="gray_subtle">#E3E6E9</color>
 
-    <!-- Selection background for message selection -->
-    <color name="selection_bg">#2A2F36</color>
+    <!-- Text Colors -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#C6CAD1</color>
+    <color name="text_tertiary">#BFBFBF</color>
 
-    <!-- Auth Screen Colors -->
+    <!-- Semantic Colors -->
+    <color name="error_red">#ED2828</color>
+    <color name="error_text">#F44336</color>
+    <color name="success_green">#10B981</color>
+
+    <!-- Background Colors -->
+    <color name="background_primary">#16151A</color>
+    <color name="background_secondary">#1D2532</color>
+    <color name="surface">#20262F</color>
+
+    <!-- Legacy/Specific Colors -->
     <color name="subtitle_gray">#C6CAD1</color>
     <color name="input_error">#F44336</color>
-
-
-    <!-- Dashboard Screen Colors -->
     <color name="dashboard_toolbar">#20262F</color>
     <color name="color_tab_focus">#008000</color>
     <color name="bnv_indicator">#FFFFFFFF</color>

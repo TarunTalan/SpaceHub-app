@@ -6,7 +6,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@drawable/background_gradient"
-        tools:context=".ui.dashboard.CreateGroupFragment">
+        tools:context=".ui.group.CreateGroupFragment">
 
     <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="0dp"
@@ -70,7 +70,7 @@
         <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/create_own_comm"
                 android:layout_width="0dp"
-                android:layout_height="42dp"
+                android:layout_height="@dimen/button_height_large"
                 android:background="@drawable/rounded_button_bg_gray"
                 android:fontFamily="@font/roboto_regular"
                 android:text="@string/create_my_own"
@@ -102,7 +102,7 @@
         <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/create_gaming_comm"
                 android:layout_width="0dp"
-                android:layout_height="42dp"
+                android:layout_height="@dimen/button_height_large"
                 android:background="@drawable/rounded_button_bg_gray"
                 android:fontFamily="@font/roboto_regular"
                 android:text="@string/gaming"
@@ -134,7 +134,7 @@
         <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/create_school_comm"
                 android:layout_width="0dp"
-                android:layout_height="42dp"
+                android:layout_height="@dimen/button_height_large"
                 android:background="@drawable/rounded_button_bg_gray"
                 android:fontFamily="@font/roboto_regular"
                 android:text="@string/school_club"
@@ -166,7 +166,7 @@
         <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/create_friends_comm"
                 android:layout_width="0dp"
-                android:layout_height="42dp"
+                android:layout_height="@dimen/button_height_large"
                 android:background="@drawable/rounded_button_bg_gray"
                 android:fontFamily="@font/roboto_regular"
                 android:text="@string/friends"
@@ -198,7 +198,7 @@
         <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/create_artists_comm"
                 android:layout_width="0dp"
-                android:layout_height="42dp"
+                android:layout_height="@dimen/button_height_large"
                 android:background="@drawable/rounded_button_bg_gray"
                 android:fontFamily="@font/roboto_regular"
                 android:text="@string/artist"
@@ -230,7 +230,7 @@
         <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/create_local_comm"
                 android:layout_width="0dp"
-                android:layout_height="42dp"
+                android:layout_height="@dimen/button_height_large"
                 android:background="@drawable/rounded_button_bg_gray"
                 android:fontFamily="@font/roboto_regular"
                 android:text="Local Group"
@@ -348,14 +348,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            app:layout_constraintGuide_percent="0.1" />
+            app:layout_constraintGuide_percent="0.04" />
 
     <androidx.constraintlayout.widget.Guideline
             android:id="@+id/guideline_end"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            app:layout_constraintGuide_percent="0.9" />
+            app:layout_constraintGuide_percent="0.96" />
 
     <androidx.constraintlayout.widget.Guideline
             android:layout_width="wrap_content"

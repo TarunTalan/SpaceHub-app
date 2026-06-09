@@ -4,7 +4,7 @@
     <string name="enter_your_password">Enter your password</string>
     <string name="not_have_any_account">Not have any account?</string>
     <string name="sign_up">Sign Up</string>
-    <string name="welcome_back_nplease_enter_your_details">Welcome back,\nPlease enter your details</string>
+    <string name="welcome_back_nplease_enter_your_details">Welcome back</string>
     <string name="enter_email">Enter Email</string>
     <string name="enter_password">Enter Password</string>
     <string name="password">Password</string>
@@ -27,7 +27,7 @@
     <string name="back_to_log_in">Back to Log In</string>
     <string name="back_to_login">Back to Login</string>
     <string name="new_password">New Password</string>
-    <string name="welcome_ncreate_your_new_password">Welcome\nCreate your new Password</string>
+    <string name="welcome_ncreate_your_new_password">Create your new Password</string>
     <string name="enter_otp">Enter OTP</string>
     <string name="welcome_nenter_the_sent_otp">Welcome\nEnter the sent OTP</string>
     <string name="verify_otp">Verify OTP</string>
@@ -58,7 +58,7 @@
     <string name="first_name">First Name</string>
     <string name="please_enter_the_otp_to_continue">Please enter the OTP to continue</string>
     <string name="reset_password">Reset Password</string>
-    <string name="welcome_ncreate_your_account">Welcome\nCreate your account</string>
+    <string name="welcome_ncreate_your_account">Welcome, Create your account</string>
     <string name="otp_timer_zero">00</string>
     <string name="signed_in">Signed in</string>
     <string name="otp_resent">OTP resent</string>
@@ -175,6 +175,11 @@
     <!-- Phone validation messages -->
     <string name="phone_required">Phone number is required</string>
     <string name="invalid_phone">Invalid phone number</string>
+
+    <!-- Phone UI strings -->
+    <string name="enter_phone_number">Enter Phone Number</string>
+    <string name="phone_prefix_in">+91</string>
+    <string name="enter_your_phone">Enter your phone number</string>
 
     <!-- Search / Tabs related strings (missing, added to fix resource linking) -->
     <string name="cd_back">Back</string>

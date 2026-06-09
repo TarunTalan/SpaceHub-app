@@ -74,36 +74,34 @@
 
         <!-- Action Buttons -->
         <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btn_accept"
-                android:layout_width="0dp"
-                android:layout_height="36dp"
-                android:text="Accept"
-                android:textColor="@android:color/white"
-                android:textSize="14sp"
-                android:fontFamily="@font/roboto_medium"
-                android:background="@drawable/rounded_button_bg"
-                android:textAllCaps="false"
-                android:layout_marginStart="10dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toEndOf="@id/btn_reject"
-                app:layout_constraintTop_toBottomOf="@id/tv_request_time"
-                android:layout_marginTop="12dp"
-        />
+            android:id="@+id/btn_accept"
+            android:layout_width="0dp"
+            android:layout_height="@dimen/button_height"
+            android:text="Accept"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:fontFamily="@font/roboto_medium"
+            android:background="@drawable/rounded_button_bg"
+            android:textAllCaps="false"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btn_reject"
+            app:layout_constraintTop_toBottomOf="@id/tv_request_time"
+            android:layout_marginTop="12dp"
+            android:layout_marginEnd="8dp"/>
 
         <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btn_reject"
-                android:layout_width="0dp"
-                android:layout_height="36dp"
-                android:text="Reject"
-                android:textColor="@android:color/white"
-                android:textSize="14sp"
-                android:fontFamily="@font/roboto_medium"
-                android:background="@drawable/rect_button_bg_red"
-                android:textAllCaps="false"
-                android:layout_marginEnd="10dp"
-                app:layout_constraintTop_toTopOf="@id/btn_accept"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/btn_accept"/>
+            android:id="@+id/btn_reject"
+            android:layout_width="0dp"
+            android:layout_height="@dimen/button_height"
+            android:text="Reject"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:fontFamily="@font/roboto_medium"
+            android:background="@drawable/rect_button_bg_red"
+            app:layout_constraintStart_toEndOf="@id/btn_accept"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/btn_accept"
+            android:layout_marginStart="8dp"/>
 
         <!-- Progress indicator (hidden by default) -->
         <ProgressBar
