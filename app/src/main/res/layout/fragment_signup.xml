@@ -10,453 +10,440 @@
         android:focusableInTouchMode="true"
         tools:context=".ui.auth.signup.SignupFragment">
 
+    <!-- Fixed Title Container -->
     <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/contentLayout"
+            android:id="@+id/titleGroup"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/margin_title_top"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="@dimen/margin_title_top"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="@+id/guideline_start"
-            app:layout_constraintEnd_toStartOf="@+id/guideline_end">
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- Title Container -->
-        <androidx.constraintlayout.widget.ConstraintLayout
-                android:id="@+id/titleGroup"
-                android:layout_width="0dp"
+        <TextView
+                android:id="@+id/tvSignupTitle"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                app:layout_constraintEnd_toEndOf="parent"
+                android:fontFamily="@font/roboto_medium"
+                android:text="@string/sign_up"
+                android:textColor="@android:color/white"
+                android:textSize="@dimen/title_text_size"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent">
+                app:layout_constraintTop_toTopOf="parent" />
 
-            <TextView
-                    android:id="@+id/tvSignupTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="@font/roboto_medium"
-                    android:text="@string/sign_up"
-                    android:textColor="@android:color/white"
-                    android:textSize="@dimen/title_text_size"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-            <TextView
-                    android:id="@+id/tvSubtitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/margin_subtitle_top"
-                    android:fontFamily="@font/roboto_regular"
-                    android:text="@string/welcome_ncreate_your_account"
-                    android:textColor="#C6CAD1"
-                    android:textSize="@dimen/subtitle_text_size"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvSignupTitle" />
-        </androidx.constraintlayout.widget.ConstraintLayout>
-
-        <!-- Input Container -->
-        <androidx.constraintlayout.widget.ConstraintLayout
-                android:id="@+id/inputContainer"
-                android:layout_width="0dp"
+        <TextView
+                android:id="@+id/tvSubtitle"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/margin_input_container_top"
-                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_marginTop="@dimen/margin_subtitle_top"
+                android:fontFamily="@font/roboto_regular"
+                android:text="@string/welcome_ncreate_your_account"
+                android:textColor="#C6CAD1"
+                android:textSize="@dimen/subtitle_text_size"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/titleGroup">
-
-            <!-- Email Group -->
-            <androidx.constraintlayout.widget.ConstraintLayout
-                    android:id="@+id/emailGroup"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent">
-
-                <TextView
-                        android:id="@+id/tvEmailLabel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="@font/roboto_semibold"
-                        android:textSize="@dimen/label_text_size"
-                        android:paddingBottom="@dimen/label_padding_bottom"
-                        android:text="@string/enter_email"
-                        android:textColor="#FFFFFF"
-                        app:layout_constraintStart_toStartOf="@+id/emailLayout"
-                        app:layout_constraintTop_toTopOf="parent" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/emailLayout"
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                        android:layout_width="0dp"
-                        android:layout_height="@dimen/input_height"
-                        android:maxWidth="@dimen/input_max_width"
-                        app:boxBackgroundMode="outline"
-                        app:boxCollapsedPaddingTop="0dp"
-                        app:boxCornerRadiusBottomEnd="@dimen/input_corner_radius"
-                        app:boxCornerRadiusBottomStart="@dimen/input_corner_radius"
-                        app:boxCornerRadiusTopEnd="@dimen/input_corner_radius"
-                        app:boxCornerRadiusTopStart="@dimen/input_corner_radius"
-                        app:boxStrokeColor="@color/outlined_box_stroke_color"
-                        app:boxStrokeWidth="1dp"
-                        app:boxStrokeWidthFocused="1dp"
-                        app:endIconTint="#ADADAD"
-                        app:errorEnabled="false"
-                        app:helperText="@null"
-                        app:helperTextEnabled="false"
-                        app:hintEnabled="false"
-                        app:hintTextColor="@color/hint_color"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/tvEmailLabel"
-                        app:startIconDrawable="@drawable/email"
-                        app:startIconTint="#ADADAD">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/etEmail"
-                            style="@style/AppInputEditText"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:hint="@string/enter_your_email"
-                            android:textSize="@dimen/input_text_size"
-                            android:inputType="textEmailAddress"
-                            android:paddingEnd="40dp" />
-
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <ImageView
-                        android:id="@+id/ivEmailError"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginEnd="@dimen/email_error_icon_margin_end"
-                        android:src="@drawable/error_in_email"
-                        android:visibility="invisible"
-                        app:layout_constraintBottom_toBottomOf="@id/emailLayout"
-                        app:layout_constraintEnd_toEndOf="@id/emailLayout"
-                        app:layout_constraintTop_toTopOf="@id/emailLayout"
-                        tools:ignore="ContentDescription" />
-
-                <TextView
-                        android:id="@+id/tvEmailError"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="@dimen/error_margin_top"
-                        android:fontFamily="@font/roboto_regular"
-                        android:textSize="@dimen/error_text_size"
-                        android:textColor="#F44336"
-                        android:visibility="invisible"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/emailLayout"
-                        tools:text="Invalid email format" />
-            </androidx.constraintlayout.widget.ConstraintLayout>
-
-            <!--Phone number Group -->
-            <androidx.constraintlayout.widget.ConstraintLayout
-                    android:id="@+id/phoneGroup"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/spacing_form_group"
-                    app:layout_constraintTop_toBottomOf="@+id/emailGroup"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent">
-
-                <TextView
-                        android:id="@+id/tvPhoneLabel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="@font/roboto_semibold"
-                        android:paddingBottom="5dp"
-                        android:text="Enter Phone Number"
-                        android:textColor="#FFFFFF"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent"
-                />
-
-                <!-- Prefix +91 and phone input grouped horizontally -->
-                <LinearLayout
-                    android:id="@+id/phoneInputRow"
-                    android:layout_width="0dp"
-                    android:layout_height="@dimen/input_height"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    app:layout_constraintTop_toBottomOf="@+id/tvPhoneLabel"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent">
-
-                    <TextView
-                        android:id="@+id/tvPhonePrefix"
-                        android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
-                        android:gravity="center_vertical"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="12dp"
-                        android:text="+91"
-                        android:textColor="#FFFFFF"
-                        android:fontFamily="@font/roboto_regular"
-                        android:textSize="@dimen/input_text_size"
-                        android:background="@drawable/edit_text_outline_selector" />
-
-                    <EditText
-                        android:id="@+id/etPhone"
-                        android:layout_width="0dp"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        android:background="@drawable/edit_text_outline_selector"
-                        android:fontFamily="@font/roboto_regular"
-                        android:maxWidth="@dimen/input_max_width"
-                        android:hint="Enter your phone number"
-                        android:paddingStart="12dp"
-                        android:textColor="#FFFFFF"
-                        android:textColorHint="@color/hint_color"
-                        android:textSize="@dimen/input_text_size"
-                        android:inputType="phone"
-                        android:maxLength="10"
-                        app:layout_constraintTop_toTopOf="parent"
-                        tools:ignore="RtlSymmetry" />
-
-                </LinearLayout>
-
-                <TextView
-                        android:id="@+id/tvPhoneError"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="@dimen/error_margin_top"
-                        android:fontFamily="@font/roboto_regular"
-                        android:textSize="@dimen/error_text_size"
-                        android:textColor="#F44336"
-                        android:visibility="invisible"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/phoneInputRow"
-                        tools:text="Phone number is required"/>
-
-
-            </androidx.constraintlayout.widget.ConstraintLayout>
-
-            <!-- Password Group -->
-            <androidx.constraintlayout.widget.ConstraintLayout
-                    android:id="@+id/passwordGroup"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/spacing_form_group"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/phoneGroup">
-
-                <TextView
-                        android:id="@+id/passwordLabel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="@font/roboto_semibold"
-                        android:textSize="@dimen/label_text_size"
-                        android:paddingBottom="@dimen/label_padding_bottom"
-                        android:text="@string/enter_password"
-                        android:textColor="#FFFFFF"
-                        app:layout_constraintStart_toStartOf="@+id/passwordLayout"
-                        app:layout_constraintTop_toTopOf="parent" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/passwordLayout"
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                        android:layout_width="0dp"
-                        android:layout_height="@dimen/input_height"
-                        android:maxWidth="@dimen/input_max_width"
-                        app:boxBackgroundMode="outline"
-                        app:boxCollapsedPaddingTop="0dp"
-                        app:boxCornerRadiusBottomEnd="@dimen/input_corner_radius"
-                        app:boxCornerRadiusBottomStart="@dimen/input_corner_radius"
-                        app:boxCornerRadiusTopEnd="@dimen/input_corner_radius"
-                        app:boxCornerRadiusTopStart="@dimen/input_corner_radius"
-                        app:boxStrokeColor="@color/outlined_box_stroke_color"
-                        app:boxStrokeWidth="1dp"
-                        app:boxStrokeWidthFocused="1dp"
-                        app:endIconTint="#C6CAD1"
-                        app:errorEnabled="false"
-                        app:helperTextEnabled="false"
-                        app:hintEnabled="false"
-                        app:hintTextColor="@color/hint_color"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/passwordLabel"
-                        app:startIconDrawable="@drawable/lock"
-                        app:startIconTint="#C6CAD1">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/etPassword"
-                            style="@style/AppInputEditText"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:hint="@string/enter_your_password"
-                            android:textSize="@dimen/input_text_size"
-                            android:inputType="textPassword" />
-
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <TextView
-                        android:id="@+id/tvPasswordError"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="@dimen/error_margin_top"
-                        android:fontFamily="@font/roboto_regular"
-                        android:textSize="@dimen/error_text_size"
-                        android:textColor="#F44336"
-                        android:visibility="invisible"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/passwordLayout"
-                        tools:text="Password is required" />
-            </androidx.constraintlayout.widget.ConstraintLayout>
-
-            <!-- Confirm Password Group -->
-            <androidx.constraintlayout.widget.ConstraintLayout
-                    android:id="@+id/confirmGroup"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/spacing_form_group"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/passwordGroup">
-
-                <TextView
-                        android:id="@+id/confirmPasswordLabel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="@font/roboto_semibold"
-                        android:textSize="@dimen/label_text_size"
-                        android:paddingBottom="@dimen/label_padding_bottom"
-                        android:text="@string/confirm_password"
-                        android:textColor="#FFFFFF"
-                        app:layout_constraintStart_toStartOf="@+id/confirmPasswordLayout"
-                        app:layout_constraintTop_toTopOf="parent" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/confirmPasswordLayout"
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                        android:layout_width="0dp"
-                        android:layout_height="@dimen/input_height"
-                        android:maxWidth="@dimen/input_max_width"
-                        app:boxBackgroundMode="outline"
-                        app:boxCollapsedPaddingTop="0dp"
-                        app:boxCornerRadiusBottomEnd="@dimen/input_corner_radius"
-                        app:boxCornerRadiusBottomStart="@dimen/input_corner_radius"
-                        app:boxCornerRadiusTopEnd="@dimen/input_corner_radius"
-                        app:boxCornerRadiusTopStart="@dimen/input_corner_radius"
-                        app:boxStrokeColor="@color/outlined_box_stroke_color"
-                        app:boxStrokeWidth="1dp"
-                        app:boxStrokeWidthFocused="1dp"
-                        app:endIconTint="#C6CAD1"
-                        app:errorEnabled="false"
-                        app:helperTextEnabled="false"
-                        app:hintEnabled="false"
-                        app:hintTextColor="@color/hint_color"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/confirmPasswordLabel"
-                        app:startIconDrawable="@drawable/lock"
-                        app:startIconTint="#C6CAD1">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/etConfirmPassword"
-                            style="@style/AppInputEditText"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:hint="@string/confirm_your_password"
-                            android:textSize="@dimen/input_text_size"
-                            android:inputType="textPassword" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <TextView
-                        android:id="@+id/tvConfirmPasswordError"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="@dimen/error_margin_top"
-                        android:fontFamily="@font/roboto_regular"
-                        android:textSize="@dimen/error_text_size"
-                        android:textColor="#F44336"
-                        android:visibility="invisible"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/confirmPasswordLayout"
-                        tools:text="Password is required" />
-            </androidx.constraintlayout.widget.ConstraintLayout>
-
-            <!-- SignUp Group (slightly reduced) -->
-            <androidx.constraintlayout.widget.ConstraintLayout
-                    android:id="@+id/signupGroup"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/signup_group_top_margin"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/confirmGroup">
-
-                <!--  SignUp Button -->
-                <androidx.appcompat.widget.AppCompatButton
-                        android:id="@+id/btnSignup"
-                        android:layout_width="0dp"
-                        android:layout_height="@dimen/button_height"
-                        android:maxWidth="@dimen/input_max_width"
-                        android:background="@drawable/rounded_button_bg"
-                        android:fontFamily="@font/roboto_regular"
-                        android:text="@string/sign_up"
-                        android:textAllCaps="false"
-                        android:textColor="@android:color/white"
-                        android:textSize="@dimen/button_text_size"
-                        android:elevation="10dp"
-                        android:translationZ="10dp"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent" />
-
-                <!-- Log In Link -->
-                <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintStart_toStartOf="parent"
-                        android:translationZ="10dp"
-                        android:elevation="10dp"
-                        app:layout_constraintTop_toBottomOf="@id/btnSignup">
-
-                    <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:fontFamily="@font/roboto_regular"
-                            android:text="@string/already_have_an_account"
-                            android:textColor="#FFFFFF"
-                            android:textSize="@dimen/login_text_size" />
-
-                    <TextView
-                            android:id="@+id/tvLoginLink"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="@dimen/login_margin_start"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:fontFamily="@font/roboto_regular"
-                            android:paddingVertical="@dimen/login_padding_vertical"
-                            android:text="@string/log_in"
-                            android:textColor="#2563EB"
-                            android:textSize="@dimen/login_text_size" />
-                </LinearLayout>
-            </androidx.constraintlayout.widget.ConstraintLayout>
-
-        </androidx.constraintlayout.widget.ConstraintLayout>
+                app:layout_constraintTop_toBottomOf="@id/tvSignupTitle" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <androidx.core.widget.NestedScrollView
+            android:id="@+id/scroll_auth"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:fillViewport="true"
+            android:layout_marginTop="@dimen/margin_input_container_top"
+            app:layout_constraintTop_toBottomOf="@id/titleGroup"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
 
-    <androidx.constraintlayout.widget.Guideline
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id="@+id/guideline_start"
-            android:orientation="vertical"
-            app:layout_constraintGuide_percent="0.08"
-            />
+        <LinearLayout
+                android:id="@+id/contentLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="200dp">
 
-    <androidx.constraintlayout.widget.Guideline
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id="@+id/guideline_end"
-            android:orientation="vertical"
-            app:layout_constraintGuide_percent="0.92"
-            />
+            <!-- Input Container -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                    android:id="@+id/inputContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
 
+                <!-- Email Group -->
+                <androidx.constraintlayout.widget.ConstraintLayout
+                        android:id="@+id/emailGroup"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent">
+
+                    <TextView
+                            android:id="@+id/tvEmailLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/roboto_regular"
+                            android:textSize="@dimen/label_text_size"
+                            android:paddingBottom="@dimen/label_padding_bottom"
+                            android:text="@string/enter_email"
+                            android:textColor="#FFFFFF"
+                            app:layout_constraintStart_toStartOf="@+id/emailLayout"
+                            app:layout_constraintTop_toTopOf="parent" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/emailLayout"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                            android:layout_width="0dp"
+                            android:layout_height="@dimen/input_height"
+                            android:maxWidth="@dimen/input_max_width"
+                            app:boxBackgroundMode="outline"
+                            app:boxCollapsedPaddingTop="0dp"
+                            app:boxCornerRadiusBottomEnd="@dimen/input_corner_radius"
+                            app:boxCornerRadiusBottomStart="@dimen/input_corner_radius"
+                            app:boxCornerRadiusTopEnd="@dimen/input_corner_radius"
+                            app:boxCornerRadiusTopStart="@dimen/input_corner_radius"
+                            app:boxStrokeColor="@color/outlined_box_stroke_color"
+                            app:boxStrokeWidth="1dp"
+                            app:boxStrokeWidthFocused="1dp"
+                            app:endIconTint="#ADADAD"
+                            app:errorEnabled="false"
+                            app:helperText="@null"
+                            app:helperTextEnabled="false"
+                            app:hintEnabled="false"
+                            app:hintTextColor="@color/hint_color"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@id/tvEmailLabel"
+                            app:startIconDrawable="@drawable/email"
+                            app:startIconTint="#ADADAD">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etEmail"
+                                style="@style/AppInputEditText"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:hint="@string/enter_your_email"
+                                android:textSize="@dimen/input_text_size"
+                                android:inputType="textEmailAddress"
+                                android:paddingEnd="40dp" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <ImageView
+                            android:id="@+id/ivEmailError"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="@dimen/email_error_icon_margin_end"
+                            android:src="@drawable/error_in_email"
+                            android:visibility="invisible"
+                            app:layout_constraintBottom_toBottomOf="@id/emailLayout"
+                            app:layout_constraintEnd_toEndOf="@id/emailLayout"
+                            app:layout_constraintTop_toTopOf="@id/emailLayout"
+                            tools:ignore="ContentDescription" />
+
+                    <TextView
+                            android:id="@+id/tvEmailError"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/error_margin_top"
+                            android:fontFamily="@font/roboto_regular"
+                            android:textSize="@dimen/error_text_size"
+                            android:textColor="#F44336"
+                            android:visibility="invisible"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/emailLayout"
+                            tools:text="Invalid email format" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <!-- Phone Group (restored) -->
+                <androidx.constraintlayout.widget.ConstraintLayout
+                        android:id="@+id/phoneGroup"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/spacing_form_group"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/emailGroup">
+
+                    <TextView
+                            android:id="@+id/tvPhoneLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/roboto_regular"
+                            android:textSize="@dimen/label_text_size"
+                            android:paddingBottom="@dimen/label_padding_bottom"
+                            android:text="@string/enter_phone_number"
+                            android:textColor="#FFFFFF"
+                            app:layout_constraintStart_toStartOf="@+id/phoneLayout"
+                            app:layout_constraintTop_toTopOf="parent" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/phoneLayout"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                            android:layout_width="0dp"
+                            android:layout_height="@dimen/input_height"
+                            android:maxWidth="@dimen/input_max_width"
+                            app:boxBackgroundMode="outline"
+                            app:boxCollapsedPaddingTop="0dp"
+                            app:boxCornerRadiusBottomEnd="@dimen/input_corner_radius"
+                            app:boxCornerRadiusBottomStart="@dimen/input_corner_radius"
+                            app:boxCornerRadiusTopEnd="@dimen/input_corner_radius"
+                            app:boxCornerRadiusTopStart="@dimen/input_corner_radius"
+                            app:boxStrokeColor="@color/outlined_box_stroke_color"
+                            app:boxStrokeWidth="1dp"
+                            app:boxStrokeWidthFocused="1dp"
+                            app:endIconTint="#C6CAD1"
+                            app:errorEnabled="false"
+                            app:helperTextEnabled="false"
+                            app:hintEnabled="false"
+                            app:hintTextColor="@color/hint_color"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@id/tvPhoneLabel"
+                            app:startIconDrawable="@drawable/phone_num"
+                            app:startIconTint="#C6CAD1">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etPhone"
+                                style="@style/AppInputEditText"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:hint="@string/enter_your_phone"
+                                android:textSize="@dimen/input_text_size"
+                                android:inputType="phone"
+                                android:paddingStart="0dp"
+                                android:paddingEnd="40dp" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <TextView
+                            android:id="@+id/tvPhoneError"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/error_margin_top"
+                            android:fontFamily="@font/roboto_regular"
+                            android:textSize="@dimen/error_text_size"
+                            android:textColor="#F44336"
+                            android:visibility="invisible"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/phoneLayout"
+                            tools:text="Phone is required" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <!-- Password Group -->
+                <androidx.constraintlayout.widget.ConstraintLayout
+                        android:id="@+id/passwordGroup"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/spacing_form_group"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/phoneGroup">
+
+                    <TextView
+                            android:id="@+id/passwordLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/roboto_regular"
+                            android:textSize="@dimen/label_text_size"
+                            android:paddingBottom="@dimen/label_padding_bottom"
+                            android:text="@string/enter_password"
+                            android:textColor="#FFFFFF"
+                            app:layout_constraintStart_toStartOf="@+id/passwordLayout"
+                            app:layout_constraintTop_toTopOf="parent" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/passwordLayout"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                            android:layout_width="0dp"
+                            android:layout_height="@dimen/input_height"
+                            android:maxWidth="@dimen/input_max_width"
+                            app:boxBackgroundMode="outline"
+                            app:boxCollapsedPaddingTop="0dp"
+                            app:boxCornerRadiusBottomEnd="@dimen/input_corner_radius"
+                            app:boxCornerRadiusBottomStart="@dimen/input_corner_radius"
+                            app:boxCornerRadiusTopEnd="@dimen/input_corner_radius"
+                            app:boxCornerRadiusTopStart="@dimen/input_corner_radius"
+                            app:boxStrokeColor="@color/outlined_box_stroke_color"
+                            app:boxStrokeWidth="1dp"
+                            app:boxStrokeWidthFocused="1dp"
+                            app:endIconTint="#C6CAD1"
+                            app:errorEnabled="false"
+                            app:helperTextEnabled="false"
+                            app:hintEnabled="false"
+                            app:hintTextColor="@color/hint_color"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@id/passwordLabel"
+                            app:startIconDrawable="@drawable/lock"
+                            app:startIconTint="#C6CAD1">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etPassword"
+                                style="@style/AppInputEditText"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:hint="@string/enter_your_password"
+                                android:textSize="@dimen/input_text_size"
+                                android:inputType="textPassword" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <TextView
+                            android:id="@+id/tvPasswordError"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/error_margin_top"
+                            android:fontFamily="@font/roboto_regular"
+                            android:textSize="@dimen/error_text_size"
+                            android:textColor="#F44336"
+                            android:visibility="invisible"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/passwordLayout"
+                            tools:text="Password is required" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <!-- Confirm Password Group -->
+                <androidx.constraintlayout.widget.ConstraintLayout
+                        android:id="@+id/confirmGroup"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/spacing_form_group"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/passwordGroup">
+
+                    <TextView
+                            android:id="@+id/confirmPasswordLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/roboto_regular"
+                            android:textSize="@dimen/label_text_size"
+                            android:paddingBottom="@dimen/label_padding_bottom"
+                            android:text="@string/confirm_password"
+                            android:textColor="#FFFFFF"
+                            app:layout_constraintStart_toStartOf="@+id/confirmPasswordLayout"
+                            app:layout_constraintTop_toTopOf="parent" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/confirmPasswordLayout"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                            android:layout_width="0dp"
+                            android:layout_height="@dimen/input_height"
+                            android:maxWidth="@dimen/input_max_width"
+                            app:boxBackgroundMode="outline"
+                            app:boxCollapsedPaddingTop="0dp"
+                            app:boxCornerRadiusBottomEnd="@dimen/input_corner_radius"
+                            app:boxCornerRadiusBottomStart="@dimen/input_corner_radius"
+                            app:boxCornerRadiusTopEnd="@dimen/input_corner_radius"
+                            app:boxCornerRadiusTopStart="@dimen/input_corner_radius"
+                            app:boxStrokeColor="@color/outlined_box_stroke_color"
+                            app:boxStrokeWidth="1dp"
+                            app:boxStrokeWidthFocused="1dp"
+                            app:endIconTint="#C6CAD1"
+                            app:errorEnabled="false"
+                            app:helperTextEnabled="false"
+                            app:hintEnabled="false"
+                            app:hintTextColor="@color/hint_color"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@id/confirmPasswordLabel"
+                            app:startIconDrawable="@drawable/lock"
+                            app:startIconTint="#C6CAD1">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etConfirmPassword"
+                                style="@style/AppInputEditText"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:hint="@string/confirm_your_password"
+                                android:textSize="@dimen/input_text_size"
+                                android:inputType="textPassword" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <TextView
+                            android:id="@+id/tvConfirmPasswordError"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/error_margin_top"
+                            android:fontFamily="@font/roboto_regular"
+                            android:textSize="@dimen/error_text_size"
+                            android:textColor="#F44336"
+                            android:visibility="invisible"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/confirmPasswordLayout"
+                            tools:text="Password is required" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <!-- SignUp Group (slightly reduced) -->
+                <androidx.constraintlayout.widget.ConstraintLayout
+                        android:id="@+id/signupGroup"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/signup_group_top_margin"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/confirmGroup">
+
+                    <!--  SignUp Button -->
+                    <androidx.appcompat.widget.AppCompatButton
+                            android:id="@+id/btnSignup"
+                            android:layout_width="0dp"
+                            android:layout_height="@dimen/button_height"
+                            android:maxWidth="@dimen/input_max_width"
+                            android:background="@drawable/rounded_button_bg"
+                            android:fontFamily="@font/roboto_regular"
+                            android:text="@string/sign_up"
+                            android:textAllCaps="false"
+                            android:textColor="@android:color/white"
+                            android:textSize="@dimen/button_text_size"
+                            android:elevation="10dp"
+                            android:translationZ="10dp"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
+
+                    <!-- Log In Link -->
+                    <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            android:translationZ="10dp"
+                            android:elevation="10dp"
+                            app:layout_constraintTop_toBottomOf="@id/btnSignup">
+
+                        <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="@font/roboto_regular"
+                                android:text="@string/already_have_an_account"
+                                android:textColor="#FFFFFF"
+                                android:textSize="@dimen/login_text_size" />
+
+                        <TextView
+                                android:id="@+id/tvLoginLink"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:fontFamily="@font/roboto_regular"
+                                android:paddingVertical="@dimen/login_padding_vertical"
+                                android:text="@string/log_in"
+                                android:textColor="#2563EB"
+                                android:paddingHorizontal="@dimen/login_margin_start"
+                                android:textSize="@dimen/login_text_size" />
+                    </LinearLayout>
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
 
     <!-- Decorative Ellipses -->
     <ImageView
@@ -485,7 +472,8 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             android:translationZ="-10dp"
-            tools:ignore="ContentDescription"/>
+            tools:ignore="ContentDescription"
+            app:layout_constraintTop_toBottomOf="@+id/titleGroup"/>
 
     <ImageView
             android:id="@+id/ellipse3"

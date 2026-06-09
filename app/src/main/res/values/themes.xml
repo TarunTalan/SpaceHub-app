@@ -1,11 +1,27 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
+<resources>
     <!-- Base application theme -->
     <style name="Base.Theme.MyApplication" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <!-- Customize your light/dark theme colors here -->
-<!--        <item name="colorPrimary">@color/primary_color</item>-->
-<!--        <item name="colorPrimaryVariant">@color/primary_variant</item>-->
-<!--        <item name="colorOnPrimary">@color/on_primary</item>-->
-<!--        <item name="colorSecondary">@color/secondary_color</item>-->
+        <!-- Primary colors -->
+        <item name="colorPrimary">@color/primary_blue</item>
+        <item name="colorPrimaryVariant">@color/primary_dark</item>
+        <item name="colorOnPrimary">@color/text_primary</item>
+
+        <!-- Surface colors -->
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+
+        <!-- Background colors -->
+        <item name="android:colorBackground">@color/background_primary</item>
+        <item name="colorOnBackground">@color/text_primary</item>
+
+        <!-- Error colors -->
+        <item name="colorError">@color/error_red</item>
+        <item name="colorOnError">@color/text_primary</item>
+
+        <!-- Text colors -->
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:textColorHint">@color/hint_color</item>
     </style>
 
     <!-- Main app theme with Roboto font -->
@@ -24,6 +40,11 @@
         <item name="textAppearanceButton">@style/TextAppearance.App.Button</item>
         <item name="textAppearanceCaption">@style/TextAppearance.App.Caption</item>
         <item name="textAppearanceOverline">@style/TextAppearance.App.Overline</item>
+
+        <!-- Widget styles -->
+        <item name="textInputStyle">@style/Widget.App.TextInputLayout</item>
+        <item name="materialButtonStyle">@style/Widget.App.Button.Primary</item>
+        <item name="materialCardViewStyle">@style/Widget.App.Card</item>
     </style>
 
     <!-- Text Appearance Styles with Roboto -->
@@ -79,10 +100,24 @@
         <item name="android:fontFamily">@font/app_font</item>
     </style>
 
+    <!-- Prefix text appearance for TextInputLayout prefixText -->
+    <style name="TextAppearance.App.Prefix" parent="TextAppearance.MaterialComponents.Body1">
+        <item name="android:fontFamily">@font/app_font</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">@dimen/input_text_size</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:gravity">center_vertical</item>
+        <!-- small vertical padding to visually center the prefix across devices -->
+        <item name="android:paddingTop">4dp</item>
+        <item name="android:paddingBottom">4dp</item>
+    </style>
+
+    <!-- Dialog Theme -->
     <style name="ThemeOverlay.MyApplication.MaterialAlertDialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
-        <!-- Use the app primary color for dialog accents and ensure on-primary contrasts properly -->
         <item name="colorPrimary">@color/primary_blue</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <!-- Adjust surface/foreground colors if needed in future -->
+        <item name="colorOnPrimary">@color/text_primary</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
     </style>
 </resources>

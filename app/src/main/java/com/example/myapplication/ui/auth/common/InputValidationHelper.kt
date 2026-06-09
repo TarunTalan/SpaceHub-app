@@ -87,10 +87,26 @@ object InputValidationHelper {
         } catch (_: Throwable) { }
     }
 
+    // Overload: set invalid visuals on a container view (preferred when using split prefix+edit layouts)
+    fun applyEditTextInvalid(container: View, editText: EditText?, redColor: Int, errorBackgroundRes: Int) {
+        try {
+            editText?.setTextColor(redColor)
+            container.setBackgroundResource(errorBackgroundRes)
+        } catch (_: Throwable) { }
+    }
+
     fun clearEditTextInvalid(editText: EditText, textDefault: ColorStateList, normalBackgroundRes: Int) {
         try {
             editText.setTextColor(textDefault)
             editText.setBackgroundResource(normalBackgroundRes)
+        } catch (_: Throwable) {  }
+    }
+
+    // Overload: clear invalid visuals on a container view
+    fun clearEditTextInvalid(container: View, editText: EditText?, textDefault: ColorStateList, normalBackgroundRes: Int) {
+        try {
+            editText?.setTextColor(textDefault)
+            container.setBackgroundResource(normalBackgroundRes)
         } catch (_: Throwable) {  }
     }
 

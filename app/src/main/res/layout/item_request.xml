@@ -76,7 +76,7 @@
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btn_accept"
             android:layout_width="0dp"
-            android:layout_height="36dp"
+            android:layout_height="@dimen/button_height"
             android:text="Accept"
             android:textColor="@android:color/white"
             android:textSize="14sp"
@@ -92,13 +92,12 @@
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btn_reject"
             android:layout_width="0dp"
-            android:layout_height="36dp"
+            android:layout_height="@dimen/button_height"
             android:text="Reject"
             android:textColor="@android:color/white"
             android:textSize="14sp"
             android:fontFamily="@font/roboto_medium"
             android:background="@drawable/rect_button_bg_red"
-            android:textAllCaps="false"
             app:layout_constraintStart_toEndOf="@id/btn_accept"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="@id/btn_accept"

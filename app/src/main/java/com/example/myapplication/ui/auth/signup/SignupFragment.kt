@@ -1,6 +1,5 @@
 package com.example.myapplication.ui.auth.signup
 
-import android.animation.ValueAnimator
 import android.content.Context
 import android.content.res.ColorStateList
 import android.os.Bundle
@@ -10,7 +9,7 @@ import android.text.InputFilter
 import android.text.TextWatcher
 import android.view.View
 import android.view.WindowManager
-import android.view.animation.DecelerateInterpolator
+import android.util.Patterns
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.os.bundleOf
@@ -28,7 +27,6 @@ import com.example.myapplication.ui.common.BaseFragment
 import com.example.myapplication.ui.common.InputValidator
 import kotlinx.coroutines.launch
 import kotlin.math.ceil
-import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams as CLP
 
 /*
   Signup screen - SECOND STEP where users enter email and password.
@@ -55,45 +53,13 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
     private lateinit var passwordTextDefault: ColorStateList
     private lateinit var phoneTextDefault: ColorStateList
 
-    // store original margins so we can restore on IME hide
-    private var originalContentTopMargin: Int? = null
-    private var originalInputTopMargin: Int? = null
-
-    // original margins for inputContainer child groups
-    private var originalPasswordGroupTop: Int? = null
-    private var originalConfirmGroupTop: Int? = null
-    private var originalSignupGroupTop: Int? = null
-    private var originalPhoneGroupTop: Int? = null
-
-    // Runnable used to delay margin restore to avoid bouncing
-    private var imeRestoreRunnable: Runnable? = null
-
-    // Reduced delay so elements restore faster when keyboard hides — read from resources for easy tuning
-    private val imeRestoreDelayMs: Long by lazy { resources.getInteger(R.integer.ime_restore_delay_ms).toLong() }
-
-    // Duration used to animate margin transitions when IME appears/disappears — read from resources
-    private val imeAnimationDurationMs: Long by lazy {
-        resources.getInteger(R.integer.ime_animation_duration_ms).toLong()
-    }
-
-    // Active animators per view so we can cancel previous animations when a new one starts
-    private val runningAnimators: MutableMap<View, ValueAnimator> = mutableMapOf()
-
-    // Remember last observed IME visibility/height so focus switches don't trigger layout updates
-    private var lastImeVisible: Boolean? = null
-    private var lastImeHeight: Int = 0
-
-    // When true, UI is locked in the "IME visible" state and must not react to further IME changes
-    private var imeLockedWhileVisible: Boolean = false
-
-    // Flag so OnApplyWindowInsetsListener does not fight the WindowInsetsAnimation callback
-    private var isImeAnimating: Boolean = false
 
     // store previous softInputMode so we can restore it when the fragment is destroyed
     private var previousSoftInputMode: Int? = null
 
     @Suppress("DEPRECATION")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        // Call super but note: we override the base keyboard scroll control below with our own
         super.onViewCreated(view, savedInstanceState)
         _binding = FragmentSignupBinding.bind(view)
 
@@ -132,6 +98,9 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
         // Keep default window IME behavior; do not change softInputMode here beyond the decision above.
         ViewCompat.requestApplyInsets(binding.root)
 
+        // Disable scrolling initially
+        binding.scrollAuth.isNestedScrollingEnabled = false
+
         initializeDefaults()
         setupTextWatchers()
         setupClickListeners()
@@ -140,220 +109,29 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
         checkAndApplyLockout()
         observeViewModel()
 
-        // Capture original top margins (safe) so we can restore them when IME hides
-        try {
-            val contentLp = binding.contentLayout.layoutParams as? CLP
-            val inputLp = binding.inputContainer.layoutParams as? CLP
-            originalContentTopMargin = contentLp?.topMargin ?: 0
-            originalInputTopMargin = inputLp?.topMargin ?: 0
 
-            // capture original group margins
-            val pwdLp = binding.passwordGroup.layoutParams as? CLP
-            val confLp = binding.confirmGroup.layoutParams as? CLP
-            val signupLp = binding.signupGroup.layoutParams as? CLP
-            val phoneLp = binding.phoneGroup.layoutParams as? CLP
-            originalPasswordGroupTop = pwdLp?.topMargin ?: 0
-            originalConfirmGroupTop = confLp?.topMargin ?: 0
-            originalSignupGroupTop = signupLp?.topMargin ?: 0
-            originalPhoneGroupTop = phoneLp?.topMargin ?: 0
-        } catch (_: Exception) {
-            originalContentTopMargin = 0
-            originalInputTopMargin = 0
-            originalPasswordGroupTop = 0
-            originalConfirmGroupTop = 0
-            originalSignupGroupTop = 0
-            originalPhoneGroupTop = 0
-        }
-
-        // Listen for IME (keyboard) visibility and update margins accordingly.
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+         // Simplified IME handling: when keyboard appears enable scrolling and scroll to the inputContainer.
+         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
             try {
-                // If animation is running, skip the immediate apply listener to avoid conflicts
-                if (isImeAnimating) return@setOnApplyWindowInsetsListener insets
-
                 val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
-                val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
-                val imeHeight = imeInsets.bottom
-
-                // If IME is visible and we've already locked the UI for visible state, do nothing
-                if (imeVisible && imeLockedWhileVisible) {
-                    lastImeHeight = imeHeight
-                    lastImeVisible = true
-                    return@setOnApplyWindowInsetsListener insets
-                }
-
-                // If we have seen the same visibility already (for example when moving focus between inputs), skip re-applying margins
-                if (lastImeVisible != null && lastImeVisible == imeVisible) {
-                    lastImeHeight = imeHeight
-                    return@setOnApplyWindowInsetsListener insets
-                }
-
-                lastImeVisible = imeVisible
-                lastImeHeight = imeHeight
-
-                val px20 = resources.getDimensionPixelSize(R.dimen.ime_input_top)
-                val imeContentTop = resources.getDimensionPixelSize(R.dimen.ime_content_top)
-                val compactPx = resources.getDimensionPixelSize(R.dimen.spacing_form_group_compact)
-                val signupMin = resources.getDimensionPixelSize(R.dimen.signup_group_min_compact)
-
                 if (imeVisible) {
-                    // Only apply IME-driven layout changes when the IME actually covers/hides the inputContainer.
-                    if (isInputContainerHiddenByIme(imeHeight)) {
-                        // IME visible (fallback path when animation not present): cancel scheduled restore and apply compact margins immediately
-                        imeRestoreRunnable?.let { binding.root.removeCallbacks(it) }
-                        imeRestoreRunnable = null
-
-                        // Apply compact spacing once and lock UI while IME remains visible
+                    // Enable scrolling and ensure the input container is visible above the IME
+                    binding.scrollAuth.isNestedScrollingEnabled = true
+                    binding.root.post {
                         try {
-                            // animate transitions rather than abrupt changes
-                            animateTopMargin(binding.contentLayout, imeContentTop)
-                            animateTopMargin(binding.inputContainer, px20)
-                            animateTopMargin(binding.passwordGroup, compactPx)
-                            animateTopMargin(binding.phoneGroup, compactPx)
-                            animateTopMargin(binding.confirmGroup, compactPx)
-                            animateTopMargin(binding.signupGroup, compactPx.coerceAtLeast(signupMin))
-                            // hide subtitle when keyboard appears
-                            try { binding.tvSubtitle.visibility = View.GONE } catch (_: Exception) {}
-                            // lock UI so subsequent IME inset changes (focus switches) don't change layout
-                            imeLockedWhileVisible = true
-                        } catch (_: Exception) {
-                        }
-                    } else {
-                        // IME visible but inputContainer still visible -> do not change layout or lock UI.
+                            val y = binding.inputContainer.top
+                            binding.scrollAuth.smoothScrollTo(0, y)
+                        } catch (_: Exception) { }
                     }
                 } else {
-                    // IME hidden: clear the lock and schedule a delayed restore to prevent immediate bounce
-                    imeLockedWhileVisible = false
-                    imeRestoreRunnable?.let { binding.root.removeCallbacks(it) }
-                    val restoreRunnable = Runnable {
-                        try {
-                            // animate restore to original margins
-                            animateTopMargin(binding.contentLayout, originalContentTopMargin ?: imeContentTop)
-                            animateTopMargin(binding.inputContainer, originalInputTopMargin ?: px20)
-                            animateTopMargin(
-                                binding.passwordGroup,
-                                originalPasswordGroupTop
-                                    ?: (resources.getDimensionPixelSize(R.dimen.spacing_form_group))
-                            )
-                            animateTopMargin(
-                                binding.phoneGroup,
-                                originalPhoneGroupTop ?: (resources.getDimensionPixelSize(R.dimen.spacing_form_group))
-                            )
-                            animateTopMargin(
-                                binding.confirmGroup,
-                                originalConfirmGroupTop ?: (resources.getDimensionPixelSize(R.dimen.spacing_form_group))
-                            )
-                            animateTopMargin(
-                                binding.signupGroup,
-                                originalSignupGroupTop
-                                    ?: (resources.getDimensionPixelSize(R.dimen.margin_input_container_top) / 2)
-                            )
-                            // restore subtitle when keyboard hides
-                            try { binding.tvSubtitle.visibility = View.VISIBLE } catch (_: Exception) {}
-                        } catch (_: Exception) {
-                            // ignore
-                        }
+                    // Restore default behavior when keyboard hides
+                    binding.scrollAuth.isNestedScrollingEnabled = false
+                    binding.root.post {
+                        try { binding.scrollAuth.smoothScrollTo(0, 0) } catch (_: Exception) { }
                     }
-                    imeRestoreRunnable = restoreRunnable
-                    binding.root.postDelayed(restoreRunnable, imeRestoreDelayMs)
                 }
-            } catch (_: Exception) {
-                // ignore layout update failures
-            }
-
-            // return insets so other listeners can use them
+            } catch (_: Exception) { }
             insets
-        }
-
-        // Use WindowInsetsAnimationCompat to animate margins smoothly when IME animates (API 30+ effectively)
-        try {
-            ViewCompat.setWindowInsetsAnimationCallback(
-                binding.root,
-                object : WindowInsetsAnimationCompat.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
-                    override fun onPrepare(animation: WindowInsetsAnimationCompat) {
-                        // cancel any scheduled restore
-                        imeRestoreRunnable?.let { binding.root.removeCallbacks(it) }
-                        imeRestoreRunnable = null
-                        // reset last observed height so animation measurements start fresh
-                        lastImeHeight = 0
-                        // mark that we're animating so the apply-listener won't stomp
-                        isImeAnimating = true
-                    }
-
-                    override fun onProgress(
-                        insets: WindowInsetsCompat,
-                        runningAnimations: MutableList<WindowInsetsAnimationCompat>
-                    ): WindowInsetsCompat {
-                        try {
-                            val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
-                            val imeHeight = imeInsets.bottom
-
-                            // If IME is visible and we've already locked UI for visible state, ignore progressive updates
-                            if (imeHeight > 0 && imeLockedWhileVisible) {
-                                lastImeHeight = imeHeight
-                                lastImeVisible = true
-                                return insets
-                            }
-
-                            // If IME just started showing and UI isn't locked yet, apply compact spacing once and lock
-                            else if (imeHeight > 0) {
-                                // Only proceed if the IME actually hides the inputContainer
-                                if (isInputContainerHiddenByIme(imeHeight)) {
-                                    val px20 = resources.getDimensionPixelSize(R.dimen.ime_input_top)
-                                    val imeContentTop = resources.getDimensionPixelSize(R.dimen.ime_content_top)
-                                    val compactPx = resources.getDimensionPixelSize(R.dimen.spacing_form_group_compact)
-                                    val signupMin = resources.getDimensionPixelSize(R.dimen.signup_group_min_compact)
-
-                                    try {
-                                        // animate to the compact layout when IME shows
-                                        animateTopMargin(binding.contentLayout, imeContentTop)
-                                        animateTopMargin(binding.inputContainer, px20)
-                                        animateTopMargin(binding.passwordGroup, compactPx)
-                                        animateTopMargin(binding.phoneGroup, compactPx)
-                                        animateTopMargin(binding.confirmGroup, compactPx)
-                                        animateTopMargin(binding.signupGroup, compactPx.coerceAtLeast(signupMin))
-                                        // hide subtitle when keyboard appears (animation path)
-                                        try { binding.tvSubtitle.visibility = View.GONE } catch (_: Exception) {}
-                                        imeLockedWhileVisible = true
-                                        lastImeVisible = true
-                                        lastImeHeight = imeHeight
-                                    } catch (_: Exception) {
-                                        // ignore
-                                    }
-                                } else {
-                                    // IME visible but inputContainer is still visible — do not animate/lock
-                                    lastImeVisible = true
-                                    lastImeHeight = imeHeight
-                                }
-                                return insets
-                            }
-
-                            // If IME is hiding (height == 0) don't do progressive animation — let apply-listener schedule restore
-                            return insets
-                        } catch (_: Exception) {
-                            // ignore
-                        }
-                        return insets
-                    }
-
-                    override fun onEnd(animation: WindowInsetsAnimationCompat) {
-                        // mark animation finished
-                        isImeAnimating = false
-                        // If IME is hidden now, ensure lock is cleared so apply-listener can restore
-                        try {
-                            binding.root.postDelayed({
-                                try {
-                                    imeLockedWhileVisible = false
-                                    // request apply so the normal restore runnable animates back to original state
-                                    binding.root.requestApplyInsets()
-                                } catch (_: Exception) {
-                                }
-                            }, 0L)
-                        } catch (_: Exception) {
-                        }
-                    }
-                })
-        } catch (_: Exception) {
         }
     }
 
@@ -371,38 +149,13 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
 
         // cleanup any pending callbacks to avoid leaking the view
         try {
-            imeRestoreRunnable?.let { binding.root.removeCallbacks(it) }
-            imeRestoreRunnable = null
-            // cancel any running margin animations to avoid leaking view references
-            try {
-                runningAnimators.values.forEach { it.cancel() }
-            } catch (_: Exception) {
-            }
-            runningAnimators.clear()
+            // nothing to cancel in simplified IME handling
         } catch (_: Exception) {
         }
         _binding = null
         super.onDestroyView()
     }
 
-    // Helper that detects whether the IME height will cover/hide the inputContainer view.
-    private fun isInputContainerHiddenByIme(imeHeight: Int): Boolean {
-        return try {
-            if (imeHeight <= 0) return false
-            // root height in pixels
-            val rootHeight = binding.root.height
-            if (rootHeight <= 0) return false
-            val loc = IntArray(2)
-            binding.inputContainer.getLocationOnScreen(loc)
-            val inputBottomY = loc[1] + binding.inputContainer.height
-            // visible area bottom (excluding IME)
-            val visibleBottom = rootHeight - imeHeight
-            // If the bottom of inputContainer is below the visible bottom area, IME hides it
-            inputBottomY > visibleBottom
-        } catch (_: Exception) {
-            false
-        }
-    }
 
     private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {
@@ -531,7 +284,6 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
     private fun initializeDefaults() {
         emailTextDefault = binding.etEmail.textColors
         passwordTextDefault = binding.etPassword.textColors
-        phoneTextDefault = binding.etPhone.textColors
 
         // Ensure eye behavior: closed = masked, open = visible on both fields
         PasswordToggleUtil.attach(binding.passwordLayout, binding.etPassword)
@@ -555,6 +307,15 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
             isHelperTextEnabled = false
             errorIconDrawable = null
         }
+
+        // Phone layout: disable built-in error display so we control visuals consistently
+        try {
+            binding.phoneLayout.apply {
+                isErrorEnabled = false
+                isHelperTextEnabled = false
+                errorIconDrawable = null
+            }
+        } catch (_: Exception) { }
 
         // Prevent users from typing whitespace into email/password fields and enforce length limits.
         val noSpaceFilter = InputFilter { source, start, end, _, _, _ ->
@@ -651,23 +412,25 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
             }
         })
 
-        // Phone field text watcher - clear phone error when user edits the phone number
-        binding.etPhone.addTextChangedListener(object : TextWatcher {
-            private var previousText = ""
+        // Phone field text watcher - clear phone errors when user starts typing
+        try {
+            binding.etPhone.addTextChangedListener(object : TextWatcher {
+                private var previousText = ""
 
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
-                previousText = s?.toString() ?: ""
-            }
-
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-
-            override fun afterTextChanged(s: Editable?) {
-                val currentText = s?.toString() ?: ""
-                if (previousText != currentText && binding.tvPhoneError.isVisible) {
-                    hidePhoneError()
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
+                    previousText = s?.toString() ?: ""
                 }
-            }
-        })
+
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+
+                override fun afterTextChanged(s: Editable?) {
+                    val currentText = s?.toString() ?: ""
+                    if (previousText != currentText && binding.tvPhoneError.isVisible) {
+                        hidePhoneError()
+                    }
+                }
+            })
+        } catch (_: Exception) { }
     }
 
     private fun setupClickListeners() {
@@ -694,20 +457,13 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                 val password = binding.etPassword.text.toString()
                 val firstName = arguments?.getString("firstName").orEmpty()
                 val lastName = arguments?.getString("lastName").orEmpty()
-                // Read user's local phone (10 digits) and normalize to international format.
-                val phone = binding.etPhone.text.toString().trim()
-                val phoneFull = when {
-                    phone.startsWith("+") -> phone
-                    phone.startsWith("91") -> "+$phone"
-                    else -> "+91$phone"
-                }
-
                 // Persist email
                 try {
                     val prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
                     prefs.edit { putString("email", email) }
                 } catch (_: Exception) {}
-                viewModel.signUp(firstName, lastName, email, password, phoneFull)
+                val phone = try { binding.etPhone.text.toString().trim() } catch (_: Exception) { "" }
+                viewModel.signUp(firstName, lastName, email, password, phone)
             }
         }
 
@@ -726,9 +482,9 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
      */
     private fun validateInput(): Boolean {
         val email = binding.etEmail.text.toString().trim()
+        val phone = try { binding.etPhone.text.toString().trim() } catch (_: Exception) { "" }
         val password = binding.etPassword.text.toString().trim()
         val confirmPassword = binding.etConfirmPassword.text.toString().trim()
-        val phone = binding.etPhone.text.toString().trim()
 
         var isValid = true
 
@@ -759,6 +515,24 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
                 hideEmailError()
             }
         }
+
+        // Phone validation: require a phone number and basic format check
+        try {
+            if (phone.isEmpty()) {
+                showPhoneError(getString(R.string.phone_required))
+                isValid = false
+            } else {
+                val phoneOk = try {
+                    Patterns.PHONE.matcher(phone).matches() || phone.all { it.isDigit() }
+                } catch (_: Exception) { false }
+                if (!phoneOk) {
+                    showPhoneError(getString(R.string.invalid_phone))
+                    isValid = false
+                } else {
+                    hidePhoneError()
+                }
+            }
+        } catch (_: Exception) { /* ignore validation failures */ }
 
         // Stronger password validation: require length 8..25, no spaces, at least one uppercase, lowercase, digit, special char ---
         if (password.isEmpty()) {
@@ -816,23 +590,6 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
             }
         }
 
-        // Phone: must be non-empty, exactly 10 digits, and start with 6/7/8/9
-        val phonePattern = Regex("^[6-9][0-9]{9}$")
-        if (phone.isBlank()) {
-            showPhoneError(getString(R.string.phone_required))
-            // show error outline
-            InputValidationHelper.applyEditTextInvalid(binding.etPhone, redColor, R.drawable.edit_text_outline_error)
-            isValid = false
-        } else if (!phonePattern.matches(phone)) {
-            showPhoneError(getString(R.string.invalid_phone))
-            InputValidationHelper.applyEditTextInvalid(binding.etPhone, redColor, R.drawable.edit_text_outline_error)
-            isValid = false
-        } else {
-            hidePhoneError()
-            // restore normal outline
-            InputValidationHelper.clearEditTextInvalid(binding.etPhone, phoneTextDefault, R.drawable.edit_text_outline_selector)
-        }
-
         return isValid
     }
 
@@ -864,16 +621,16 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
     private fun showPhoneError(message: String) {
         binding.tvPhoneError.text = message
         binding.tvPhoneError.visibility = View.VISIBLE
-        // show error outline on the plain EditText
+        // For phone we use InputValidationHelper on the phoneLayout if available
         try {
-            InputValidationHelper.applyEditTextInvalid(binding.etPhone, redColor, R.drawable.edit_text_outline_error)
+            InputValidationHelper.applyEditTextInvalid(binding.phoneLayout, binding.etPhone, redColor, R.drawable.edit_text_outline_error)
         } catch (_: Exception) { }
     }
 
     private fun hidePhoneError() {
         binding.tvPhoneError.visibility = View.INVISIBLE
         try {
-            InputValidationHelper.clearEditTextInvalid(binding.etPhone, phoneTextDefault, R.drawable.edit_text_outline_selector)
+            InputValidationHelper.clearEditTextInvalid(binding.phoneLayout, binding.etPhone, phoneTextDefault, R.drawable.edit_text_outline)
         } catch (_: Exception) { }
     }
 
@@ -988,44 +745,5 @@ class SignupFragment : BaseFragment(R.layout.fragment_signup) {
         }
 
         signupLockoutTimer?.start()
-    }
-
-    // Helper to animate the top margin of a view's ConstraintLayout.LayoutParams smoothly.
-    private fun animateTopMargin(view: View, to: Int, duration: Long = imeAnimationDurationMs) {
-        try {
-            val lp = view.layoutParams as? CLP ?: return
-            val from = lp.topMargin
-            if (from == to) return
-
-            // cancel previous animator for this view
-            runningAnimators[view]?.cancel()
-
-            val animator = ValueAnimator.ofInt(from, to).apply {
-                this.duration = duration
-                interpolator = DecelerateInterpolator()
-                addUpdateListener { anim ->
-                    val value = anim.animatedValue as Int
-                    try {
-                        view.updateLayoutParams<CLP> { topMargin = value }
-                    } catch (_: Exception) {
-                    }
-                }
-                addListener(object : android.animation.Animator.AnimatorListener {
-                    override fun onAnimationStart(animation: android.animation.Animator) {}
-                    override fun onAnimationEnd(animation: android.animation.Animator) {
-                        runningAnimators.remove(view)
-                    }
-
-                    override fun onAnimationCancel(animation: android.animation.Animator) {
-                        runningAnimators.remove(view)
-                    }
-
-                    override fun onAnimationRepeat(animation: android.animation.Animator) {}
-                })
-            }
-            runningAnimators[view] = animator
-            animator.start()
-        } catch (_: Exception) {
-        }
     }
 }

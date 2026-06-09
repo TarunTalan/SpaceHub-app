@@ -1,64 +1,150 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- General spacing/text dims (default / smaller screens) -->
+    <!-- ========================================== -->
+    <!-- SPACING & MARGINS (Default / Smaller screens) -->
+    <!-- ========================================== -->
+
+    <!-- Screen Margins -->
+    <dimen name="screen_margin_horizontal">16dp</dimen>
+    <dimen name="screen_margin_vertical">16dp</dimen>
+
+    <!-- Content Margins -->
     <dimen name="margin_title_top">5dp</dimen>
     <dimen name="margin_subtitle_top">4dp</dimen>
-    <dimen name="spacing_form_group">7dp</dimen>
     <dimen name="margin_input_container_top">30dp</dimen>
 
-    <!-- IME related dims used by SignupFragment -->
+    <!-- Element Spacing -->
+    <dimen name="spacing_tiny">4dp</dimen>
+    <dimen name="spacing_small">8dp</dimen>
+    <dimen name="spacing_medium">12dp</dimen>
+    <dimen name="spacing_large">16dp</dimen>
+    <dimen name="spacing_xlarge">24dp</dimen>
+    <dimen name="spacing_xxlarge">32dp</dimen>
+
+    <!-- Form Spacing -->
+    <dimen name="spacing_form_group">7dp</dimen>
     <dimen name="spacing_form_group_compact">0dp</dimen>
+
+    <!-- IME related dims used by SignupFragment -->
     <dimen name="ime_input_top">7dp</dimen>
     <dimen name="ime_content_top">0dp</dimen>
     <dimen name="signup_group_min_compact">0dp</dimen>
 
-    <!-- Decorative ellipses spacing -->
+    <!-- ========================================== -->
+    <!-- TEXT SIZES (reduced for auth layouts) -->
+    <!-- ========================================== -->
+    <dimen name="text_size_display">30sp</dimen>
+    <dimen name="text_size_headline">26sp</dimen>
+    <dimen name="title_text_size">20sp</dimen>
+    <dimen name="text_size_title">17sp</dimen>
+    <dimen name="text_size_subtitle">14sp</dimen>
+    <dimen name="subtitle_text_size">12sp</dimen>
+    <dimen name="text_size_body">12sp</dimen>
+    <dimen name="text_size_caption">10sp</dimen>
+    <dimen name="text_size_small">9sp</dimen>
+
+    <!-- Specific Text Sizes (auth-focused reductions) -->
+    <dimen name="label_text_size">11sp</dimen>
+    <dimen name="input_text_size">12sp</dimen>
+    <dimen name="button_text_size">12sp</dimen>
+    <dimen name="error_text_size">9sp</dimen>
+    <dimen name="login_text_size">11sp</dimen>
+
+    <!-- ========================================== -->
+    <!-- INPUT FIELDS -->
+    <!-- ========================================== -->
+    <!-- Small devices: input height 42dp -->
+    <dimen name="input_height">42dp</dimen>
+    <!-- Uniform corner radius for inputs -->
+    <dimen name="input_corner_radius">18dp</dimen>
+    <dimen name="input_max_width">100dp</dimen>
+    <dimen name="input_padding_horizontal">16dp</dimen>
+    <dimen name="input_padding_end">10dp</dimen>
+    <dimen name="input_padding_start">20dp</dimen>
+
+    <!-- Input Labels & Errors -->
+    <dimen name="label_padding_bottom">4dp</dimen>
+    <dimen name="error_margin_top">2dp</dimen>
+    <dimen name="email_error_icon_margin_end">10dp</dimen>
+
+    <!-- Input Stroke -->
+    <dimen name="box_stroke_width">1dp</dimen>
+    <dimen name="box_collapsed_padding_top">0dp</dimen>
+
+    <!-- ========================================== -->
+    <!-- BUTTONS -->
+    <!-- ========================================== -->
+    <!-- Small devices: button height 42dp; medium/large provided for compatibility -->
+    <dimen name="button_height">42dp</dimen>
+    <dimen name="button_height_medium">45dp</dimen>
+    <dimen name="button_height_large">48dp</dimen>
+    <dimen name="button_corner_radius">18dp</dimen>
+    <dimen name="button_padding_horizontal">24dp</dimen>
+    <dimen name="button_padding_vertical">8dp</dimen>
+
+    <!-- ========================================== -->
+    <!-- SPECIFIC SCREEN ELEMENTS -->
+    <!-- ========================================== -->
+
+    <!-- Actions & Login Groups -->
+    <dimen name="proceed_group_top_margin">26dp</dimen>
+    <dimen name="login_group_top_margin">42dp</dimen>
+    <dimen name="signup_group_top_margin">24dp</dimen>
+    <dimen name="login_padding_vertical">12dp</dimen>
+    <dimen name="login_margin_start">4dp</dimen>
+    <dimen name="forgot_password_padding_vertical">12dp</dimen>
+    <dimen name="forgot_password_margin_top">18dp</dimen>
+
+    <!-- Decorative ellipses spacing (Onboarding) -->
     <dimen name="ellipse1_margin_bottom">38dp</dimen>
     <dimen name="ellipse2_margin_bottom">48dp</dimen>
     <dimen name="ellipse3_padding_bottom">10dp</dimen>
 
-    <dimen name="title_text_size">25sp</dimen>
-    <dimen name="subtitle_text_size">14sp</dimen>
-
-    <dimen name="label_padding_bottom">4dp</dimen>
-    <dimen name="input_height">36dp</dimen>
-    <dimen name="input_corner_radius">24dp</dimen>
-    <dimen name="input_max_width">100dp</dimen>
-    <dimen name="input_padding_end">10dp</dimen>
-
-    <dimen name="email_error_icon_margin_end">10dp</dimen>
-    <dimen name="error_margin_top">2dp</dimen>
-    <dimen name="error_text_size">11sp</dimen>
-
-    <dimen name="proceed_group_top_margin">26dp</dimen>
-    <dimen name="login_group_top_margin">42dp</dimen>
-    <dimen name="signup_group_top_margin">24dp</dimen>
-    <dimen name="button_height">32dp</dimen>
-    <dimen name="button_text_size">14sp</dimen>
-    <dimen name="login_text_size">13sp</dimen>
-    <dimen name="login_padding_vertical">12dp</dimen>
-    <dimen name="login_margin_start">4dp</dimen>
-
-    <!-- New text-size dims -->
-    <dimen name="label_text_size">13sp</dimen>
-    <dimen name="input_text_size">14sp</dimen>
-
-    <dimen name="forgot_password_padding_vertical">12dp</dimen>
-    <dimen name="forgot_password_margin_top">18dp</dimen>
-    <dimen name="box_stroke_width">1dp</dimen>
-    <dimen name="box_collapsed_padding_top">0dp</dimen>
-
-<!--    Onboaarding screen button and text sizes-->
+    <!-- Onboarding screen -->
     <dimen name="onboarding_logo_size">160dp</dimen>
-    <dimen name="onboarding_title_text_size">20sp</dimen>
+    <dimen name="onboarding_title_text_size">17sp</dimen>
     <dimen name="onboarding_title_margin_top">30dp</dimen>
-    <dimen name="onboarding_subtitle_text_size">14sp</dimen>
+    <dimen name="onboarding_subtitle_text_size">12sp</dimen>
     <dimen name="onboarding_subtitle_margin_top">5dp</dimen>
-    <dimen name="onboarding_button_text_size">14sp</dimen>
-    <dimen name="onboarding_button_height">30dp</dimen>
+    <dimen name="onboarding_button_text_size">12sp</dimen>
+    <dimen name="onboarding_button_height">42dp</dimen>
     <dimen name="onboarding_button_margin_top">30dp</dimen>
     <dimen name="onboarding_button_margin_top2">18dp</dimen>
+
+    <!-- ========================================== -->
+    <!-- ICONS & IMAGES -->
+    <!-- ========================================== -->
+    <dimen name="icon_size_small">16dp</dimen>
+    <dimen name="icon_size_medium">24dp</dimen>
+    <dimen name="icon_size_large">32dp</dimen>
+    <dimen name="icon_size_xlarge">48dp</dimen>
+
+    <!-- Profile & Avatar -->
+    <dimen name="avatar_size_small">32dp</dimen>
+    <dimen name="avatar_size_medium">48dp</dimen>
+    <dimen name="avatar_size_large">64dp</dimen>
+    <dimen name="avatar_size_xlarge">96dp</dimen>
+
+    <!-- ========================================== -->
+    <!-- ELEVATIONS -->
+    <!-- ========================================== -->
+    <dimen name="elevation_none">0dp</dimen>
+    <dimen name="elevation_low">2dp</dimen>
+    <dimen name="elevation_medium">4dp</dimen>
+    <dimen name="elevation_high">8dp</dimen>
+
+    <!-- ========================================== -->
+    <!-- MISC -->
+    <!-- ========================================== -->
     <!-- Loader size used by BaseFragment fullscreen loader -->
     <dimen name="loader_size">48dp</dimen>
+
+    <!-- Toolbar -->
+    <dimen name="toolbar_height">56dp</dimen>
+    <dimen name="toolbar_padding_vertical">10dp</dimen>
+
+    <!-- Card -->
+    <dimen name="card_corner_radius">12dp</dimen>
+    <dimen name="card_padding">16dp</dimen>
 </resources>
 

@@ -6,7 +6,7 @@
     <solid android:color="@android:color/transparent" />
 
     <!-- Define the corner radius -->
-    <corners android:radius="24dp" />
+    <corners android:radius="@dimen/input_corner_radius" />
 
     <!-- Define the border (stroke) -->
     <!-- You can use your @color/outlined_box_stroke_color here if you have it defined -->

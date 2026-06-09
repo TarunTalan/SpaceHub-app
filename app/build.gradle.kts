@@ -1,7 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.ksp)
+    id("org.jetbrains.kotlin.plugin.compose")
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -25,6 +26,8 @@ android {
     buildFeatures {
         viewBinding = true
         buildConfig = true
+        // Enable Jetpack Compose with Kotlin 2.x (compose compiler plugin declared in settings.gradle.kts)
+        compose = true
     }
 
     buildTypes {
@@ -51,6 +54,16 @@ android {
 }
 
 dependencies {
+    // Ensure Compose BOM and artifacts are available
+    implementation(platform("androidx.compose:compose-bom:2024.08.00"))
+    implementation("androidx.activity:activity-compose:1.7.2")
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.material:material")
+    implementation(libs.navigation.fragment.ktx)
+    implementation(libs.navigation.ui.ktx)
+    debugImplementation("androidx.compose.ui:ui-tooling")
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
